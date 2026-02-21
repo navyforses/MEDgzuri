@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED&გზური — სამედიცინო ძიება</title>
+    <meta name="description" content="სამედიცინო კვლევების ძიება, სიმპტომების ნავიგაცია და კლინიკების მოძიება">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --teal: #5FA8D3;
+            --teal-hover: #4A8FB8;
+            --teal-light: rgba(95, 168, 211, 0.08);
+            --teal-pale: rgba(95, 168, 211, 0.15);
+            --navy: #0A1628;
+            --navy-soft: #1A2A42;
+            --text: #0A1628;
+            --text-secondary: rgba(10, 22, 40, 0.6);
+            --text-muted: rgba(10, 22, 40, 0.4);
+            --bg: #FAFBFC;
+            --white: #FFFFFF;
+            --border: #E2E8EA;
+            --border-light: #F0F2F4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --shadow-sm: 0 1px 3px rgba(10, 22, 40, 0.06);
+            --shadow-md: 0 4px 12px rgba(10, 22, 40, 0.08);
+            --shadow-lg: 0 8px 30px rgba(10, 22, 40, 0.12);
+            --shadow-xl: 0 20px 50px rgba(10, 22, 40, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Noto Sans Georgian', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ═══════════════ NAVBAR ═══════════════ */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.875rem 1.5rem;
+        }
+
+        .navbar-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+
+        .logo svg {
+            width: 28px;
+            height: 28px;
+            color: var(--teal);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover { color: var(--teal); background: var(--teal-light); }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: white;
+            background: var(--teal);
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .nav-btn:hover { background: var(--teal-hover); transform: translateY(-1px); }
+
+        /* ═══════════════ HERO ═══════════════ */
+        .hero {
+            padding: 3rem 1.5rem 2rem;
+            text-align: center;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.875rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
+            border-radius: 999px;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hero h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 800;
+            line-height: 1.25;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.75rem;
+        }
+
+        .hero h1 .highlight { color: var(--teal); }
+
+        .hero p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* ═══════════════ TABS ═══════════════ */
+        .search-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 1.5rem 3rem;
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: 0.375rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            gap: 0.25rem;
+        }
+
+        .tab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .tab:hover { color: var(--text); background: var(--bg); }
+
+        .tab.active {
+            color: white;
+            background: var(--navy);
+            box-shadow: var(--shadow-md);
+        }
+
+        .tab svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .tab-label-full { display: inline; }
+        .tab-label-short { display: none; }
+
+        @media (max-width: 640px) {
+            .tab-label-full { display: none; }
+            .tab-label-short { display: inline; }
+            .tab { font-size: 0.75rem; padding: 0.625rem 0.5rem; }
+        }
+
+        /* ═══════════════ SEARCH PANELS ═══════════════ */
+        .panel {
+            display: none;
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .panel.active { display: block; }
+
+        .panel-header {
+            padding: 1.5rem 1.5rem 0;
+        }
+
+        .panel-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .panel-desc {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .panel-body {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        /* ═══════════════ FORM ELEMENTS ═══════════════ */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.375rem;
+        }
+
+        .form-hint {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
+            border-color: var(--teal);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(95, 168, 211, 0.12);
+        }
+
+        .form-input::placeholder,
+        .form-textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.375rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .checkbox-item:hover { border-color: var(--teal); color: var(--text); }
+
+        .checkbox-item.checked {
+            background: var(--teal-light);
+            border-color: var(--teal);
+            color: var(--teal);
+        }
+
+        .checkbox-item input { display: none; }
+
+        /* ═══════════════ SUBMIT BUTTON ═══════════════ */
+        .submit-section {
+            padding: 1.25rem 1.5rem;
+            background: var(--bg);
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .submit-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .submit-info svg {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            vertical-align: -2px;
+            margin-right: 2px;
+        }
+
+        .btn-search {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            font-family: inherit;
+            color: white;
+            background: linear-gradient(135deg, var(--teal), var(--teal-hover));
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(95, 168, 211, 0.3);
+        }
+
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(95, 168, 211, 0.4);
+        }
+
+        .btn-search:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-search svg { width: 18px; height: 18px; }
+
+        .btn-search .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ═══════════════ RESULTS ═══════════════ */
+        .results-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 1.5rem 4rem;
+            display: none;
+        }
+
+        .results-container.visible { display: block; }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .results-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .results-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .result-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .result-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--teal-pale);
+        }
+
+        .result-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .result-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--teal-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .result-icon svg {
+            width: 20px;
+            height: 20px;
+            color: var(--teal);
+        }
+
+        .result-card-title {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            line-height: 1.4;
+            margin-bottom: 0.25rem;
+        }
+
+        .result-card-source {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+        }
+
+        .result-card-body {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .result-card-body p { margin-bottom: 0.5rem; }
+        .result-card-body p:last-child { margin-bottom: 0; }
+
+        .result-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            margin-top: 0.75rem;
+        }
+
+        .result-tag {
+            padding: 0.25rem 0.625rem;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--teal);
+            background: var(--teal-light);
+            border-radius: 999px;
+        }
+
+        .result-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .result-link:hover { text-decoration: underline; }
+
+        /* AI Processing Animation */
+        .ai-processing {
+            display: none;
+            text-align: center;
+            padding: 3rem 1.5rem;
+        }
+
+        .ai-processing.visible { display: block; }
+
+        .ai-orb {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), var(--navy));
+            animation: orbPulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .ai-orb::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 2px solid var(--teal-pale);
+            animation: orbRing 3s linear infinite;
+        }
+
+        @keyframes orbPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(95, 168, 211, 0.3); }
+            50% { transform: scale(1.08); box-shadow: 0 0 50px rgba(95, 168, 211, 0.5); }
+        }
+
+        @keyframes orbRing {
+            to { transform: rotate(360deg); }
+        }
+
+        .ai-status {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .ai-substatus {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .ai-steps {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .ai-step {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+
+        .ai-step.active { color: var(--teal); font-weight: 600; }
+        .ai-step.done { color: var(--success); }
+
+        .ai-step .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: all 0.3s;
+        }
+
+        .ai-step.active .step-dot { background: var(--teal); animation: pulse 1s infinite; }
+        .ai-step.done .step-dot { background: var(--success); }
+
+        /* ═══════════════ DISCLAIMER ═══════════════ */
+        .disclaimer {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            text-align: center;
+        }
+
+        .disclaimer p {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* ═══════════════ RESPONSIVE ═══════════════ */
+        @media (max-width: 768px) {
+            .hero { padding: 2rem 1rem 1.5rem; }
+            .hero h1 { font-size: 1.5rem; }
+            .search-container { padding: 0 1rem 2rem; }
+            .panel-header { padding: 1.25rem 1.25rem 0; }
+            .panel-body { padding: 0 1.25rem 1.25rem; }
+            .submit-section {
+                padding: 1rem 1.25rem;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            .submit-info { text-align: center; }
+        }
+
+        /* ═══════════════ ERROR STATE ═══════════════ */
+        .error-message {
+            padding: 1rem;
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            border-radius: var(--radius-md);
+            color: var(--danger);
+            font-size: 0.8125rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .error-message.visible { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/" class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                MED&გზური
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">მთავარი</a>
+                <a href="/product" class="nav-link" style="color: var(--teal);">ძიება</a>
+                <a href="/login" class="nav-btn">შესვლა</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="dot"></span>
+            ძიება აქტიურია
+        </div>
+        <h1>სამედიცინო <span class="highlight">კვლევები</span> ერთი ნაბიჯით</h1>
+        <p>ატვირთეთ დიაგნოზი ან აღწერეთ სიმპტომები. ჩვენი სისტემა მოიძიებს შესაბამის კვლევებს, კლინიკებს და მკურნალობის ვარიანტებს მთელი მსოფლიოდან.</p>
+    </section>
+
+    <!-- SEARCH TABS -->
+    <div class="search-container">
+        <div class="tabs">
+            <button class="tab active" data-tab="research" onclick="switchTab('research')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <span class="tab-label-full">კვლევების ძიება</span>
+                <span class="tab-label-short">კვლევა</span>
+            </button>
+            <button class="tab" data-tab="symptoms" onclick="switchTab('symptoms')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <span class="tab-label-full">სიმპტომების ნავიგაცია</span>
+                <span class="tab-label-short">სიმპტომები</span>
+            </button>
+            <button class="tab" data-tab="clinics" onclick="switchTab('clinics')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                <span class="tab-label-full">კლინიკების ძიება</span>
+                <span class="tab-label-short">კლინიკა</span>
+            </button>
+        </div>
+
+        <!-- ═══════ PANEL 1: RESEARCH SEARCH ═══════ -->
+        <div class="panel active" id="panel-research">
+            <div class="panel-header">
+                <div class="panel-title">კვლევების ძიება</div>
+                <div class="panel-desc">ჩაწერეთ დიაგნოზი ან სამედიცინო მდგომარეობა. სისტემა მოიძიებს უახლეს კვლევებს საერთაშორისო სამედიცინო ბაზებიდან.</div>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">დიაგნოზი ან სამედიცინო მდგომარეობა <span class="form-hint">(ქართულად ან ინგლისურად)</span></label>
+                    <input type="text" class="form-input" id="research-diagnosis" placeholder="მაგ: ჰიპოქსიურ-იშემიური ენცეფალოპათია, ტიპი 2 დიაბეტი, ფილტვის კიბო...">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">ასაკობრივი ჯგუფი</label>
+                        <select class="form-select" id="research-age">
+                            <option value="">არჩევა (არასავალდებულო)</option>
+                            <option value="neonate">ახალშობილი (0-28 დღე)</option>
+                            <option value="infant">ჩვილი (1-12 თვე)</option>
+                            <option value="child">ბავშვი (1-12 წელი)</option>
+                            <option value="adolescent">მოზარდი (13-17 წელი)</option>
+                            <option value="adult">ზრდასრული (18-64)</option>
+                            <option value="elderly">ხანდაზმული (65+)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">კვლევის ტიპი</label>
+                        <select class="form-select" id="research-type">
+                            <option value="all">ყველა ტიპი</option>
+                            <option value="clinical_trial">კლინიკური კვლევა</option>
+                            <option value="systematic_review">სისტემატური მიმოხილვა</option>
+                            <option value="case_study">შემთხვევის კვლევა</option>
+                            <option value="meta_analysis">ერთობლივი ანალიზი</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">დამატებითი კონტექსტი <span class="form-hint">(არასავალდებულო)</span></label>
+                    <textarea class="form-textarea" id="research-context" placeholder="აღწერეთ დამატებითი დეტალები: რა მკურნალობა იყო ცდილი, რა შედეგი გამოიღო, კონკრეტული ინტერესის სფერო..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">ძიების გეოგრაფია</label>
+                    <div class="checkbox-group" id="research-regions">
+                        <label class="checkbox-item checked" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="global" checked> მთელი მსოფლიო
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="eu"> ევროკავშირი
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="us"> აშშ
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="turkey"> თურქეთი
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="israel"> ისრაელი
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="submit-section">
+                <div class="submit-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    თქვენი მონაცემები დაცულია და არ ინახება
+                </div>
+                <button class="btn-search" onclick="startSearch('research')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    ძიების დაწყება
+                </button>
+            </div>
+            <div class="error-message" id="error-research"></div>
+        </div>
+
+        <!-- ═══════ PANEL 2: SYMPTOM NAVIGATION ═══════ -->
+        <div class="panel" id="panel-symptoms">
+            <div class="panel-header">
+                <div class="panel-title">სიმპტომების ნავიგაცია</div>
+                <div class="panel-desc">აღწერეთ სიმპტომები. სისტემა შემოგთავაზებთ რა გამოკვლევების ჩატარება შეიძლება იყოს მიზანშეწონილი და სად.</div>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">სიმპტომების აღწერა</label>
+                    <textarea class="form-textarea" id="symptoms-text" placeholder="დეტალურად აღწერეთ სიმპტომები: რა გაწუხებთ, რამდენ ხანს, რამე ამწვავებს თუ ამსუბუქებს..." style="min-height: 150px;"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">ასაკი</label>
+                        <input type="number" class="form-input" id="symptoms-age" placeholder="მაგ: 45">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">სქესი</label>
+                        <select class="form-select" id="symptoms-sex">
+                            <option value="">არჩევა</option>
+                            <option value="male">მამრობითი</option>
+                            <option value="female">მდედრობითი</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">არსებული დიაგნოზები <span class="form-hint">(არასავალდებულო)</span></label>
+                    <input type="text" class="form-input" id="symptoms-existing" placeholder="მაგ: დიაბეტი, ჰიპერტენზია...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">მიმდინარე მედიკამენტები <span class="form-hint">(არასავალდებულო)</span></label>
+                    <input type="text" class="form-input" id="symptoms-meds" placeholder="მაგ: მეტფორმინი 500მგ, ამლოდიპინი 5მგ...">
+                </div>
+            </div>
+            <div class="submit-section">
+                <div class="submit-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    ეს არ არის დიაგნოზი — მხოლოდ საინფორმაციო მიმოხილვა
+                </div>
+                <button class="btn-search" onclick="startSearch('symptoms')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    ანალიზის დაწყება
+                </button>
+            </div>
+            <div class="error-message" id="error-symptoms"></div>
+        </div>
+
+        <!-- ═══════ PANEL 3: CLINIC SEARCH ═══════ -->
+        <div class="panel" id="panel-clinics">
+            <div class="panel-header">
+                <div class="panel-title">კლინიკების ძიება</div>
+                <div class="panel-desc">მიუთითეთ დიაგნოზი და სასურველი ქვეყანა. სისტემა მოიძიებს შესაბამის კლინიკებს, ტექნოლოგიებს და სავარაუდო ფასებს.</div>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">დიაგნოზი ან საჭირო მკურნალობა</label>
+                    <input type="text" class="form-input" id="clinics-diagnosis" placeholder="მაგ: თავის ტვინის სიმსივნე, მუხლის ენდოპროთეზირება, IVF...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">სასურველი ქვეყნები</label>
+                    <div class="checkbox-group" id="clinics-countries">
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="germany"> გერმანია
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="turkey"> თურქეთი
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="israel"> ისრაელი
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="usa"> აშშ
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="spain"> ესპანეთი
+                        </label>
+                        <label class="checkbox-item" onclick="toggleCheck(this)">
+                            <input type="checkbox" value="india"> ინდოეთი
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">ბიუჯეტის დიაპაზონი</label>
+                        <select class="form-select" id="clinics-budget">
+                            <option value="">არ მაქვს პრეფერენცია</option>
+                            <option value="low">5,000€-მდე</option>
+                            <option value="mid">5,000€ - 20,000€</option>
+                            <option value="high">20,000€ - 50,000€</option>
+                            <option value="premium">50,000€+</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ენის პრეფერენცია</label>
+                        <select class="form-select" id="clinics-language">
+                            <option value="any">ნებისმიერი</option>
+                            <option value="english">ინგლისური</option>
+                            <option value="russian">რუსული</option>
+                            <option value="turkish">თურქული</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">დამატებითი მოთხოვნები <span class="form-hint">(არასავალდებულო)</span></label>
+                    <textarea class="form-textarea" id="clinics-notes" placeholder="მაგ: გჭირდებათ თარჯიმანი, გსურთ ონლაინ კონსულტაცია ჯერ, გსურთ ბავშვებისთვის სპეციალიზებული კლინიკა..." style="min-height: 80px;"></textarea>
+                </div>
+            </div>
+            <div class="submit-section">
+                <div class="submit-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    ფასები ინფორმაციული ხასიათისაა და შეიძლება განსხვავდებოდეს
+                </div>
+                <button class="btn-search" onclick="startSearch('clinics')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    კლინიკების ძიება
+                </button>
+            </div>
+            <div class="error-message" id="error-clinics"></div>
+        </div>
+    </div>
+
+    <!-- AI PROCESSING -->
+    <div class="ai-processing" id="ai-processing">
+        <div class="ai-orb"></div>
+        <div class="ai-status" id="ai-status">ანალიზი მიმდინარეობს...</div>
+        <div class="ai-substatus" id="ai-substatus">გთხოვთ დაელოდოთ, ეს შეიძლება რამდენიმე წუთი გასტანოს</div>
+        <div class="ai-steps" id="ai-steps">
+            <div class="ai-step active" data-step="search">
+                <span class="step-dot"></span>
+                მოძიება
+            </div>
+            <div class="ai-step" data-step="analyze">
+                <span class="step-dot"></span>
+                ანალიზი
+            </div>
+            <div class="ai-step" data-step="validate">
+                <span class="step-dot"></span>
+                ვალიდაცია
+            </div>
+            <div class="ai-step" data-step="format">
+                <span class="step-dot"></span>
+                ფორმატირება
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-container" id="results-container">
+        <div class="results-header">
+            <div class="results-title" id="results-title">ძიების შედეგები</div>
+            <div class="results-meta" id="results-meta"></div>
+        </div>
+        <div id="results-list"></div>
+    </div>
+
+    <!-- DISCLAIMER -->
+    <div class="disclaimer">
+        <p>⚕️ მედგზური არ ანაცვლებს ექიმის კონსულტაციას. წარმოდგენილი ინფორმაცია განკუთვნილია საინფორმაციო მიზნებისთვის. ნებისმიერი სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან კონსულტაციის შემდეგ.</p>
+    </div>
+
+    <script>
+    // ═══════════════ STATE ═══════════════
+    let currentTab = 'research';
+    let isSearching = false;
+
+    // ═══════════════ TAB SWITCHING ═══════════════
+    function switchTab(tab) {
+        if (isSearching) return;
+        currentTab = tab;
+
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(`panel-${tab}`).classList.add('active');
+
+        // Hide results when switching
+        document.getElementById('results-container').classList.remove('visible');
+        document.getElementById('ai-processing').classList.remove('visible');
+    }
+
+    // ═══════════════ CHECKBOX TOGGLE ═══════════════
+    function toggleCheck(el) {
+        const input = el.querySelector('input');
+        input.checked = !input.checked;
+        el.classList.toggle('checked', input.checked);
+    }
+
+    // ═══════════════ SEARCH LOGIC ═══════════════
+    async function startSearch(type) {
+        if (isSearching) return;
+
+        // Collect form data
+        const data = collectFormData(type);
+        if (!data) return;
+
+        isSearching = true;
+        const btn = document.querySelector(`#panel-${type} .btn-search`);
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> მიმდინარეობს...';
+
+        // Hide previous results, show processing
+        document.getElementById('results-container').classList.remove('visible');
+        document.getElementById('ai-processing').classList.add('visible');
+        document.getElementById('ai-processing').style.display = 'block';
+
+        // Reset steps
+        resetAISteps();
+
+        try {
+            // Step 1: Search
+            updateAIStep('search', 'active');
+            updateAIStatus('მოძიება მიმდინარეობს...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
+
+            const response = await fetch(`/api/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, data })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            updateAIStep('search', 'done');
+
+            // Step 2: Analyze
+            updateAIStep('analyze', 'active');
+            updateAIStatus('ანალიზი მიმდინარეობს...', 'სისტემა ამუშავებს მოძიებულ მონაცემებს');
+            await delay(800);
+            updateAIStep('analyze', 'done');
+
+            // Step 3: Validate
+            updateAIStep('validate', 'active');
+            updateAIStatus('ვალიდაცია მიმდინარეობს...', 'წყაროების სიზუსტე მოწმდება');
+            await delay(600);
+            updateAIStep('validate', 'done');
+
+            // Step 4: Format
+            updateAIStep('format', 'active');
+            updateAIStatus('ფორმატირება...', 'შედეგები სტრუქტურდება ქართულ ენაზე');
+            await delay(400);
+            updateAIStep('format', 'done');
+
+            const result = await response.json();
+
+            // Display results
+            displayResults(type, result);
+
+        } catch (err) {
+            console.error('Search error:', err);
+            showError(type, 'ძიება ვერ შესრულდა. გთხოვთ სცადოთ თავიდან.');
+        } finally {
+            isSearching = false;
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                ${type === 'symptoms' ? 'ანალიზის დაწყება' : type === 'clinics' ? 'კლინიკების ძიება' : 'ძიების დაწყება'}
+            `;
+            document.getElementById('ai-processing').style.display = 'none';
+        }
+    }
+
+    function collectFormData(type) {
+        const errEl = document.getElementById(`error-${type}`);
+        errEl.classList.remove('visible');
+
+        if (type === 'research') {
+            const diagnosis = document.getElementById('research-diagnosis').value.trim();
+            if (!diagnosis) {
+                showError(type, 'გთხოვთ მიუთითოთ დიაგნოზი ან სამედიცინო მდგომარეობა.');
+                return null;
+            }
+            const regions = [...document.querySelectorAll('#research-regions input:checked')].map(i => i.value);
+            return {
+                diagnosis,
+                ageGroup: document.getElementById('research-age').value,
+                researchType: document.getElementById('research-type').value,
+                context: document.getElementById('research-context').value.trim(),
+                regions
+            };
+        }
+
+        if (type === 'symptoms') {
+            const symptoms = document.getElementById('symptoms-text').value.trim();
+            if (!symptoms) {
+                showError(type, 'გთხოვთ აღწეროთ სიმპტომები.');
+                return null;
+            }
+            return {
+                symptoms,
+                age: document.getElementById('symptoms-age').value,
+                sex: document.getElementById('symptoms-sex').value,
+                existingConditions: document.getElementById('symptoms-existing').value.trim(),
+                medications: document.getElementById('symptoms-meds').value.trim()
+            };
+        }
+
+        if (type === 'clinics') {
+            const diagnosis = document.getElementById('clinics-diagnosis').value.trim();
+            if (!diagnosis) {
+                showError(type, 'გთხოვთ მიუთითოთ დიაგნოზი ან საჭირო მკურნალობა.');
+                return null;
+            }
+            const countries = [...document.querySelectorAll('#clinics-countries input:checked')].map(i => i.value);
+            return {
+                diagnosis,
+                countries,
+                budget: document.getElementById('clinics-budget').value,
+                language: document.getElementById('clinics-language').value,
+                notes: document.getElementById('clinics-notes').value.trim()
+            };
+        }
+    }
+
+    // ═══════════════ AI STEP ANIMATIONS ═══════════════
+    function resetAISteps() {
+        document.querySelectorAll('.ai-step').forEach(s => {
+            s.classList.remove('active', 'done');
+        });
+    }
+
+    function updateAIStep(step, state) {
+        const el = document.querySelector(`.ai-step[data-step="${step}"]`);
+        if (el) {
+            el.classList.remove('active', 'done');
+            el.classList.add(state);
+        }
+    }
+
+    function updateAIStatus(main, sub) {
+        document.getElementById('ai-status').textContent = main;
+        document.getElementById('ai-substatus').textContent = sub;
+    }
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ═══════════════ DISPLAY RESULTS ═══════════════
+    function displayResults(type, result) {
+        const container = document.getElementById('results-container');
+        const list = document.getElementById('results-list');
+        const title = document.getElementById('results-title');
+        const meta = document.getElementById('results-meta');
+
+        const titles = {
+            research: 'კვლევების შედეგები',
+            symptoms: 'სიმპტომების ანალიზი',
+            clinics: 'ნაპოვნი კლინიკები'
+        };
+
+        title.textContent = titles[type] || 'შედეგები';
+        meta.textContent = result.meta || '';
+
+        list.innerHTML = '';
+
+        if (result.items && result.items.length > 0) {
+            result.items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = `
+                    <div class="result-card-header">
+                        <div class="result-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                ${getResultIcon(type)}
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="result-card-title">${escapeHtml(item.title)}</div>
+                            ${item.source ? `<div class="result-card-source">${escapeHtml(item.source)}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="result-card-body">${formatResultBody(item.body)}</div>
+                    ${item.tags ? `<div class="result-tags">${item.tags.map(t => `<span class="result-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+                    ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="result-link">წყაროს ნახვა →</a>` : ''}
+                `;
+                list.appendChild(card);
+            });
+        } else if (result.summary) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.innerHTML = `<div class="result-card-body">${formatResultBody(result.summary)}</div>`;
+            list.appendChild(card);
+        }
+
+        container.classList.add('visible');
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function getResultIcon(type) {
+        const icons = {
+            research: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+            symptoms: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+            clinics: '<path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M14 8h1"/><path d="M14 12h1"/>'
+        };
+        return icons[type] || icons.research;
+    }
+
+    function formatResultBody(text) {
+        if (!text) return '';
+        return text
+            .split('\n')
+            .filter(l => l.trim())
+            .map(l => `<p>${escapeHtml(l)}</p>`)
+            .join('');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ═══════════════ ERROR HANDLING ═══════════════
+    function showError(type, msg) {
+        const el = document.getElementById(`error-${type}`);
+        el.textContent = msg;
+        el.classList.add('visible');
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ═══════════════ TYPING PLACEHOLDER ANIMATION ═══════════════
+    (function() {
+        const inputs = {
+            'research-diagnosis': [
+                'მაგ: ფილტვის კიბოს იმუნოთერაპია',
+                'მაგ: ტიპი 2 დიაბეტის ახალი მკურნალობა',
+                'მაგ: ჰიპოქსიურ-იშემიური ენცეფალოპათია',
+                'მაგ: მულტიპლე სკლეროზის კვლევები'
+            ],
+            'symptoms-text': [
+                'მაგ: თავის ტკივილი, გულისრევა, სახის დაბუჟება',
+                'მაგ: ხანგრძლივი ხველა, წონაში კლება, ღამის ოფლიანობა',
+                'მაგ: სახსრების ტკივილი, დილის შეშუპება, სიხისტე'
+            ],
+            'clinics-diagnosis': [
+                'მაგ: თავის ტვინის სიმსივნე',
+                'მაგ: მუხლის ენდოპროთეზირება',
+                'მაგ: კარდიოქირურგია'
+            ]
+        };
+
+        Object.entries(inputs).forEach(([id, phrases]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let pi = 0, ci = 0, del = false;
+            const origPlaceholder = el.placeholder;
+
+            function animate() {
+                if (document.activeElement === el || el.value.length > 0) {
+                    el.placeholder = origPlaceholder;
+                    setTimeout(animate, 1000);
+                    return;
+                }
+                const phrase = phrases[pi];
+                if (!del) {
+                    el.placeholder = phrase.substring(0, ci + 1);
+                    ci++;
+                    if (ci === phrase.length) { del = true; setTimeout(animate, 2500); return; }
+                    setTimeout(animate, 55 + Math.random() * 30);
+                } else {
+                    el.placeholder = phrase.substring(0, ci - 1);
+                    ci--;
+                    if (ci === 0) { del = false; pi = (pi + 1) % phrases.length; setTimeout(animate, 300); return; }
+                    setTimeout(animate, 25);
+                }
+            }
+            setTimeout(animate, 1200 + Math.random() * 800);
+        });
+    })();
+    </script>
+</body>
+</html>
