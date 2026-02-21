@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED&გზური - CRM სისტემა</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --admin-primary: #5FA8D3;
+            --admin-dark: #0A1628;
+            --admin-gray: #6B7280;
+            --admin-light: #F3F4F6;
+            --admin-border: #E5E7EB;
+            --admin-success: #10B981;
+            --admin-danger: #EF4444;
+            --admin-warning: #F59E0B;
+            --admin-info: #3B82F6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans Georgian', sans-serif; background: var(--admin-light); color: var(--admin-dark); line-height: 1.6; }
+
+        .admin-header {
+            background: white;
+            border-bottom: 1px solid var(--admin-border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .admin-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .admin-logo { font-size: 1.5rem; font-weight: 700; color: var(--admin-primary); }
+
+        .admin-actions { display: flex; gap: 0.75rem; }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn-primary { background: var(--admin-primary); color: white; }
+        .btn-primary:hover { background: #4A8FB8; }
+        .btn-secondary { background: white; color: var(--admin-dark); border: 1px solid var(--admin-border); }
+        .btn-secondary:hover { background: var(--admin-light); }
+        .btn-danger { background: var(--admin-danger); color: white; }
+        .btn-success { background: var(--admin-success); color: white; }
+        .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--admin-primary);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--admin-gray);
+            margin-top: 0.25rem;
+        }
+
+        .crm-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .crm-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .crm-card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .filters {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--admin-border);
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--admin-primary);
+            color: white;
+            border-color: var(--admin-primary);
+        }
+
+        .leads-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .leads-table th,
+        .leads-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--admin-border);
+        }
+
+        .leads-table th {
+            font-weight: 600;
+            color: var(--admin-gray);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .leads-table tr:hover {
+            background: var(--admin-light);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-new { background: #DBEAFE; color: #1E40AF; }
+        .status-contacted { background: #FEF3C7; color: #92400E; }
+        .status-in-progress { background: #D1FAE5; color: #065F46; }
+        .status-closed { background: #E5E7EB; color: #374151; }
+
+        .lead-name {
+            font-weight: 600;
+            color: var(--admin-dark);
+        }
+
+        .lead-contact {
+            font-size: 0.875rem;
+            color: var(--admin-gray);
+        }
+
+        .lead-source {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--admin-gray);
+        }
+
+        .lead-date {
+            font-size: 0.875rem;
+            color: var(--admin-gray);
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--admin-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--admin-gray);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .notes-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--admin-border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .note-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--admin-border);
+        }
+
+        .note-item:last-child {
+            border-bottom: none;
+        }
+
+        .note-date {
+            font-size: 0.75rem;
+            color: var(--admin-gray);
+        }
+
+        .note-text {
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--admin-gray);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding-left: 2.5rem;
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            /* Header adjustments */
+            .admin-header {
+                padding: 0.75rem 1rem;
+            }
+
+            .admin-header-content {
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+
+            .admin-logo {
+                font-size: 1.25rem;
+                flex: 1 1 auto;
+            }
+
+            .admin-actions {
+                flex: 1 1 auto;
+                gap: 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            .admin-actions .btn {
+                padding: 0.5rem 0.875rem;
+                font-size: 0.75rem;
+            }
+
+            /* Container and spacing */
+            .admin-container {
+                padding: 1rem;
+            }
+
+            /* Stats grid - 2 columns on mobile */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+            }
+
+            /* Card header adjustments */
+            .crm-card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .crm-card-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .crm-card-title {
+                font-size: 1.125rem;
+            }
+
+            /* Search and export stacking */
+            .crm-card-header > div {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .search-box input {
+                font-size: 16px;
+            }
+
+            .export-buttons {
+                width: 100%;
+                gap: 0.5rem;
+            }
+
+            .export-buttons .btn {
+                flex: 1;
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            /* Filters - horizontal scroll on mobile */
+            .filters {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                gap: 0.5rem;
+                padding-bottom: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .filter-btn {
+                padding: 0.375rem 0.875rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* Table improvements */
+            .leads-table {
+                font-size: 0.8rem;
+            }
+
+            .leads-table th,
+            .leads-table td {
+                padding: 0.5rem 0.375rem;
+            }
+
+            .leads-table th {
+                font-size: 0.65rem;
+            }
+
+            /* Hide email and source columns on mobile */
+            .leads-table th:nth-child(2),
+            .leads-table td:nth-child(2),
+            .leads-table th:nth-child(3),
+            .leads-table td:nth-child(3) {
+                display: none;
+            }
+
+            /* Adjust remaining columns */
+            .leads-table th:nth-child(1),
+            .leads-table td:nth-child(1) {
+                padding-right: 0.5rem;
+            }
+
+            .status-badge {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.65rem;
+            }
+
+            .lead-name {
+                font-size: 0.9rem;
+            }
+
+            .lead-date {
+                font-size: 0.75rem;
+            }
+
+            /* Action buttons in table */
+            .btn-sm {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.65rem;
+            }
+
+            /* Modal adjustments */
+            .modal-overlay {
+                padding: 0;
+            }
+
+            .modal {
+                max-width: 100%;
+                border-radius: 0;
+                max-height: 100vh;
+            }
+
+            .modal-header {
+                padding: 1rem;
+            }
+
+            .modal-title {
+                font-size: 1.125rem;
+            }
+
+            .modal-body {
+                padding: 1rem;
+            }
+
+            .form-group {
+                margin-bottom: 0.875rem;
+            }
+
+            .form-label {
+                font-size: 0.8rem;
+            }
+
+            .form-control {
+                padding: 0.5rem 0.75rem;
+                font-size: 16px;
+            }
+
+            textarea.form-control {
+                min-height: 80px;
+            }
+
+            .notes-list {
+                max-height: 150px;
+                padding: 0.75rem;
+            }
+
+            .note-item {
+                padding: 0.5rem;
+            }
+
+            .note-date {
+                font-size: 0.65rem;
+            }
+
+            .note-text {
+                font-size: 0.8rem;
+            }
+
+            /* Modal action buttons */
+            .modal-body > div:last-child {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-body > div:last-child .btn {
+                width: 100%;
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            /* Empty state */
+            .empty-state {
+                padding: 2rem 1rem;
+            }
+
+            .empty-state-icon {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Check -->
+    <script>
+        if (sessionStorage.getItem('medGzuriLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <header class="admin-header">
+        <div class="admin-header-content">
+            <div class="admin-logo">📊 MED&გზური - CRM</div>
+            <div class="admin-actions">
+                <a href="admin.html" class="btn btn-secondary">⚙️ კონტენტი</a>
+                <a href="index.html" class="btn btn-primary" target="_blank">👁 საიტი</a>
+                <button class="btn btn-danger" onclick="logout()">🚪 გამოსვლა</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="admin-container">
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalLeads">0</div>
+                <div class="stat-label">სულ ლიდი</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="newLeads">0</div>
+                <div class="stat-label">ახალი</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="contactedLeads">0</div>
+                <div class="stat-label">დაკონტაქტებული</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="inProgressLeads">0</div>
+                <div class="stat-label">მუშავდება</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="closedLeads">0</div>
+                <div class="stat-label">დახურული</div>
+            </div>
+        </div>
+
+        <!-- Leads Table -->
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h2 class="crm-card-title">📋 ლიდების სია</h2>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="search-box">
+                        <input type="text" class="form-control" id="searchInput" placeholder="ძიება..." onkeyup="filterLeads()">
+                    </div>
+                    <div class="export-buttons">
+                        <button class="btn btn-secondary" onclick="exportToCSV()">📥 CSV</button>
+                        <button class="btn btn-secondary" onclick="exportToJSON()">📥 JSON</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <button class="filter-btn active" onclick="filterByStatus('all')">ყველა</button>
+                <button class="filter-btn" onclick="filterByStatus('new')">ახალი</button>
+                <button class="filter-btn" onclick="filterByStatus('contacted')">დაკონტაქტებული</button>
+                <button class="filter-btn" onclick="filterByStatus('in-progress')">მუშავდება</button>
+                <button class="filter-btn" onclick="filterByStatus('closed')">დახურული</button>
+            </div>
+
+            <div style="overflow-x: auto; margin-top: 1.5rem;">
+                <table class="leads-table">
+                    <thead>
+                        <tr>
+                            <th>სახელი</th>
+                            <th>საკონტაქტო</th>
+                            <th>წყარო</th>
+                            <th>სტატუსი</th>
+                            <th>თარიღი</th>
+                            <th>მოქმედება</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTableBody">
+                        <!-- Leads injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-state-icon">📭</div>
+                <h3>ლიდები არ მოიძებნა</h3>
+                <p>ჯერ არ გაქვთ მიღებული კონტაქტი</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Detail Modal -->
+    <div class="modal-overlay" id="leadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">📇 ლიდის დეტალები</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="leadId">
+                
+                <div class="form-group">
+                    <label class="form-label">სახელი</label>
+                    <input type="text" class="form-control" id="leadName" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ტელეფონი</label>
+                    <input type="text" class="form-control" id="leadPhone" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="text" class="form-control" id="leadEmail" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">წყარო</label>
+                    <input type="text" class="form-control" id="leadSource" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">შეტყობინება</label>
+                    <textarea class="form-control" id="leadMessage" readonly></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">სტატუსი</label>
+                    <select class="form-control" id="leadStatus" onchange="updateLeadStatus()">
+                        <option value="new">ახალი</option>
+                        <option value="contacted">დაკონტაქტებული</option>
+                        <option value="in-progress">მუშავდება</option>
+                        <option value="closed">დახურული</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">შენიშვნები</label>
+                    <div class="notes-list" id="notesList">
+                        <!-- Notes injected by JS -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ახალი შენიშვნა</label>
+                    <textarea class="form-control" id="newNote" placeholder="დაწერეთ შენიშვნა..."></textarea>
+                    <button class="btn btn-primary" style="margin-top: 0.5rem;" onclick="addNote()">➕ დამატება</button>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <a href="#" class="btn btn-success" id="whatsappLink" target="_blank">📱 WhatsApp</a>
+                    <a href="#" class="btn btn-primary" id="callLink">📞 ზარი</a>
+                    <button class="btn btn-danger" onclick="deleteLead()">🗑 წაშლა</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data for demo
+        const sampleLeads = [
+            {
+                id: '1',
+                name: 'ნინო ბერიძე',
+                phone: '+995 599 123 456',
+                email: 'nino@example.com',
+                source: 'WhatsApp',
+                message: 'მაინტერესებს კვლევითი გზამკვლევის სერვისი ონკოლოგიისთვის',
+                status: 'new',
+                date: new Date(Date.now() - 86400000).toISOString(),
+                notes: []
+            },
+            {
+                id: '2',
+                name: 'გიორგი მამარდაშვილი',
+                phone: '+995 577 987 654',
+                email: 'giorgi@example.com',
+                source: 'Facebook',
+                message: 'გამარჯობა, ჩემს დედას აქვს დიაბეტი და მაინტერესებს ახალი კვლევები',
+                status: 'contacted',
+                date: new Date(Date.now() - 172800000).toISOString(),
+                notes: [
+                    { text: 'დავურეკე, გავარკვიე დეტალები', date: new Date(Date.now() - 86400000).toISOString() }
+                ]
+            }
+        ];
+
+        // Get leads from localStorage or use sample
+        function getLeads() {
+            const stored = localStorage.getItem('medGzuriLeads');
+            if (stored) {
+                return JSON.parse(stored);
+            }
+            // Save sample data for first time
+            localStorage.setItem('medGzuriLeads', JSON.stringify(sampleLeads));
+            return sampleLeads;
+        }
+
+        // Save leads
+        function saveLeads(leads) {
+            localStorage.setItem('medGzuriLeads', JSON.stringify(leads));
+        }
+
+        // Current filter
+        let currentFilter = 'all';
+        let searchTerm = '';
+
+        // Update stats
+        function updateStats() {
+            const leads = getLeads();
+            document.getElementById('totalLeads').textContent = leads.length;
+            document.getElementById('newLeads').textContent = leads.filter(l => l.status === 'new').length;
+            document.getElementById('contactedLeads').textContent = leads.filter(l => l.status === 'contacted').length;
+            document.getElementById('inProgressLeads').textContent = leads.filter(l => l.status === 'in-progress').length;
+            document.getElementById('closedLeads').textContent = leads.filter(l => l.status === 'closed').length;
+        }
+
+        // Render leads table
+        function renderLeads() {
+            const leads = getLeads();
+            const tbody = document.getElementById('leadsTableBody');
+            const emptyState = document.getElementById('emptyState');
+
+            // Filter leads
+            let filteredLeads = leads;
+            if (currentFilter !== 'all') {
+                filteredLeads = filteredLeads.filter(l => l.status === currentFilter);
+            }
+            if (searchTerm) {
+                filteredLeads = filteredLeads.filter(l => 
+                    l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    l.phone.includes(searchTerm) ||
+                    l.email.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            }
+
+            // Sort by date (newest first)
+            filteredLeads.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (filteredLeads.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            tbody.innerHTML = filteredLeads.map(lead => `
+                <tr onclick="openLead('${lead.id}')" style="cursor: pointer;">
+                    <td>
+                        <div class="lead-name">${lead.name}</div>
+                    </td>
+                    <td>
+                        <div class="lead-contact">${lead.phone}</div>
+                        <div class="lead-contact" style="font-size: 0.75rem;">${lead.email}</div>
+                    </td>
+                    <td>
+                        <span class="lead-source">${getSourceIcon(lead.source)} ${lead.source}</span>
+                    </td>
+                    <td>
+                        <span class="status-badge status-${lead.status}">${getStatusText(lead.status)}</span>
+                    </td>
+                    <td>
+                        <span class="lead-date">${formatDate(lead.date)}</span>
+                    </td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openLead('${lead.id}')">ნახვა</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Get source icon
+        function getSourceIcon(source) {
+            const icons = {
+                'WhatsApp': '📱',
+                'Facebook': '💬',
+                'Website': '🌐',
+                'Phone': '📞',
+                'Email': '📧'
+            };
+            return icons[source] || '📨';
+        }
+
+        // Get status text
+        function getStatusText(status) {
+            const texts = {
+                'new': 'ახალი',
+                'contacted': 'დაკონტაქტებული',
+                'in-progress': 'მუშავდება',
+                'closed': 'დახურული'
+            };
+            return texts[status] || status;
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ka-GE', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Filter by status
+        function filterByStatus(status) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderLeads();
+        }
+
+        // Filter by search
+        function filterLeads() {
+            searchTerm = document.getElementById('searchInput').value;
+            renderLeads();
+        }
+
+        // Open lead modal
+        function openLead(id) {
+            const leads = getLeads();
+            const lead = leads.find(l => l.id === id);
+            if (!lead) return;
+
+            document.getElementById('leadId').value = lead.id;
+            document.getElementById('leadName').value = lead.name;
+            document.getElementById('leadPhone').value = lead.phone;
+            document.getElementById('leadEmail').value = lead.email;
+            document.getElementById('leadSource').value = lead.source;
+            document.getElementById('leadMessage').value = lead.message;
+            document.getElementById('leadStatus').value = lead.status;
+
+            // Update links
+            const phoneClean = lead.phone.replace(/\D/g, '');
+            document.getElementById('whatsappLink').href = `https://wa.me/${phoneClean}`;
+            document.getElementById('callLink').href = `tel:${lead.phone}`;
+
+            // Render notes
+            renderNotes(lead.notes);
+
+            document.getElementById('leadModal').classList.add('show');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('leadModal').classList.remove('show');
+        }
+
+        // Render notes
+        function renderNotes(notes) {
+            const container = document.getElementById('notesList');
+            if (!notes || notes.length === 0) {
+                container.innerHTML = '<p style="color: var(--admin-gray); text-align: center;">შენიშვნები არ არის</p>';
+                return;
+            }
+            container.innerHTML = notes.map(note => `
+                <div class="note-item">
+                    <div class="note-date">${formatDate(note.date)}</div>
+                    <div class="note-text">${note.text}</div>
+                </div>
+            `).join('');
+        }
+
+        // Update lead status
+        function updateLeadStatus() {
+            const id = document.getElementById('leadId').value;
+            const status = document.getElementById('leadStatus').value;
+            const leads = getLeads();
+            const lead = leads.find(l => l.id === id);
+            if (lead) {
+                lead.status = status;
+                saveLeads(leads);
+                renderLeads();
+                updateStats();
+            }
+        }
+
+        // Add note
+        function addNote() {
+            const id = document.getElementById('leadId').value;
+            const text = document.getElementById('newNote').value.trim();
+            if (!text) return;
+
+            const leads = getLeads();
+            const lead = leads.find(l => l.id === id);
+            if (lead) {
+                if (!lead.notes) lead.notes = [];
+                lead.notes.push({
+                    text: text,
+                    date: new Date().toISOString()
+                });
+                saveLeads(leads);
+                document.getElementById('newNote').value = '';
+                renderNotes(lead.notes);
+            }
+        }
+
+        // Delete lead
+        function deleteLead() {
+            if (!confirm('დარწმუნებული ხართ რომ გსურთ ამ ლიდის წაშლა?')) return;
+            
+            const id = document.getElementById('leadId').value;
+            let leads = getLeads();
+            leads = leads.filter(l => l.id !== id);
+            saveLeads(leads);
+            closeModal();
+            renderLeads();
+            updateStats();
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            const leads = getLeads();
+            const headers = ['ID', 'სახელი', 'ტელეფონი', 'Email', 'წყარო', 'შეტყობინება', 'სტატუსი', 'თარიღი'];
+            const rows = leads.map(l => [
+                l.id,
+                l.name,
+                l.phone,
+                l.email,
+                l.source,
+                l.message,
+                getStatusText(l.status),
+                formatDate(l.date)
+            ]);
+            
+            const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `med-gzuri-leads-${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // Export to JSON
+        function exportToJSON() {
+            const leads = getLeads();
+            const blob = new Blob([JSON.stringify(leads, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `med-gzuri-leads-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
+
+        // Logout
+        function logout() {
+            sessionStorage.removeItem('medGzuriLoggedIn');
+            window.location.href = 'login.html';
+        }
+
+        // Initialize
+        updateStats();
+        renderLeads();
+
+        // Close modal on overlay click
+        document.getElementById('leadModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    </script>
+</body>
+</html>
