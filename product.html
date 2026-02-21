@@ -989,6 +989,9 @@
         // Reset steps
         resetAISteps();
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
         try {
             // Step 1: Search
             updateAIStep('search', 'active');
@@ -997,8 +1000,10 @@
             const response = await fetch(`/api/search`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, data })
+                body: JSON.stringify({ type, data }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 throw new Error(`API error: ${response.status}`);
@@ -1030,8 +1035,13 @@
             displayResults(type, result);
 
         } catch (err) {
-            console.error('Search error:', err);
-            showError(type, 'ძიება ვერ შესრულდა. გთხოვთ სცადოთ თავიდან.');
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') {
+                showError(type, 'ძიებას ძალიან დიდი დრო დასჭირდა. გთხოვთ სცადოთ თავიდან.');
+            } else {
+                console.error('Search error:', err);
+                showError(type, 'ძიება ვერ შესრულდა. გთხოვთ სცადოთ თავიდან.');
+            }
         } finally {
             isSearching = false;
             btn.disabled = false;
@@ -1135,6 +1145,16 @@
 
         list.innerHTML = '';
 
+        // Show demo mode banner if applicable
+        if (result.isDemo) {
+            const banner = document.createElement('div');
+            banner.className = 'result-card';
+            banner.style.background = 'rgba(245, 158, 11, 0.08)';
+            banner.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+            banner.innerHTML = '<div class="result-card-body" style="color: #92400e; text-align: center; font-weight: 600;">&#9888;&#65039; ეს სადემონსტრაციო მონაცემებია. რეალური შედეგები მალე ხელმისაწვდომი იქნება.</div>';
+            list.appendChild(banner);
+        }
+
         if (result.items && result.items.length > 0) {
             result.items.forEach(item => {
                 const card = document.createElement('div');
@@ -1188,7 +1208,7 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // ═══════════════ ERROR HANDLING ═══════════════

@@ -592,6 +592,13 @@
         if (sessionStorage.getItem('medGzuriLoggedIn') !== 'true') {
             window.location.href = 'login.html';
         }
+        // Session timeout: 2 hours
+        const loginTime = sessionStorage.getItem('medGzuriLoginTime');
+        if (loginTime && Date.now() - parseInt(loginTime) > 2 * 60 * 60 * 1000) {
+            sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
+            window.location.href = 'login.html';
+        }
     </script>
 
     <header class="admin-header">
@@ -1038,6 +1045,7 @@
         // Logout
         function logout() {
             sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
             window.location.href = 'login.html';
         }
 

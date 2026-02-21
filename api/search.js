@@ -31,11 +31,25 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing type or data' });
         }
 
+        // Input validation
+        const MAX_TEXT_LENGTH = 2000;
+        const textFields = [data.diagnosis, data.symptoms, data.context, data.notes,
+                            data.existingConditions, data.medications];
+        for (const field of textFields) {
+            if (field && typeof field === 'string' && field.length > MAX_TEXT_LENGTH) {
+                return res.status(400).json({ error: 'Input too long' });
+            }
+        }
+        if (data.age && (isNaN(data.age) || data.age < 0 || data.age > 150)) {
+            return res.status(400).json({ error: 'Invalid age' });
+        }
+
         // Check API keys
         if (!PERPLEXITY_API_KEY && !ANTHROPIC_API_KEY) {
             // Demo mode - return mock data for testing
             console.log('[MedGzuri] No API keys configured, returning demo data');
             const demoResult = getDemoResult(type, data);
+            demoResult.isDemo = true;
             return res.status(200).json(demoResult);
         }
 
@@ -60,8 +74,7 @@ module.exports = async function handler(req, res) {
     } catch (err) {
         console.error('[MedGzuri] Search error:', err);
         return res.status(500).json({
-            error: 'Search failed',
-            message: err.message
+            error: 'ძიება ვერ შესრულდა. გთხოვთ სცადოთ მოგვიანებით.'
         });
     }
 };
