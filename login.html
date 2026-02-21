@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ადმინპანელი - შესვლა</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans Georgian', sans-serif;
+            background: linear-gradient(135deg, #0A1628 0%, #1a365d 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-logo svg {
+            width: 64px;
+            height: 64px;
+            color: #5FA8D3;
+        }
+
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0A1628;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-subtitle {
+            font-size: 0.875rem;
+            color: #6B7280;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #5FA8D3;
+        }
+
+        .form-control.error {
+            border-color: #EF4444;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.875rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: #5FA8D3;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4A8FB8;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #6B7280;
+            border: 1px solid #E5E7EB;
+            margin-top: 0.75rem;
+        }
+
+        .btn-secondary:hover {
+            background: #F3F4F6;
+        }
+
+        .error-message {
+            color: #EF4444;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .setup-section {
+            display: none;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #E5E7EB;
+        }
+
+        .setup-section.show {
+            display: block;
+        }
+
+        .setup-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0A1628;
+            margin-bottom: 1rem;
+        }
+
+        .setup-hint {
+            font-size: 0.75rem;
+            color: #6B7280;
+            margin-top: 0.5rem;
+            line-height: 1.5;
+        }
+
+        .success-message {
+            color: #10B981;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #5FA8D3;
+            font-size: 0.875rem;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-logo">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10z" fill="currentColor" fill-opacity="0.15"/>
+                <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M16 8v8M12 12h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="16" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="2 2"/>
+            </svg>
+        </div>
+        
+        <h1 class="login-title">ადმინპანელი</h1>
+        <p class="login-subtitle">შეიყვანეთ თქვენი მონაცემები</p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label">მომხმარებელი</label>
+                <input type="text" class="form-control" id="username" placeholder="მაგ: admin" autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">პაროლი</label>
+                <input type="password" class="form-control" id="password" placeholder="პაროლი" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary">შესვლა</button>
+            
+            <p class="error-message" id="errorMessage">❌ არასწორი მომხმარებელი ან პაროლი</p>
+            <p class="success-message" id="successMessage">✅ წარმატებული ავტორიზაცია!</p>
+        </form>
+
+        <button class="btn btn-secondary" id="setupBtn" onclick="showSetup()">🔐 პაროლის დაყენება / შეცვლა</button>
+
+        <div class="setup-section" id="setupSection">
+            <h3 class="setup-title">ახალი პაროლის დაყენება</h3>
+            <form id="setupForm">
+                <div class="form-group">
+                    <label class="form-label">ახალი მომხმარებელი</label>
+                    <input type="text" class="form-control" id="newUsername" placeholder="მაგ: admin">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">ახალი პაროლი</label>
+                    <input type="password" class="form-control" id="newPassword" placeholder="მინიმუმ 4 სიმბოლო">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">გაიმეორეთ პაროლი</label>
+                    <input type="password" class="form-control" id="confirmPassword" placeholder="გაიმეორეთ პაროლი">
+                </div>
+                <button type="submit" class="btn btn-primary">პაროლის შენახვა</button>
+                <p class="setup-hint">⚠️ პაროლი ინახება ამ ბრაუზერში მხოლოდ. დაიმახსოვრეთ იგი!</p>
+            </form>
+        </div>
+
+        <a href="index.html" class="back-link">← მთავარ გვერდზე დაბრუნება</a>
+    </div>
+
+    <script>
+        // Check if already logged in
+        if (sessionStorage.getItem('medGzuriLoggedIn') === 'true') {
+            window.location.href = 'admin.html';
+        }
+
+        // Default credentials (for first login)
+        const defaultCredentials = {
+            username: 'admin',
+            password: 'admin123'
+        };
+
+        // Get stored credentials or use default
+        function getCredentials() {
+            const stored = localStorage.getItem('medGzuriCredentials');
+            if (stored) {
+                return JSON.parse(stored);
+            }
+            return defaultCredentials;
+        }
+
+        // Simple hash function (not secure, but better than plain text)
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return hash.toString(16);
+        }
+
+        // Login form
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const credentials = getCredentials();
+            
+            // Clear previous errors
+            document.getElementById('errorMessage').classList.remove('show');
+            document.getElementById('username').classList.remove('error');
+            document.getElementById('password').classList.remove('error');
+            
+            // Check credentials
+            const hashedPassword = simpleHash(password);
+            const storedHash = credentials.password.startsWith('hash:') 
+                ? credentials.password 
+                : 'hash:' + simpleHash(credentials.password);
+            
+            if (username === credentials.username && 
+                (hashedPassword === storedHash.replace('hash:', '') || password === credentials.password)) {
+                
+                // Success
+                document.getElementById('successMessage').classList.add('show');
+                sessionStorage.setItem('medGzuriLoggedIn', 'true');
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                    window.location.href = 'admin.html';
+                }, 500);
+            } else {
+                // Error
+                document.getElementById('errorMessage').classList.add('show');
+                document.getElementById('username').classList.add('error');
+                document.getElementById('password').classList.add('error');
+            }
+        });
+
+        // Show setup section
+        function showSetup() {
+            const setupSection = document.getElementById('setupSection');
+            setupSection.classList.toggle('show');
+        }
+
+        // Setup form (change password)
+        document.getElementById('setupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newUsername = document.getElementById('newUsername').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Validation
+            if (newUsername.length < 3) {
+                alert('მომხმარებელი უნდა იყოს მინიმუმ 3 სიმბოლო');
+                return;
+            }
+            
+            if (newPassword.length < 4) {
+                alert('პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('პაროლები არ ემთხვევა');
+                return;
+            }
+            
+            // Save new credentials (hashed)
+            const credentials = {
+                username: newUsername,
+                password: 'hash:' + simpleHash(newPassword)
+            };
+            
+            localStorage.setItem('medGzuriCredentials', JSON.stringify(credentials));
+            
+            alert('✅ ახალი პაროლი შენახულია! ახლა შეგიძლიათ შეხვიდეთ.');
+            
+            // Hide setup section
+            document.getElementById('setupSection').classList.remove('show');
+            
+            // Pre-fill login form
+            document.getElementById('username').value = newUsername;
+            document.getElementById('password').value = '';
+            document.getElementById('password').focus();
+        });
+
+        // Clear error on input
+        document.getElementById('username').addEventListener('input', function() {
+            this.classList.remove('error');
+            document.getElementById('errorMessage').classList.remove('show');
+        });
+        
+        document.getElementById('password').addEventListener('input', function() {
+            this.classList.remove('error');
+            document.getElementById('errorMessage').classList.remove('show');
+        });
+    </script>
+</body>
+</html>
