@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED&გზური - ადმინპანელი</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --admin-primary: #5FA8D3;
+            --admin-dark: #0A1628;
+            --admin-gray: #6B7280;
+            --admin-light: #F3F4F6;
+            --admin-border: #E5E7EB;
+            --admin-success: #10B981;
+            --admin-danger: #EF4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans Georgian', sans-serif;
+            background: var(--admin-light);
+            color: var(--admin-dark);
+            line-height: 1.6;
+        }
+
+        .admin-header {
+            background: white;
+            border-bottom: 1px solid var(--admin-border);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .admin-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .admin-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--admin-primary);
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--admin-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #4A8FB8;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--admin-dark);
+            border: 1px solid var(--admin-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--admin-light);
+        }
+
+        .btn-success {
+            background: var(--admin-success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--admin-danger);
+            color: white;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+        }
+
+        .admin-sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            height: fit-content;
+            position: sticky;
+            top: 80px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--admin-gray);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-nav a {
+            display: block;
+            padding: 0.625rem 1rem;
+            color: var(--admin-dark);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            background: var(--admin-light);
+            color: var(--admin-primary);
+        }
+
+        .admin-main {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--admin-border);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--admin-dark);
+        }
+
+        .form-hint {
+            font-size: 0.75rem;
+            color: var(--admin-gray);
+            margin-top: 0.25rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            border: 1px solid var(--admin-border);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--admin-primary);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .color-picker {
+            width: 48px;
+            height: 48px;
+            border: 1px solid var(--admin-border);
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .color-value {
+            font-family: monospace;
+            font-size: 0.875rem;
+            color: var(--admin-gray);
+        }
+
+        .logo-upload {
+            border: 2px dashed var(--admin-border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logo-upload:hover {
+            border-color: var(--admin-primary);
+            background: rgba(95, 168, 211, 0.05);
+        }
+
+        .logo-upload input {
+            display: none;
+        }
+
+        .logo-preview {
+            max-width: 200px;
+            max-height: 100px;
+            margin: 1rem auto;
+        }
+
+        .logo-preview img,
+        .logo-preview svg {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .section-card {
+            background: var(--admin-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--admin-dark);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .preview-frame {
+            width: 100%;
+            height: 400px;
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--admin-dark);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            display: flex;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 1024px) {
+            .admin-container {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-sidebar {
+                position: static;
+            }
+
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Header mobile optimization */
+            .admin-header {
+                padding: 0.75rem 1rem;
+            }
+
+            .admin-header-content {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .admin-logo {
+                font-size: 1.1rem;
+                width: 100%;
+                order: -1;
+            }
+
+            .admin-actions {
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                justify-content: flex-start;
+            }
+
+            .btn {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+                flex: 1 1 auto;
+                min-width: 100px;
+            }
+
+            /* Container and sidebar mobile */
+            .admin-container {
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .admin-sidebar {
+                position: static;
+                background: white;
+                border-radius: 12px;
+                padding: 0.75rem;
+                margin-bottom: 1rem;
+                height: auto;
+            }
+
+            .sidebar-title {
+                font-size: 0.7rem;
+                padding: 0.5rem 0.75rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .sidebar-nav {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                list-style: none;
+            }
+
+            .sidebar-nav li {
+                margin-bottom: 0;
+                flex: 0 1 auto;
+            }
+
+            .sidebar-nav a {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+                border-radius: 6px;
+            }
+
+            /* Main content area */
+            .admin-main {
+                padding: 1.5rem;
+                border-radius: 12px;
+            }
+
+            .section-title {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+                padding-bottom: 0.75rem;
+            }
+
+            .section-card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .section-card-title {
+                font-size: 0.95rem;
+                margin-bottom: 0.75rem;
+            }
+
+            /* Form controls */
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            .form-label {
+                font-size: 0.8rem;
+                margin-bottom: 0.4rem;
+            }
+
+            .form-control {
+                padding: 0.5rem 0.7rem;
+                font-size: 0.8rem;
+            }
+
+            textarea.form-control {
+                min-height: 60px;
+                resize: vertical;
+            }
+
+            /* Color picker mobile */
+            .color-picker-wrapper {
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+
+            .color-picker {
+                width: 40px;
+                height: 40px;
+            }
+
+            .color-value {
+                font-size: 0.8rem;
+            }
+
+            /* Logo upload mobile */
+            .logo-upload {
+                padding: 1rem;
+                border-radius: 8px;
+            }
+
+            .logo-preview {
+                max-width: 150px;
+            }
+
+            /* Grid layouts */
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            /* Preview frame */
+            .preview-frame {
+                height: 300px;
+                margin-top: 0.75rem;
+            }
+
+            /* Toast notifications */
+            .toast {
+                position: fixed;
+                bottom: 1rem;
+                left: 1rem;
+                right: 1rem;
+                padding: 0.875rem 1rem;
+                border-radius: 6px;
+                font-size: 0.875rem;
+            }
+
+            @keyframes slideInMobile {
+                from {
+                    transform: translateY(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            .toast.show {
+                animation: slideInMobile 0.3s ease;
+            }
+
+            /* Hint text */
+            .form-hint {
+                font-size: 0.7rem;
+                margin-top: 0.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Check -->
+    <script>
+        if (sessionStorage.getItem('medGzuriLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+
+    <header class="admin-header">
+        <div class="admin-header-content">
+            <div class="admin-logo">⚙️ MED&გზური - ადმინპანელი</div>
+            <div class="admin-actions">
+                <a href="crm.html" class="btn btn-secondary">📊 CRM</a>
+                <button class="btn btn-secondary" onclick="resetToDefault()">
+                    🔄 ნაგულისხმევზე დაბრუნება
+                </button>
+                <button class="btn btn-success" onclick="saveChanges()">
+                    💾 შენახვა
+                </button>
+                <a href="index.html" class="btn btn-primary" target="_blank">
+                    👁 საიტის ნახვა
+                </a>
+                <button class="btn btn-danger" onclick="logout()">
+                    🚪 გამოსვლა
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="admin-container">
+        <aside class="admin-sidebar">
+            <div class="sidebar-title">მენიუ</div>
+            <ul class="sidebar-nav">
+                <li><a href="#general" class="active" onclick="showSection('general')">📋 ზოგადი</a></li>
+                <li><a href="#hero" onclick="showSection('hero')">🏠 Hero სექცია</a></li>
+                <li><a href="#services" onclick="showSection('services')">🛠 სერვისები</a></li>
+                <li><a href="#steps" onclick="showSection('steps')">📍 როგორ მუშაობს</a></li>
+                <li><a href="#trust" onclick="showSection('trust')">✓ რატომ ჩვენ</a></li>
+                <li><a href="#cta" onclick="showSection('cta')">📞 CTA სექცია</a></li>
+                <li><a href="#footer" onclick="showSection('footer')">📝 Footer</a></li>
+            </ul>
+        </aside>
+
+        <main class="admin-main">
+            <!-- General Section -->
+            <div id="section-general" class="section-content">
+                <h2 class="section-title">ზოგადი პარამეტრები</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">🎨 ფერები</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">მთავარი ფერი (Primary)</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" class="color-picker" id="colorPrimary" value="#5FA8D3">
+                                <span class="color-value" id="colorPrimaryValue">#5FA8D3</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ტექსტის ფერი</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" class="color-picker" id="colorText" value="#0A1628">
+                                <span class="color-value" id="colorTextValue">#0A1628</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ფონის ფერი</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" class="color-picker" id="colorBg" value="#FFFFFF">
+                                <span class="color-value" id="colorBgValue">#FFFFFF</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ალტერნატიული ფონი</label>
+                            <div class="color-picker-wrapper">
+                                <input type="color" class="color-picker" id="colorBgAlt" value="#F7FAFB">
+                                <span class="color-value" id="colorBgAltValue">#F7FAFB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🖼 ლოგო</h3>
+                    <div class="form-group">
+                        <label class="form-label">ლოგოს ტექსტი</label>
+                        <input type="text" class="form-control" id="logoText" value="MED&გზური">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SVG ლოგო (optional)</label>
+                        <div class="logo-upload" onclick="document.getElementById('logoFile').click()">
+                            <input type="file" id="logoFile" accept=".svg,.png,.jpg,.jpeg" onchange="handleLogoUpload(event)">
+                            <div class="logo-preview" id="logoPreview">
+                                <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10z" fill="#5FA8D3" fill-opacity="0.15"/>
+                                    <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10z" stroke="#5FA8D3" stroke-width="2" fill="none"/>
+                                    <path d="M16 8v8M12 12h8" stroke="#5FA8D3" stroke-width="2.5" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <p>დააჭირეთ ან ჩააგდეთ ლოგო აქ</p>
+                            <p class="form-hint">SVG, PNG, JPG (მაქს. 500KB)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hero Section -->
+            <div id="section-hero" class="section-content hidden">
+                <h2 class="section-title">Hero სექცია</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">🏷 Badge</h3>
+                    <div class="form-group">
+                        <label class="form-label">Badge ტექსტი</label>
+                        <input type="text" class="form-control" id="heroBadge" value="AI-ზე დაფუძნებული კვლევების ანალიზი">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">📰 სათაური</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური (ჩვეულებრივი ნაწილი)</label>
+                        <input type="text" class="form-control" id="heroTitleNormal" value="იპოვე შენი ">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">სათაური (გამოყოფილი ნაწილი - primary ფერი)</label>
+                        <input type="text" class="form-control" id="heroTitleHighlight" value="გზა">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">სათაური (დარჩენილი ნაწილი)</label>
+                        <input type="text" class="form-control" id="heroTitleEnd" value=" სამედიცინო კვლევებში">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">📝 აღწერა</h3>
+                    <div class="form-group">
+                        <label class="form-label">აღწერის ტექსტი</label>
+                        <textarea class="form-control" id="heroDescription">გეხმარებით სამეცნიერო კვლევების მოძიებაში, თარგმნაში და სტრუქტურირებაში, რომ ექიმთან ინფორმირებული საუბარი გქონდეთ</textarea>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🔘 ღილაკები</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">პირველი ღილაკი (Primary)</label>
+                            <input type="text" class="form-control" id="heroBtnPrimary" value="დაგვიკავშირდი">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">მეორე ღილაკი (Secondary)</label>
+                            <input type="text" class="form-control" id="heroBtnSecondary" value="გაიგე მეტი">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">📊 სტატისტიკა</h3>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">რიცხვი 1</label>
+                            <input type="text" class="form-control" id="stat1Number" value="38M+">
+                            <input type="text" class="form-control" id="stat1Label" value="კვლევა PubMed-ზე" style="margin-top: 0.5rem;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">რიცხვი 2</label>
+                            <input type="text" class="form-control" id="stat2Number" value="400K+">
+                            <input type="text" class="form-control" id="stat2Label" value="კლინიკური კვლევა" style="margin-top: 0.5rem;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">რიცხვი 3</label>
+                            <input type="text" class="form-control" id="stat3Number" value="24სთ">
+                            <input type="text" class="form-control" id="stat3Label" value="პასუხის დრო" style="margin-top: 0.5rem;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services Section -->
+            <div id="section-services" class="section-content hidden">
+                <h2 class="section-title">სერვისები</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">📋 სექციის სათაური</h3>
+                    <div class="form-group">
+                        <label class="form-label">Label</label>
+                        <input type="text" class="form-control" id="servicesLabel" value="სერვისები">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="servicesTitle" value="სამი საფეხური თქვენს გვერდით">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ქვესათაური</label>
+                        <input type="text" class="form-control" id="servicesSubtitle" value="იწყებთ კვლევითი გზამკვლევით, საჭიროების შემთხვევაში გადადიხართ აქტიურ მხარდაჭერაზე">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🥇 სერვისი 1 - კვლევითი გზამკვლევი</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="service1Title" value="კვლევითი გზამკვლევი">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="service1Desc">თქვენი დიაგნოზის მიხედვით მოვიძიებთ რელევანტურ კვლევებს, კლინიკურ კვლევებს და კლინიკების სიას. მიიღებთ სტრუქტურირებულ PDF დოკუმენტს ქართულ ენაზე</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ფასი</label>
+                        <input type="text" class="form-control" id="service1Price" value="80-200₾">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🥈 სერვისი 2 - აქტიური მხარდაჭერა</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="service2Title" value="აქტიური მხარდაჭერა">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="service2Desc">კლინიკებთან და მკვლევარებთან ელ-ფოსტების შედგენა და გაგზავნა თქვენი სახელით, კლინიკურ კვლევაში განაცხადის მომზადება, მიმოწერის მართვა</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ფასი</label>
+                        <input type="text" class="form-control" id="service2Price" value="300-600₾">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🥉 სერვისი 3 - თარგმნითი სერვისი</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="service3Title" value="სრული თარგმნითი სერვისი">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="service3Desc">სამედიცინო დოკუმენტაციის პროფესიონალური თარგმანი, ვიდეო-კონსულტაციებზე თარჯიმნის უზრუნველყოფა, უცხოელ სპეციალისტებთან კონსულტაციის კოორდინაცია</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ფასი</label>
+                        <input type="text" class="form-control" id="service3Price" value="500-1500₾">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">⭐ დამატებითი სერვისები</h3>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">სერვისი 4 - სათაური</label>
+                            <input type="text" class="form-control" id="service4Title" value="ყოველთვიური მონიტორინგი">
+                            <label class="form-label" style="margin-top: 0.5rem;">აღწერა</label>
+                            <input type="text" class="form-control" id="service4Desc" value="ახალი კვლევების თვალყურის დევნება">
+                            <label class="form-label" style="margin-top: 0.5rem;">ფასი</label>
+                            <input type="text" class="form-control" id="service4Price" value="30-50₾/თვე">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">სერვისი 5 - სათაური</label>
+                            <input type="text" class="form-control" id="service5Title" value="ექიმთან საუბრის მომზადება">
+                            <label class="form-label" style="margin-top: 0.5rem;">აღწერა</label>
+                            <input type="text" class="form-control" id="service5Desc" value="სტრუქტურირებული კითხვების სია">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">სერვისი 6 - სათაური</label>
+                            <input type="text" class="form-control" id="service6Title" value="B2B კლინიკებისთვის">
+                            <label class="form-label" style="margin-top: 0.5rem;">აღწერა</label>
+                            <input type="text" class="form-control" id="service6Desc" value="კვლევითი ინფორმაციის ინტეგრაცია">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Steps Section -->
+            <div id="section-steps" class="section-content hidden">
+                <h2 class="section-title">როგორ მუშაობს</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">📋 სექციის სათაური</h3>
+                    <div class="form-group">
+                        <label class="form-label">Label</label>
+                        <input type="text" class="form-control" id="stepsLabel" value="პროცესი">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="stepsTitle" value="სამი მარტივი ნაბიჯი">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">👣 ნაბიჯი 1</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="step1Title" value="აღწერე მდგომარეობა">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="step1Desc">გამოგვიგზავნე შენი დიაგნოზი ან სამედიცინო კითხვა ნებისმიერი ფორმით — ტექსტით, ხმოვანი შეტყობინებით ან დოკუმენტის ფოტოთი. WhatsApp, Facebook ან ელ-ფოსტით</textarea>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">👣 ნაბიჯი 2</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="step2Title" value="ჩვენ მოვიძიებთ">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="step2Desc">ვეძებთ უახლეს კვლევებს PubMed-ზე და ClinicalTrials.gov-ზე, ვაანალიზებთ, ვთარგმნით ქართულად და ვასტრუქტურირებთ გასაგებ ფორმატში</textarea>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">👣 ნაბიჯი 3</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="step3Title" value="მიიღე შედეგი">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="step3Desc">მიიღებ PDF ანგარიშს ქართულ ენაზე. საჭიროების შემთხვევაში გავაგრძელებთ კლინიკებთან კომუნიკაციით და თარგმანის სერვისით</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trust Section -->
+            <div id="section-trust" class="section-content hidden">
+                <h2 class="section-title">რატომ MED&გზური</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">📋 სექციის სათაური</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="trustTitle" value="რატომ MED&გზური">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">✓ პუნქტი 1</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="trust1Title" value="კვლევები ინგლისურადაა, ჩვენ ქართულად მოგაწვდით">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ქვესათაური</label>
+                        <input type="text" class="form-control" id="trust1Subtitle" value="ენობრივი ბარიერის მოხსნა">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">✓ პუნქტი 2</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="trust2Title" value="არ ვცვლით ექიმს — ვეხმარებით მასთან უკეთ ისაუბროთ">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ქვესათაური</label>
+                        <input type="text" class="form-control" id="trust2Subtitle" value="სამართლებრივი სიცხადე">
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">✓ პუნქტი 3</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="trust3Title" value="პირველი კონსულტაცია უფასოა">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ქვესათაური</label>
+                        <input type="text" class="form-control" id="trust3Subtitle" value="რისკის მოხსნა">
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div id="section-cta" class="section-content hidden">
+                <h2 class="section-title">CTA სექცია (კონტაქტი)</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">📞 კონტაქტის ინფორმაცია</h3>
+                    <div class="form-group">
+                        <label class="form-label">სათაური</label>
+                        <input type="text" class="form-control" id="ctaTitle" value="პირველი კონსულტაცია უფასოა">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">აღწერა</label>
+                        <textarea class="form-control" id="ctaDescription">გამოგვიგზავნეთ თქვენი კითხვა და 24 საათში მიიღებთ პასუხს</textarea>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">🔘 ღილაკები</h3>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Facebook ღილაკი - ტექსტი</label>
+                            <input type="text" class="form-control" id="ctaBtnFacebook" value="Facebook გვერდი">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Facebook ბმული</label>
+                            <input type="text" class="form-control" id="ctaLinkFacebook" value="https://facebook.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">WhatsApp ღილაკი - ტექსტი</label>
+                            <input type="text" class="form-control" id="ctaBtnWhatsapp" value="WhatsApp">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">WhatsApp ნომერი (995XXXXXXXXX)</label>
+                            <input type="text" class="form-control" id="ctaLinkWhatsapp" value="995555145719">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Section -->
+            <div id="section-footer" class="section-content hidden">
+                <h2 class="section-title">Footer</h2>
+                
+                <div class="section-card">
+                    <h3 class="section-card-title">🔗 ნავიგაციის ბმულები</h3>
+                    <div class="grid-3">
+                        <div class="form-group">
+                            <label class="form-label">ბმული 1</label>
+                            <input type="text" class="form-control" id="footerLink1" value="სერვისები">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ბმული 2</label>
+                            <input type="text" class="form-control" id="footerLink2" value="კონტაქტი">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ბმული 3</label>
+                            <input type="text" class="form-control" id="footerLink3" value="კონფიდენციალურობა">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">⚕️ დისქლეიმერი</h3>
+                    <div class="form-group">
+                        <label class="form-label">დისქლეიმერის ტექსტი</label>
+                        <textarea class="form-control" id="footerDisclaimer">MED&გზური არ წარმოადგენს სამედიცინო რჩევას. სერვისი გთავაზობთ მხოლოდ სამეცნიერო ლიტერატურის მოძიებასა და სტრუქტურირებას. ყოველთვის მიმართეთ კვალიფიციურ ექიმს.</textarea>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="section-card-title">© კოპირაიტი</h3>
+                    <div class="form-group">
+                        <label class="form-label">კოპირაიტის ტექსტი</label>
+                        <input type="text" class="form-control" id="footerCopyright" value="© 2025 MED&გზური. ყველა უფლება დაცულია.">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="toast">
+        <span id="toastIcon">✅</span>
+        <span id="toastMessage">ცვლილებები შენახულია!</span>
+    </div>
+
+    <script>
+        // Default configuration
+        const defaultConfig = {
+            colors: {
+                primary: '#5FA8D3',
+                text: '#0A1628',
+                bg: '#FFFFFF',
+                bgAlt: '#F7FAFB'
+            },
+            logo: {
+                text: 'MED&გზური',
+                svg: null
+            },
+            hero: {
+                badge: 'AI-ზე დაფუძნებული კვლევების ანალიზი',
+                titleNormal: 'იპოვე შენი ',
+                titleHighlight: 'გზა',
+                titleEnd: ' სამედიცინო კვლევებში',
+                description: 'გეხმარებით სამეცნიერო კვლევების მოძიებაში, თარგმნაში და სტრუქტურირებაში, რომ ექიმთან ინფორმირებული საუბარი გქონდეთ',
+                btnPrimary: 'დაგვიკავშირდი',
+                btnSecondary: 'გაიგე მეტი',
+                stats: [
+                    { number: '38M+', label: 'კვლევა PubMed-ზე' },
+                    { number: '400K+', label: 'კლინიკური კვლევა' },
+                    { number: '24სთ', label: 'პასუხის დრო' }
+                ]
+            },
+            services: {
+                label: 'სერვისები',
+                title: 'სამი საფეხური თქვენს გვერდით',
+                subtitle: 'იწყებთ კვლევითი გზამკვლევით, საჭიროების შემთხვევაში გადადიხართ აქტიურ მხარდაჭერაზე',
+                items: [
+                    { title: 'კვლევითი გზამკვლევი', desc: 'თქვენი დიაგნოზის მიხედვით მოვიძიებთ რელევანტურ კვლევებს, კლინიკურ კვლევებს და კლინიკების სიას. მიიღებთ სტრუქტურირებულ PDF დოკუმენტს ქართულ ენაზე', price: '80-200₾' },
+                    { title: 'აქტიური მხარდაჭერა', desc: 'კლინიკებთან და მკვლევარებთან ელ-ფოსტების შედგენა და გაგზავნა თქვენი სახელით, კლინიკურ კვლევაში განაცხადის მომზადება, მიმოწერის მართვა', price: '300-600₾' },
+                    { title: 'სრული თარგმნითი სერვისი', desc: 'სამედიცინო დოკუმენტაციის პროფესიონალური თარგმანი, ვიდეო-კონსულტაციებზე თარჯიმნის უზრუნველყოფა, უცხოელ სპეციალისტებთან კონსულტაციის კოორდინაცია', price: '500-1500₾' }
+                ],
+                extra: [
+                    { title: 'ყოველთვიური მონიტორინგი', desc: 'ახალი კვლევების თვალყურის დევნება', price: '30-50₾/თვე' },
+                    { title: 'ექიმთან საუბრის მომზადება', desc: 'სტრუქტურირებული კითხვების სია', price: '' },
+                    { title: 'B2B კლინიკებისთვის', desc: 'კვლევითი ინფორმაციის ინტეგრაცია', price: '' }
+                ]
+            },
+            steps: {
+                label: 'პროცესი',
+                title: 'სამი მარტივი ნაბიჯი',
+                items: [
+                    { title: 'აღწერე მდგომარეობა', desc: 'გამოგვიგზავნე შენი დიაგნოზი ან სამედიცინო კითხვა ნებისმიერი ფორმით — ტექსტით, ხმოვანი შეტყობინებით ან დოკუმენტის ფოტოთი. WhatsApp, Facebook ან ელ-ფოსტით' },
+                    { title: 'ჩვენ მოვიძიებთ', desc: 'ვეძებთ უახლეს კვლევებს PubMed-ზე და ClinicalTrials.gov-ზე, ვაანალიზებთ, ვთარგმნით ქართულად და ვასტრუქტურირებთ გასაგებ ფორმატში' },
+                    { title: 'მიიღე შედეგი', desc: 'მიიღებ PDF ანგარიშს ქართულ ენაზე. საჭიროების შემთხვევაში გავაგრძელებთ კლინიკებთან კომუნიკაციით და თარგმანის სერვისით' }
+                ]
+            },
+            trust: {
+                title: 'რატომ MED&გზური',
+                items: [
+                    { title: 'კვლევები ინგლისურადაა, ჩვენ ქართულად მოგაწვდით', subtitle: 'ენობრივი ბარიერის მოხსნა' },
+                    { title: 'არ ვცვლით ექიმს — ვეხმარებით მასთან უკეთ ისაუბროთ', subtitle: 'სამართლებრივი სიცხადე' },
+                    { title: 'პირველი კონსულტაცია უფასოა', subtitle: 'რისკის მოხსნა' }
+                ]
+            },
+            cta: {
+                title: 'პირველი კონსულტაცია უფასოა',
+                description: 'გამოგვიგზავნეთ თქვენი კითხვა და 24 საათში მიიღებთ პასუხს',
+                btnFacebook: 'Facebook გვერდი',
+                linkFacebook: 'https://facebook.com',
+                btnWhatsapp: 'WhatsApp',
+                linkWhatsapp: '995555145719'
+            },
+            footer: {
+                links: ['სერვისები', 'კონტაქტი', 'კონფიდენციალურობა'],
+                disclaimer: 'MED&გზური არ წარმოადგენს სამედიცინო რჩევას. სერვისი გთავაზობთ მხოლოდ სამეცნიერო ლიტერატურის მოძიებასა და სტრუქტურირებას. ყოველთვის მიმართეთ კვალიფიციურ ექიმს.',
+                copyright: '© 2025 MED&გზური. ყველა უფლება დაცულია.'
+            }
+        };
+
+        // Load saved config or use default
+        let currentConfig = JSON.parse(localStorage.getItem('medGzuriConfig')) || JSON.parse(JSON.stringify(defaultConfig));
+
+        // Initialize form values
+        function initForm() {
+            // Colors
+            document.getElementById('colorPrimary').value = currentConfig.colors.primary;
+            document.getElementById('colorPrimaryValue').textContent = currentConfig.colors.primary;
+            document.getElementById('colorText').value = currentConfig.colors.text;
+            document.getElementById('colorTextValue').textContent = currentConfig.colors.text;
+            document.getElementById('colorBg').value = currentConfig.colors.bg;
+            document.getElementById('colorBgValue').textContent = currentConfig.colors.bg;
+            document.getElementById('colorBgAlt').value = currentConfig.colors.bgAlt;
+            document.getElementById('colorBgAltValue').textContent = currentConfig.colors.bgAlt;
+
+            // Logo
+            document.getElementById('logoText').value = currentConfig.logo.text;
+            if (currentConfig.logo.svg) {
+                document.getElementById('logoPreview').innerHTML = currentConfig.logo.svg;
+            }
+
+            // Hero
+            document.getElementById('heroBadge').value = currentConfig.hero.badge;
+            document.getElementById('heroTitleNormal').value = currentConfig.hero.titleNormal;
+            document.getElementById('heroTitleHighlight').value = currentConfig.hero.titleHighlight;
+            document.getElementById('heroTitleEnd').value = currentConfig.hero.titleEnd;
+            document.getElementById('heroDescription').value = currentConfig.hero.description;
+            document.getElementById('heroBtnPrimary').value = currentConfig.hero.btnPrimary;
+            document.getElementById('heroBtnSecondary').value = currentConfig.hero.btnSecondary;
+            document.getElementById('stat1Number').value = currentConfig.hero.stats[0].number;
+            document.getElementById('stat1Label').value = currentConfig.hero.stats[0].label;
+            document.getElementById('stat2Number').value = currentConfig.hero.stats[1].number;
+            document.getElementById('stat2Label').value = currentConfig.hero.stats[1].label;
+            document.getElementById('stat3Number').value = currentConfig.hero.stats[2].number;
+            document.getElementById('stat3Label').value = currentConfig.hero.stats[2].label;
+
+            // Services
+            document.getElementById('servicesLabel').value = currentConfig.services.label;
+            document.getElementById('servicesTitle').value = currentConfig.services.title;
+            document.getElementById('servicesSubtitle').value = currentConfig.services.subtitle;
+            
+            document.getElementById('service1Title').value = currentConfig.services.items[0].title;
+            document.getElementById('service1Desc').value = currentConfig.services.items[0].desc;
+            document.getElementById('service1Price').value = currentConfig.services.items[0].price;
+            
+            document.getElementById('service2Title').value = currentConfig.services.items[1].title;
+            document.getElementById('service2Desc').value = currentConfig.services.items[1].desc;
+            document.getElementById('service2Price').value = currentConfig.services.items[1].price;
+            
+            document.getElementById('service3Title').value = currentConfig.services.items[2].title;
+            document.getElementById('service3Desc').value = currentConfig.services.items[2].desc;
+            document.getElementById('service3Price').value = currentConfig.services.items[2].price;
+
+            document.getElementById('service4Title').value = currentConfig.services.extra[0].title;
+            document.getElementById('service4Desc').value = currentConfig.services.extra[0].desc;
+            document.getElementById('service4Price').value = currentConfig.services.extra[0].price;
+            
+            document.getElementById('service5Title').value = currentConfig.services.extra[1].title;
+            document.getElementById('service5Desc').value = currentConfig.services.extra[1].desc;
+            
+            document.getElementById('service6Title').value = currentConfig.services.extra[2].title;
+            document.getElementById('service6Desc').value = currentConfig.services.extra[2].desc;
+
+            // Steps
+            document.getElementById('stepsLabel').value = currentConfig.steps.label;
+            document.getElementById('stepsTitle').value = currentConfig.steps.title;
+            document.getElementById('step1Title').value = currentConfig.steps.items[0].title;
+            document.getElementById('step1Desc').value = currentConfig.steps.items[0].desc;
+            document.getElementById('step2Title').value = currentConfig.steps.items[1].title;
+            document.getElementById('step2Desc').value = currentConfig.steps.items[1].desc;
+            document.getElementById('step3Title').value = currentConfig.steps.items[2].title;
+            document.getElementById('step3Desc').value = currentConfig.steps.items[2].desc;
+
+            // Trust
+            document.getElementById('trustTitle').value = currentConfig.trust.title;
+            document.getElementById('trust1Title').value = currentConfig.trust.items[0].title;
+            document.getElementById('trust1Subtitle').value = currentConfig.trust.items[0].subtitle;
+            document.getElementById('trust2Title').value = currentConfig.trust.items[1].title;
+            document.getElementById('trust2Subtitle').value = currentConfig.trust.items[1].subtitle;
+            document.getElementById('trust3Title').value = currentConfig.trust.items[2].title;
+            document.getElementById('trust3Subtitle').value = currentConfig.trust.items[2].subtitle;
+
+            // CTA
+            document.getElementById('ctaTitle').value = currentConfig.cta.title;
+            document.getElementById('ctaDescription').value = currentConfig.cta.description;
+            document.getElementById('ctaBtnFacebook').value = currentConfig.cta.btnFacebook;
+            document.getElementById('ctaLinkFacebook').value = currentConfig.cta.linkFacebook;
+            document.getElementById('ctaBtnWhatsapp').value = currentConfig.cta.btnWhatsapp;
+            document.getElementById('ctaLinkWhatsapp').value = currentConfig.cta.linkWhatsapp;
+
+            // Footer
+            document.getElementById('footerLink1').value = currentConfig.footer.links[0];
+            document.getElementById('footerLink2').value = currentConfig.footer.links[1];
+            document.getElementById('footerLink3').value = currentConfig.footer.links[2];
+            document.getElementById('footerDisclaimer').value = currentConfig.footer.disclaimer;
+            document.getElementById('footerCopyright').value = currentConfig.footer.copyright;
+        }
+
+        // Color picker event listeners
+        document.getElementById('colorPrimary').addEventListener('input', (e) => {
+            document.getElementById('colorPrimaryValue').textContent = e.target.value;
+        });
+        document.getElementById('colorText').addEventListener('input', (e) => {
+            document.getElementById('colorTextValue').textContent = e.target.value;
+        });
+        document.getElementById('colorBg').addEventListener('input', (e) => {
+            document.getElementById('colorBgValue').textContent = e.target.value;
+        });
+        document.getElementById('colorBgAlt').addEventListener('input', (e) => {
+            document.getElementById('colorBgAltValue').textContent = e.target.value;
+        });
+
+        // Logo upload handler
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 500 * 1024) {
+                showToast('❌ ფაილი ძალიან დიდია (მაქს. 500KB)', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const result = e.target.result;
+                if (file.type === 'image/svg+xml') {
+                    // For SVG, extract the SVG content
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(result, 'image/svg+xml');
+                    const svg = doc.querySelector('svg');
+                    if (svg) {
+                        svg.setAttribute('width', '64');
+                        svg.setAttribute('height', '64');
+                        document.getElementById('logoPreview').innerHTML = svg.outerHTML;
+                        currentConfig.logo.svg = svg.outerHTML;
+                    }
+                } else {
+                    // For images, create an img tag
+                    document.getElementById('logoPreview').innerHTML = `<img src="${result}" style="max-width: 100%; max-height: 100px;">`;
+                    currentConfig.logo.svg = `<img src="${result}" style="max-width: 100%; max-height: 100%;">`;
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Show/hide sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('section-' + sectionId).classList.remove('hidden');
+            
+            document.querySelectorAll('.sidebar-nav a').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Save changes
+        function saveChanges() {
+            // Collect all values
+            currentConfig.colors.primary = document.getElementById('colorPrimary').value;
+            currentConfig.colors.text = document.getElementById('colorText').value;
+            currentConfig.colors.bg = document.getElementById('colorBg').value;
+            currentConfig.colors.bgAlt = document.getElementById('colorBgAlt').value;
+
+            currentConfig.logo.text = document.getElementById('logoText').value;
+
+            currentConfig.hero.badge = document.getElementById('heroBadge').value;
+            currentConfig.hero.titleNormal = document.getElementById('heroTitleNormal').value;
+            currentConfig.hero.titleHighlight = document.getElementById('heroTitleHighlight').value;
+            currentConfig.hero.titleEnd = document.getElementById('heroTitleEnd').value;
+            currentConfig.hero.description = document.getElementById('heroDescription').value;
+            currentConfig.hero.btnPrimary = document.getElementById('heroBtnPrimary').value;
+            currentConfig.hero.btnSecondary = document.getElementById('heroBtnSecondary').value;
+            currentConfig.hero.stats[0] = { number: document.getElementById('stat1Number').value, label: document.getElementById('stat1Label').value };
+            currentConfig.hero.stats[1] = { number: document.getElementById('stat2Number').value, label: document.getElementById('stat2Label').value };
+            currentConfig.hero.stats[2] = { number: document.getElementById('stat3Number').value, label: document.getElementById('stat3Label').value };
+
+            currentConfig.services.label = document.getElementById('servicesLabel').value;
+            currentConfig.services.title = document.getElementById('servicesTitle').value;
+            currentConfig.services.subtitle = document.getElementById('servicesSubtitle').value;
+            currentConfig.services.items[0] = { title: document.getElementById('service1Title').value, desc: document.getElementById('service1Desc').value, price: document.getElementById('service1Price').value };
+            currentConfig.services.items[1] = { title: document.getElementById('service2Title').value, desc: document.getElementById('service2Desc').value, price: document.getElementById('service2Price').value };
+            currentConfig.services.items[2] = { title: document.getElementById('service3Title').value, desc: document.getElementById('service3Desc').value, price: document.getElementById('service3Price').value };
+            currentConfig.services.extra[0] = { title: document.getElementById('service4Title').value, desc: document.getElementById('service4Desc').value, price: document.getElementById('service4Price').value };
+            currentConfig.services.extra[1] = { title: document.getElementById('service5Title').value, desc: document.getElementById('service5Desc').value, price: '' };
+            currentConfig.services.extra[2] = { title: document.getElementById('service6Title').value, desc: document.getElementById('service6Desc').value, price: '' };
+
+            currentConfig.steps.label = document.getElementById('stepsLabel').value;
+            currentConfig.steps.title = document.getElementById('stepsTitle').value;
+            currentConfig.steps.items[0] = { title: document.getElementById('step1Title').value, desc: document.getElementById('step1Desc').value };
+            currentConfig.steps.items[1] = { title: document.getElementById('step2Title').value, desc: document.getElementById('step2Desc').value };
+            currentConfig.steps.items[2] = { title: document.getElementById('step3Title').value, desc: document.getElementById('step3Desc').value };
+
+            currentConfig.trust.title = document.getElementById('trustTitle').value;
+            currentConfig.trust.items[0] = { title: document.getElementById('trust1Title').value, subtitle: document.getElementById('trust1Subtitle').value };
+            currentConfig.trust.items[1] = { title: document.getElementById('trust2Title').value, subtitle: document.getElementById('trust2Subtitle').value };
+            currentConfig.trust.items[2] = { title: document.getElementById('trust3Title').value, subtitle: document.getElementById('trust3Subtitle').value };
+
+            currentConfig.cta.title = document.getElementById('ctaTitle').value;
+            currentConfig.cta.description = document.getElementById('ctaDescription').value;
+            currentConfig.cta.btnFacebook = document.getElementById('ctaBtnFacebook').value;
+            currentConfig.cta.linkFacebook = document.getElementById('ctaLinkFacebook').value;
+            currentConfig.cta.btnWhatsapp = document.getElementById('ctaBtnWhatsapp').value;
+            currentConfig.cta.linkWhatsapp = document.getElementById('ctaLinkWhatsapp').value;
+
+            currentConfig.footer.links[0] = document.getElementById('footerLink1').value;
+            currentConfig.footer.links[1] = document.getElementById('footerLink2').value;
+            currentConfig.footer.links[2] = document.getElementById('footerLink3').value;
+            currentConfig.footer.disclaimer = document.getElementById('footerDisclaimer').value;
+            currentConfig.footer.copyright = document.getElementById('footerCopyright').value;
+
+            // Save to localStorage
+            localStorage.setItem('medGzuriConfig', JSON.stringify(currentConfig));
+            
+            showToast('✅ ცვლილებები შენახულია!');
+        }
+
+        // Reset to default
+        function resetToDefault() {
+            if (confirm('დარწმუნებული ხართ? ყველა ცვლილება წაიშლება.')) {
+                currentConfig = JSON.parse(JSON.stringify(defaultConfig));
+                localStorage.setItem('medGzuriConfig', JSON.stringify(currentConfig));
+                initForm();
+                showToast('🔄 ნაგულისხმევ პარამეტრებზე დაბრუნდა');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            sessionStorage.removeItem('medGzuriLoggedIn');
+            window.location.href = 'login.html';
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            document.getElementById('toastIcon').textContent = type === 'error' ? '❌' : '✅';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Initialize on load
+        initForm();
+    </script>
+</body>
+</html>
