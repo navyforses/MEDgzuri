@@ -6,6 +6,13 @@
     <title>MED&გზური — სამედიცინო ძიება</title>
     <meta name="description" content="სამედიცინო კვლევების ძიება, სიმპტომების ნავიგაცია და კლინიკების მოძიება">
 
+    <!-- Open Graph -->
+    <meta property="og:title" content="MED&გზური — სამედიცინო ძიება">
+    <meta property="og:description" content="სამედიცინო კვლევების ძიება, სიმპტომების ნავიგაცია და კლინიკების მოძიება">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ka_GE">
+    <meta name="twitter:card" content="summary">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -689,26 +696,26 @@
 
     <!-- SEARCH TABS -->
     <div class="search-container">
-        <div class="tabs">
-            <button class="tab active" data-tab="research" onclick="switchTab('research')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <div class="tabs" role="tablist" aria-label="ძიების ტიპები">
+            <button class="tab active" data-tab="research" onclick="switchTab('research')" role="tab" aria-selected="true" aria-controls="panel-research" id="tab-research">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 <span class="tab-label-full">კვლევების ძიება</span>
                 <span class="tab-label-short">კვლევა</span>
             </button>
-            <button class="tab" data-tab="symptoms" onclick="switchTab('symptoms')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <button class="tab" data-tab="symptoms" onclick="switchTab('symptoms')" role="tab" aria-selected="false" aria-controls="panel-symptoms" id="tab-symptoms">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 <span class="tab-label-full">სიმპტომების ნავიგაცია</span>
                 <span class="tab-label-short">სიმპტომები</span>
             </button>
-            <button class="tab" data-tab="clinics" onclick="switchTab('clinics')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+            <button class="tab" data-tab="clinics" onclick="switchTab('clinics')" role="tab" aria-selected="false" aria-controls="panel-clinics" id="tab-clinics">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 21h18"/><path d="M9 8h1"/><path d="M9 12h1"/><path d="M9 16h1"/><path d="M14 8h1"/><path d="M14 12h1"/><path d="M14 16h1"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
                 <span class="tab-label-full">კლინიკების ძიება</span>
                 <span class="tab-label-short">კლინიკა</span>
             </button>
         </div>
 
         <!-- ═══════ PANEL 1: RESEARCH SEARCH ═══════ -->
-        <div class="panel active" id="panel-research">
+        <div class="panel active" id="panel-research" role="tabpanel" aria-labelledby="tab-research">
             <div class="panel-header">
                 <div class="panel-title">კვლევების ძიება</div>
                 <div class="panel-desc">ჩაწერეთ დიაგნოზი ან სამედიცინო მდგომარეობა. სისტემა მოიძიებს უახლეს კვლევებს საერთაშორისო სამედიცინო ბაზებიდან.</div>
@@ -716,7 +723,7 @@
             <div class="panel-body">
                 <div class="form-group">
                     <label class="form-label">დიაგნოზი ან სამედიცინო მდგომარეობა <span class="form-hint">(ქართულად ან ინგლისურად)</span></label>
-                    <input type="text" class="form-input" id="research-diagnosis" placeholder="მაგ: ჰიპოქსიურ-იშემიური ენცეფალოპათია, ტიპი 2 დიაბეტი, ფილტვის კიბო...">
+                    <input type="text" class="form-input" id="research-diagnosis" maxlength="500" placeholder="მაგ: ჰიპოქსიურ-იშემიური ენცეფალოპათია, ტიპი 2 დიაბეტი, ფილტვის კიბო...">
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -744,7 +751,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">დამატებითი კონტექსტი <span class="form-hint">(არასავალდებულო)</span></label>
-                    <textarea class="form-textarea" id="research-context" placeholder="აღწერეთ დამატებითი დეტალები: რა მკურნალობა იყო ცდილი, რა შედეგი გამოიღო, კონკრეტული ინტერესის სფერო..."></textarea>
+                    <textarea class="form-textarea" id="research-context" maxlength="2000" placeholder="აღწერეთ დამატებითი დეტალები: რა მკურნალობა იყო ცდილი, რა შედეგი გამოიღო, კონკრეტული ინტერესის სფერო..."></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">ძიების გეოგრაფია</label>
@@ -781,7 +788,7 @@
         </div>
 
         <!-- ═══════ PANEL 2: SYMPTOM NAVIGATION ═══════ -->
-        <div class="panel" id="panel-symptoms">
+        <div class="panel" id="panel-symptoms" role="tabpanel" aria-labelledby="tab-symptoms">
             <div class="panel-header">
                 <div class="panel-title">სიმპტომების ნავიგაცია</div>
                 <div class="panel-desc">აღწერეთ სიმპტომები. სისტემა შემოგთავაზებთ რა გამოკვლევების ჩატარება შეიძლება იყოს მიზანშეწონილი და სად.</div>
@@ -789,7 +796,7 @@
             <div class="panel-body">
                 <div class="form-group">
                     <label class="form-label">სიმპტომების აღწერა</label>
-                    <textarea class="form-textarea" id="symptoms-text" placeholder="დეტალურად აღწერეთ სიმპტომები: რა გაწუხებთ, რამდენ ხანს, რამე ამწვავებს თუ ამსუბუქებს..." style="min-height: 150px;"></textarea>
+                    <textarea class="form-textarea" id="symptoms-text" maxlength="2000" placeholder="დეტალურად აღწერეთ სიმპტომები: რა გაწუხებთ, რამდენ ხანს, რამე ამწვავებს თუ ამსუბუქებს..." style="min-height: 150px;"></textarea>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -807,11 +814,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">არსებული დიაგნოზები <span class="form-hint">(არასავალდებულო)</span></label>
-                    <input type="text" class="form-input" id="symptoms-existing" placeholder="მაგ: დიაბეტი, ჰიპერტენზია...">
+                    <input type="text" class="form-input" id="symptoms-existing" maxlength="500" placeholder="მაგ: დიაბეტი, ჰიპერტენზია...">
                 </div>
                 <div class="form-group">
                     <label class="form-label">მიმდინარე მედიკამენტები <span class="form-hint">(არასავალდებულო)</span></label>
-                    <input type="text" class="form-input" id="symptoms-meds" placeholder="მაგ: მეტფორმინი 500მგ, ამლოდიპინი 5მგ...">
+                    <input type="text" class="form-input" id="symptoms-meds" maxlength="500" placeholder="მაგ: მეტფორმინი 500მგ, ამლოდიპინი 5მგ...">
                 </div>
             </div>
             <div class="submit-section">
@@ -828,7 +835,7 @@
         </div>
 
         <!-- ═══════ PANEL 3: CLINIC SEARCH ═══════ -->
-        <div class="panel" id="panel-clinics">
+        <div class="panel" id="panel-clinics" role="tabpanel" aria-labelledby="tab-clinics">
             <div class="panel-header">
                 <div class="panel-title">კლინიკების ძიება</div>
                 <div class="panel-desc">მიუთითეთ დიაგნოზი და სასურველი ქვეყანა. სისტემა მოიძიებს შესაბამის კლინიკებს, ტექნოლოგიებს და სავარაუდო ფასებს.</div>
@@ -836,7 +843,7 @@
             <div class="panel-body">
                 <div class="form-group">
                     <label class="form-label">დიაგნოზი ან საჭირო მკურნალობა</label>
-                    <input type="text" class="form-input" id="clinics-diagnosis" placeholder="მაგ: თავის ტვინის სიმსივნე, მუხლის ენდოპროთეზირება, IVF...">
+                    <input type="text" class="form-input" id="clinics-diagnosis" maxlength="500" placeholder="მაგ: თავის ტვინის სიმსივნე, მუხლის ენდოპროთეზირება, IVF...">
                 </div>
                 <div class="form-group">
                     <label class="form-label">სასურველი ქვეყნები</label>
@@ -884,7 +891,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">დამატებითი მოთხოვნები <span class="form-hint">(არასავალდებულო)</span></label>
-                    <textarea class="form-textarea" id="clinics-notes" placeholder="მაგ: გჭირდებათ თარჯიმანი, გსურთ ონლაინ კონსულტაცია ჯერ, გსურთ ბავშვებისთვის სპეციალიზებული კლინიკა..." style="min-height: 80px;"></textarea>
+                    <textarea class="form-textarea" id="clinics-notes" maxlength="1000" placeholder="მაგ: გჭირდებათ თარჯიმანი, გსურთ ონლაინ კონსულტაცია ჯერ, გსურთ ბავშვებისთვის სპეციალიზებული კლინიკა..." style="min-height: 80px;"></textarea>
                 </div>
             </div>
             <div class="submit-section">
@@ -950,8 +957,13 @@
         if (isSearching) return;
         currentTab = tab;
 
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+        document.querySelectorAll('.tab').forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+        });
+        const activeTab = document.querySelector(`[data-tab="${tab}"]`);
+        activeTab.classList.add('active');
+        activeTab.setAttribute('aria-selected', 'true');
 
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.getElementById(`panel-${tab}`).classList.add('active');
@@ -1063,12 +1075,21 @@
                 showError(type, 'გთხოვთ მიუთითოთ დიაგნოზი ან სამედიცინო მდგომარეობა.');
                 return null;
             }
+            if (diagnosis.length > 500) {
+                showError(type, 'დიაგნოზი არ უნდა აღემატებოდეს 500 სიმბოლოს.');
+                return null;
+            }
+            const context = document.getElementById('research-context').value.trim();
+            if (context.length > 2000) {
+                showError(type, 'კონტექსტი არ უნდა აღემატებოდეს 2000 სიმბოლოს.');
+                return null;
+            }
             const regions = [...document.querySelectorAll('#research-regions input:checked')].map(i => i.value);
             return {
                 diagnosis,
                 ageGroup: document.getElementById('research-age').value,
                 researchType: document.getElementById('research-type').value,
-                context: document.getElementById('research-context').value.trim(),
+                context,
                 regions
             };
         }
@@ -1079,9 +1100,18 @@
                 showError(type, 'გთხოვთ აღწეროთ სიმპტომები.');
                 return null;
             }
+            if (symptoms.length > 2000) {
+                showError(type, 'სიმპტომების აღწერა არ უნდა აღემატებოდეს 2000 სიმბოლოს.');
+                return null;
+            }
+            const age = document.getElementById('symptoms-age').value;
+            if (age && (isNaN(age) || age < 0 || age > 150)) {
+                showError(type, 'გთხოვთ მიუთითოთ სწორი ასაკი.');
+                return null;
+            }
             return {
                 symptoms,
-                age: document.getElementById('symptoms-age').value,
+                age,
                 sex: document.getElementById('symptoms-sex').value,
                 existingConditions: document.getElementById('symptoms-existing').value.trim(),
                 medications: document.getElementById('symptoms-meds').value.trim()
@@ -1094,13 +1124,22 @@
                 showError(type, 'გთხოვთ მიუთითოთ დიაგნოზი ან საჭირო მკურნალობა.');
                 return null;
             }
+            if (diagnosis.length > 500) {
+                showError(type, 'ტექსტი არ უნდა აღემატებოდეს 500 სიმბოლოს.');
+                return null;
+            }
+            const notes = document.getElementById('clinics-notes').value.trim();
+            if (notes.length > 1000) {
+                showError(type, 'შენიშვნა არ უნდა აღემატებოდეს 1000 სიმბოლოს.');
+                return null;
+            }
             const countries = [...document.querySelectorAll('#clinics-countries input:checked')].map(i => i.value);
             return {
                 diagnosis,
                 countries,
                 budget: document.getElementById('clinics-budget').value,
                 language: document.getElementById('clinics-language').value,
-                notes: document.getElementById('clinics-notes').value.trim()
+                notes
             };
         }
     }

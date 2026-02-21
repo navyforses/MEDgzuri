@@ -16,8 +16,14 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ═══════════════ HANDLER ═══════════════
 module.exports = async function handler(req, res) {
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS — restrict to allowed origins when configured
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',')
+        : ['*'];
+    const origin = req.headers.origin || '*';
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -145,6 +151,9 @@ async function perplexitySearch(query) {
     }
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         const response = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
@@ -163,8 +172,10 @@ async function perplexitySearch(query) {
                 max_tokens: 2000,
                 temperature: 0.1,
                 return_citations: true
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             console.error('[MedGzuri] Perplexity error:', response.status);
@@ -177,7 +188,11 @@ async function perplexitySearch(query) {
             citations: result.citations || []
         };
     } catch (err) {
-        console.error('[MedGzuri] Perplexity request failed:', err.message);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] Perplexity request timed out (30s)');
+        } else {
+            console.error('[MedGzuri] Perplexity request failed:', err.message);
+        }
         return null;
     }
 }
@@ -249,6 +264,9 @@ ${searchResults?.text ? `\nინტერნეტ ძიების შედ
 ${searchResults?.citations?.length ? `\nწყაროები: ${searchResults.citations.join(', ')}` : ''}`;
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -261,8 +279,10 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
                 max_tokens: 3000,
                 system: systemPrompts[role] || systemPrompts.research,
                 messages: [{ role: 'user', content: userMessage }]
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             console.error('[MedGzuri] Claude error:', response.status);
@@ -292,7 +312,11 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
         };
 
     } catch (err) {
-        console.error('[MedGzuri] Claude request failed:', err.message);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] Claude request timed out (45s)');
+        } else {
+            console.error('[MedGzuri] Claude request failed:', err.message);
+        }
         if (searchResults?.text) {
             return formatRawResults(role, query, searchResults);
         }
