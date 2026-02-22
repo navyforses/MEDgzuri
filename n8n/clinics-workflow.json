@@ -148,7 +148,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კლინიკების ანგარიშის დიზაინერი. შექმენი შედარებითი ანგარიში ქართულ ენაზე. ფასები EUR-ში და GEL-ში (1 EUR ≈ 2.85 GEL). პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [...], \"comparison\": { \"headers\": [...], \"rows\": [[...]] }, \"tips\": [{ \"icon\": \"...\", \"text\": \"...\" }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ფასები ინფორმაციული ხასიათისაა.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კლინიკების ანგარიშის დიზაინერი. სამედიცინო ტერმინოლოგია მხოლოდ ქართულად. გამოიყენე ლიტერატურული ქართული, სწორი ბრუნვები და გრამატიკულად გამართული წინადადებები. შექმენი შედარებითი ანგარიში ქართულ ენაზე. ფასები EUR-ში და GEL-ში (1 EUR ≈ 2.85 GEL). პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [...], \"comparison\": { \"headers\": [...], \"rows\": [[...]] }, \"tips\": [{ \"icon\": \"...\", \"text\": \"...\" }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ფასები ინფორმაციული ხასიათისაა.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
         "options": { "timeout": 45000 }
       },
       "id": "clinic-report-designer",
