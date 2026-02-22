@@ -52,11 +52,22 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid age' });
         }
 
+        // Validate search type
+        const validTypes = ['research', 'symptoms', 'clinics', 'report'];
+        if (!validTypes.includes(type)) {
+            return res.status(400).json({ error: 'Invalid search type' });
+        }
+
         // Check API keys
         if (!PERPLEXITY_API_KEY && !ANTHROPIC_API_KEY) {
             // Demo mode - return mock data for testing
             console.log('[MedGzuri] No API keys configured, returning demo data');
-            const demoResult = getDemoResult(type, data);
+            let demoResult;
+            if (type === 'report') {
+                demoResult = getDemoReport(data.reportType, data.searchResult);
+            } else {
+                demoResult = getDemoResult(type, data);
+            }
             demoResult.isDemo = true;
             return res.status(200).json(demoResult);
         }
