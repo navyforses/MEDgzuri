@@ -1,0 +1,197 @@
+{
+  "name": "MedGzuri — Symptoms Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "symptoms",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook-symptoms",
+      "name": "Webhook: Symptoms",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-webhook-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "validate-secret",
+      "name": "IF: Validate Secret",
+      "type": "n8n-nodes-base.if",
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { symptoms, age, sex, existingConditions, medications } = $input.first().json.body.data;\n\nconst patientContext = `Patient: ${age ? `age ${age}` : 'age not specified'}, ${sex || 'sex not specified'}. ${existingConditions ? `Existing conditions: ${existingConditions}.` : ''} ${medications ? `Current medications: ${medications}.` : ''}`;\n\nconst symptomMatchQuery = `Medical conditions and differential diagnoses commonly associated with these symptoms: ${symptoms}. ${patientContext} Include prevalence data and red flags. Do NOT provide a diagnosis, only list possible conditions for physician consideration.`;\n\nconst testRecommendQuery = `Recommended medical tests, examinations, and laboratory workup for evaluating these symptoms: ${symptoms}. ${patientContext} Include: test name, what it measures, why it's relevant, typical cost range, and urgency level.`;\n\nconst specialistQuery = `Which medical specialists should evaluate a patient with these symptoms: ${symptoms}. ${patientContext}`;\n\nreturn {\n  json: {\n    symptoms, age, sex, existingConditions, medications,\n    patientContext,\n    queries: { symptomMatch: symptomMatchQuery, testRecommend: testRecommendQuery, specialist: specialistQuery }\n  }\n};"
+      },
+      "id": "symptom-orchestrator",
+      "name": "Symptom Orchestrator",
+      "type": "n8n-nodes-base.code",
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "sonar" },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a medical symptom pattern analysis specialist. Given a set of symptoms and patient context, search for medical literature about conditions commonly associated with these symptom patterns. CRITICAL: You must NOT diagnose the patient. For each potential condition, include: condition name, how the symptoms relate to it, prevalence/likelihood indicators, red flag symptoms, and key distinguishing features. Return results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.symptomMatch }}\"}]"
+            },
+            { "name": "max_tokens", "value": 2500 },
+            { "name": "temperature", "value": 0.1 },
+            { "name": "return_citations", "value": true }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "symptom-matcher",
+      "name": "Symptom Matcher",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 150],
+      "credentials": {
+        "httpHeaderAuth": { "id": "perplexity-api", "name": "Perplexity API" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "sonar" },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a medical diagnostics specialist. Given symptoms and patient context, recommend appropriate medical tests and examinations. For each test: full test name and abbreviation, what it measures/evaluates, why it's relevant, urgency (immediate/soon/routine), typical preparation required, and approximate cost range in EUR. Categorize tests as: Blood/Lab tests, Imaging, Functional tests, Specialist examinations. Return structured results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.testRecommend }}\"}]"
+            },
+            { "name": "max_tokens", "value": 2500 },
+            { "name": "temperature", "value": 0.1 },
+            { "name": "return_citations", "value": true }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "test-recommender",
+      "name": "Test Recommender",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "perplexity-api", "name": "Perplexity API" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 2500, system: 'You are a medical referral specialist. Given symptoms, age, sex, and medical history, recommend which medical specialists should be consulted. For each: specialist type, why relevant, what they evaluate, urgency (urgent/soon/routine). CRITICAL: Do NOT diagnose. Return JSON: { \"specialists\": [{ \"type\": \"...\", \"reason\": \"...\", \"evaluates\": \"...\", \"urgency\": \"urgent|soon|routine\" }] }', messages: [{ role: 'user', content: $json.queries.specialist }] }) }}",
+        "options": { "timeout": 45000 }
+      },
+      "id": "specialist-advisor",
+      "name": "Specialist Advisor",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "numberInputs": 3
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის სიმპტომების ანგარიშის დიზაინერი. მნიშვნელოვანი: ❌ არასოდეს დააყენო დიაგნოზი ❌ არასოდეს თქვა \"თქვენ გაქვთ...\" ✅ შემოგთავაზე გამოკვლევები ✅ შემოგთავაზე სპეციალისტები. პრიორიტეტი: 🔴 მაღალი, 🟡 საშუალო, 🟢 დაბალი. პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [{ \"id\": \"...\", \"title\": \"...\", \"icon\": \"...\", \"type\": \"cards|text\", \"items\": [{ \"title\": \"...\", \"body\": \"...\", \"tags\": [], \"priority\": \"high|medium|low\" }] }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ეს არ არის სამედიცინო დიაგნოზი.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "options": { "timeout": 45000 }
+      },
+      "id": "symptom-report-designer",
+      "name": "Symptom Report Designer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1550, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Symptoms": {
+      "main": [[{ "node": "IF: Validate Secret", "type": "main", "index": 0 }]]
+    },
+    "IF: Validate Secret": {
+      "main": [[{ "node": "Symptom Orchestrator", "type": "main", "index": 0 }]]
+    },
+    "Symptom Orchestrator": {
+      "main": [
+        [
+          { "node": "Symptom Matcher", "type": "main", "index": 0 },
+          { "node": "Test Recommender", "type": "main", "index": 0 },
+          { "node": "Specialist Advisor", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Symptom Matcher": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Test Recommender": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Specialist Advisor": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Symptom Report Designer", "type": "main", "index": 0 }]]
+    },
+    "Symptom Report Designer": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

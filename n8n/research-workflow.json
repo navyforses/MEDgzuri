@@ -1,0 +1,258 @@
+{
+  "name": "MedGzuri — Research Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook-research",
+      "name": "Webhook: Research",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-webhook-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "validate-secret",
+      "name": "IF: Validate Secret",
+      "type": "n8n-nodes-base.if",
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { diagnosis, ageGroup, researchType, context, regions } = $input.first().json.body.data;\n\nconst pubmedQuery = `Latest peer-reviewed research and systematic reviews for ${diagnosis}. ${ageGroup ? `Patient age group: ${ageGroup}.` : ''} ${researchType !== 'all' ? `Focus on: ${researchType}` : ''} Include PubMed references from 2023-2026. ${context || ''}`;\n\nconst clinicalTrialsQuery = `Active and recruiting clinical trials for ${diagnosis}. Include ClinicalTrials.gov entries, trial phase, enrollment status, locations. ${ageGroup ? `Age group: ${ageGroup}` : ''} ${regions?.length ? `Regions: ${regions.join(', ')}` : ''}`;\n\nconst treatmentQuery = `Current standard of care and experimental treatment options for ${diagnosis}. Include treatment efficacy data, side effects, and recent advances. ${ageGroup ? `Patient age group: ${ageGroup}.` : ''} ${context || ''}`;\n\nreturn {\n  json: {\n    diagnosis, ageGroup, researchType, context, regions,\n    queries: { pubmed: pubmedQuery, clinicalTrials: clinicalTrialsQuery, treatment: treatmentQuery }\n  }\n};"
+      },
+      "id": "research-orchestrator",
+      "name": "Research Orchestrator",
+      "type": "n8n-nodes-base.code",
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "sonar"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a PubMed research specialist. Search for peer-reviewed medical research articles. For each result provide: exact title, authors (first author et al.), journal name, publication year, DOI or PubMed ID, and a brief summary of findings. Focus on systematic reviews, meta-analyses, and high-impact studies. Always include citation URLs. Return results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.pubmed }}\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": 2500
+            },
+            {
+              "name": "temperature",
+              "value": 0.1
+            },
+            {
+              "name": "return_citations",
+              "value": true
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "pubmed-researcher",
+      "name": "PubMed Researcher",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 150],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "perplexity-api",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "sonar"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a ClinicalTrials.gov specialist. Search for active, recruiting, and recently completed clinical trials. For each trial provide: NCT number, official title, phase (I/II/III/IV), status (recruiting/active/completed), sponsor, estimated enrollment, primary outcome, key eligibility criteria, and locations. Focus on trials with results when available. Return results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.clinicalTrials }}\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": 2500
+            },
+            {
+              "name": "temperature",
+              "value": 0.1
+            },
+            {
+              "name": "return_citations",
+              "value": true
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "clinical-trials-scout",
+      "name": "Clinical Trials Scout",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "perplexity-api",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "sonar"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a treatment analysis researcher. Search for current treatment options including standard of care, emerging therapies, and supportive treatments. For each treatment provide: name, mechanism, efficacy evidence, side effects, and evidence level. Return results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.treatment }}\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": 2500
+            },
+            {
+              "name": "temperature",
+              "value": 0.1
+            },
+            {
+              "name": "return_citations",
+              "value": true
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "treatment-search",
+      "name": "Treatment Search (Perplexity)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 450],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "perplexity-api",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "numberInputs": 3
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კვლევითი ანგარიშის დიზაინერი. შექმენი პროფესიული, სტრუქტურირებული ანგარიში ქართულ ენაზე. სამედიცინო ტერმინები: ქართულად + (ინგლისურად ფრჩხილებში). არასოდეს დააყენო დიაგნოზი. პასუხი მკაცრად JSON ფორმატში: { \"meta\": \"...\", \"sections\": [{ \"id\": \"...\", \"title\": \"...\", \"icon\": \"...\", \"type\": \"cards|text\", \"items\": [{ \"title\": \"...\", \"source\": \"...\", \"body\": \"...\", \"tags\": [], \"url\": \"...\", \"rating\": 5 }] }], \"nextSteps\": [{ \"icon\": \"...\", \"text\": \"...\", \"priority\": \"high|medium|low\" }], \"disclaimer\": \"⚕️ ეს ინფორმაცია საინფორმაციო ხასიათისაა და არ ცვლის ექიმის კონსულტაციას.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "id": "research-report-designer",
+      "name": "Research Report Designer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1550, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Research": {
+      "main": [[{ "node": "IF: Validate Secret", "type": "main", "index": 0 }]]
+    },
+    "IF: Validate Secret": {
+      "main": [[{ "node": "Research Orchestrator", "type": "main", "index": 0 }]]
+    },
+    "Research Orchestrator": {
+      "main": [
+        [
+          { "node": "PubMed Researcher", "type": "main", "index": 0 },
+          { "node": "Clinical Trials Scout", "type": "main", "index": 0 },
+          { "node": "Treatment Search (Perplexity)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "PubMed Researcher": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Clinical Trials Scout": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Treatment Search (Perplexity)": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Research Report Designer", "type": "main", "index": 0 }]]
+    },
+    "Research Report Designer": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

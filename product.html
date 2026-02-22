@@ -663,6 +663,195 @@
         }
 
         .error-message.visible { display: block; }
+
+        /* ═══════════════ ENHANCED RESULTS (n8n multi-agent) ═══════════════ */
+        .result-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--teal-pale);
+        }
+
+        .result-section-icon {
+            font-size: 1.25rem;
+        }
+
+        .result-section-title {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.625rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            border-radius: 999px;
+            margin-bottom: 0.5rem;
+        }
+
+        .priority-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #DC2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .priority-medium {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .priority-low {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .result-rating {
+            display: inline-flex;
+            gap: 2px;
+            margin-top: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--warning);
+        }
+
+        .phase-badge {
+            display: inline-flex;
+            padding: 0.1875rem 0.5rem;
+            font-size: 0.625rem;
+            font-weight: 700;
+            background: var(--navy);
+            color: white;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .comparison-table-wrapper {
+            overflow-x: auto;
+            margin: 1rem 0;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8125rem;
+        }
+
+        .comparison-table th {
+            padding: 0.75rem 1rem;
+            background: var(--navy);
+            color: white;
+            font-weight: 600;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .comparison-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .comparison-table tr:nth-child(even) td {
+            background: var(--bg);
+        }
+
+        .comparison-table tr:hover td {
+            background: var(--teal-light);
+        }
+
+        .next-steps {
+            background: linear-gradient(135deg, var(--teal-light), rgba(95, 168, 211, 0.04));
+            border: 1px solid var(--teal-pale);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .next-steps-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--navy);
+        }
+
+        .next-step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            padding: 0.5rem 0;
+            font-size: 0.8125rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .next-step-icon {
+            font-size: 1.125rem;
+            flex-shrink: 0;
+            margin-top: 0.0625rem;
+        }
+
+        .tips-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .tips-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .tip-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.375rem 0;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .result-disclaimer {
+            margin-top: 1.5rem;
+            padding: 1rem 1.25rem;
+            background: rgba(245, 158, 11, 0.06);
+            border: 1px solid rgba(245, 158, 11, 0.15);
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            text-align: center;
+        }
+
+        .result-price {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #059669;
+            font-weight: 600;
+            font-size: 0.75rem;
+            border-radius: 999px;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -998,16 +1187,19 @@
         document.getElementById('ai-processing').classList.add('visible');
         document.getElementById('ai-processing').style.display = 'block';
 
-        // Reset steps
+        // Build dynamic AI steps based on search type
+        buildAISteps(type);
         resetAISteps();
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         try {
-            // Step 1: Search
-            updateAIStep('search', 'active');
-            updateAIStatus('მოძიება მიმდინარეობს...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
+            const steps = getTeamSteps(type);
+
+            // Step 1
+            updateAIStep(steps[0].key, 'active');
+            updateAIStatus(steps[0].label + '...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
 
             const response = await fetch(`/api/search`, {
                 method: 'POST',
@@ -1021,25 +1213,25 @@
                 throw new Error(`API error: ${response.status}`);
             }
 
-            updateAIStep('search', 'done');
+            updateAIStep(steps[0].key, 'done');
 
-            // Step 2: Analyze
-            updateAIStep('analyze', 'active');
-            updateAIStatus('ანალიზი მიმდინარეობს...', 'სისტემა ამუშავებს მოძიებულ მონაცემებს');
+            // Step 2
+            updateAIStep(steps[1].key, 'active');
+            updateAIStatus(steps[1].label + '...', 'სისტემა ამუშავებს მოძიებულ მონაცემებს');
             await delay(800);
-            updateAIStep('analyze', 'done');
+            updateAIStep(steps[1].key, 'done');
 
-            // Step 3: Validate
-            updateAIStep('validate', 'active');
-            updateAIStatus('ვალიდაცია მიმდინარეობს...', 'წყაროების სიზუსტე მოწმდება');
+            // Step 3
+            updateAIStep(steps[2].key, 'active');
+            updateAIStatus(steps[2].label + '...', 'წყაროების სიზუსტე მოწმდება');
             await delay(600);
-            updateAIStep('validate', 'done');
+            updateAIStep(steps[2].key, 'done');
 
-            // Step 4: Format
-            updateAIStep('format', 'active');
-            updateAIStatus('ფორმატირება...', 'შედეგები სტრუქტურდება ქართულ ენაზე');
+            // Step 4
+            updateAIStep(steps[3].key, 'active');
+            updateAIStatus(steps[3].label + '...', 'შედეგები სტრუქტურდება ქართულ ენაზე');
             await delay(400);
-            updateAIStep('format', 'done');
+            updateAIStep(steps[3].key, 'done');
 
             const result = await response.json();
 
@@ -1145,6 +1337,41 @@
     }
 
     // ═══════════════ AI STEP ANIMATIONS ═══════════════
+    function getTeamSteps(type) {
+        const steps = {
+            research: [
+                { key: 'step1', label: 'PubMed ძიება' },
+                { key: 'step2', label: 'კლინიკური კვლევები' },
+                { key: 'step3', label: 'მკურნალობის ანალიზი' },
+                { key: 'step4', label: 'ანგარიშის შექმნა' }
+            ],
+            symptoms: [
+                { key: 'step1', label: 'სიმპტომების შეფასება' },
+                { key: 'step2', label: 'გამოკვლევების შერჩევა' },
+                { key: 'step3', label: 'სპეციალისტების შეფასება' },
+                { key: 'step4', label: 'ანგარიშის შექმნა' }
+            ],
+            clinics: [
+                { key: 'step1', label: 'კლინიკების ძიება' },
+                { key: 'step2', label: 'ფასების ანალიზი' },
+                { key: 'step3', label: 'შეფასებების შეკრება' },
+                { key: 'step4', label: 'ანგარიშის შექმნა' }
+            ]
+        };
+        return steps[type] || steps.research;
+    }
+
+    function buildAISteps(type) {
+        const container = document.getElementById('ai-steps');
+        const steps = getTeamSteps(type);
+        container.innerHTML = steps.map(s => `
+            <div class="ai-step" data-step="${s.key}">
+                <span class="step-dot"></span>
+                ${escapeHtml(s.label)}
+            </div>
+        `).join('');
+    }
+
     function resetAISteps() {
         document.querySelectorAll('.ai-step').forEach(s => {
             s.classList.remove('active', 'done');
@@ -1181,50 +1408,178 @@
 
         title.textContent = titles[type] || 'შედეგები';
         meta.textContent = result.meta || '';
-
         list.innerHTML = '';
 
-        // Show demo mode banner if applicable
+        // Demo mode banner
         if (result.isDemo) {
-            const banner = document.createElement('div');
-            banner.className = 'result-card';
-            banner.style.background = 'rgba(245, 158, 11, 0.08)';
-            banner.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-            banner.innerHTML = '<div class="result-card-body" style="color: #92400e; text-align: center; font-weight: 600;">&#9888;&#65039; ეს სადემონსტრაციო მონაცემებია. რეალური შედეგები მალე ხელმისაწვდომი იქნება.</div>';
-            list.appendChild(banner);
+            list.innerHTML += '<div class="result-card" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.3)"><div class="result-card-body" style="color:#92400e;text-align:center;font-weight:600">&#9888;&#65039; ეს სადემონსტრაციო მონაცემებია. რეალური შედეგები მალე ხელმისაწვდომი იქნება.</div></div>';
         }
 
-        if (result.items && result.items.length > 0) {
-            result.items.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'result-card';
-                card.innerHTML = `
-                    <div class="result-card-header">
-                        <div class="result-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                ${getResultIcon(type)}
-                            </svg>
-                        </div>
-                        <div>
-                            <div class="result-card-title">${escapeHtml(item.title)}</div>
-                            ${item.source ? `<div class="result-card-source">${escapeHtml(item.source)}</div>` : ''}
-                        </div>
-                    </div>
-                    <div class="result-card-body">${formatResultBody(item.body)}</div>
-                    ${item.tags ? `<div class="result-tags">${item.tags.map(t => `<span class="result-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
-                    ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="result-link">წყაროს ნახვა →</a>` : ''}
-                `;
-                list.appendChild(card);
+        // Render sections if available (enhanced n8n response)
+        if (result.sections && result.sections.length > 0) {
+            result.sections.forEach(function(section) {
+                list.appendChild(renderSection(section, type));
             });
-        } else if (result.summary) {
-            const card = document.createElement('div');
+        }
+        // Fallback: render old-format items
+        else if (result.items && result.items.length > 0) {
+            result.items.forEach(function(item) {
+                list.appendChild(renderResultCard(item, type));
+            });
+        }
+        else if (result.summary) {
+            var card = document.createElement('div');
             card.className = 'result-card';
-            card.innerHTML = `<div class="result-card-body">${formatResultBody(result.summary)}</div>`;
+            card.innerHTML = '<div class="result-card-body">' + formatResultBody(result.summary) + '</div>';
             list.appendChild(card);
+        }
+
+        // Comparison table (clinic reports)
+        if (result.comparison) {
+            list.appendChild(renderComparisonTable(result.comparison));
+        }
+
+        // Tips section
+        if (result.tips && result.tips.length > 0) {
+            list.appendChild(renderTips(result.tips));
+        }
+
+        // Next steps
+        if (result.nextSteps && result.nextSteps.length > 0) {
+            list.appendChild(renderNextSteps(result.nextSteps));
+        }
+
+        // Disclaimer from API
+        if (result.disclaimer) {
+            var disc = document.createElement('div');
+            disc.className = 'result-disclaimer';
+            disc.textContent = result.disclaimer;
+            list.appendChild(disc);
         }
 
         container.classList.add('visible');
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderSection(section, type) {
+        var div = document.createElement('div');
+        div.className = 'result-section';
+        div.innerHTML = '<div class="result-section-header">' +
+            '<span class="result-section-icon">' + (section.icon || '') + '</span>' +
+            '<span class="result-section-title">' + escapeHtml(section.title) + '</span>' +
+            '</div>';
+
+        if (section.type === 'text' && section.items) {
+            section.items.forEach(function(item) {
+                var card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = (item.title ? '<div class="result-card-title" style="margin-bottom:0.5rem">' + escapeHtml(item.title) + '</div>' : '') +
+                    '<div class="result-card-body">' + formatResultBody(item.body) + '</div>';
+                div.appendChild(card);
+            });
+        } else if (section.items) {
+            section.items.forEach(function(item) {
+                div.appendChild(renderResultCard(item, type));
+            });
+        }
+
+        return div;
+    }
+
+    function renderResultCard(item, type) {
+        var card = document.createElement('div');
+        card.className = 'result-card';
+
+        var priorityHtml = '';
+        if (item.priority) {
+            var priorityLabels = {
+                high: '\uD83D\uDD34 მაღალი პრიორიტეტი',
+                medium: '\uD83D\uDFE1 საშუალო პრიორიტეტი',
+                low: '\uD83D\uDFE2 დაბალი პრიორიტეტი'
+            };
+            priorityHtml = '<span class="priority-badge priority-' + item.priority + '">' + (priorityLabels[item.priority] || '') + '</span>';
+        }
+
+        var ratingHtml = '';
+        if (item.rating) {
+            var fullStars = Math.floor(item.rating);
+            ratingHtml = '<div class="result-rating">' + '\u2B50'.repeat(fullStars) + ' ' + item.rating + '/5</div>';
+        }
+
+        var phaseHtml = '';
+        if (item.phase) {
+            phaseHtml = '<span class="phase-badge">' + escapeHtml(item.phase) + ' \u10E4\u10D0\u10D6\u10D0</span>';
+        }
+
+        var priceHtml = '';
+        if (item.price) {
+            priceHtml = '<div class="result-price">\uD83D\uDCB0 ' + escapeHtml(item.price) + '</div>';
+        }
+
+        card.innerHTML = priorityHtml +
+            '<div class="result-card-header">' +
+                '<div class="result-icon">' +
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + getResultIcon(type) + '</svg>' +
+                '</div>' +
+                '<div>' +
+                    '<div class="result-card-title">' + escapeHtml(item.title) + '</div>' +
+                    (item.source ? '<div class="result-card-source">' + escapeHtml(item.source) + '</div>' : '') +
+                '</div>' +
+            '</div>' +
+            '<div class="result-card-body">' + formatResultBody(item.body) + '</div>' +
+            ratingHtml +
+            phaseHtml +
+            priceHtml +
+            (item.tags ? '<div class="result-tags">' + item.tags.map(function(t) { return '<span class="result-tag">' + escapeHtml(t) + '</span>'; }).join('') + '</div>' : '') +
+            (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="result-link">\u10EC\u10E7\u10D0\u10E0\u10DD\u10E1 \u10DC\u10D0\u10EE\u10D5\u10D0 \u2192</a>' : '');
+
+        return card;
+    }
+
+    function renderComparisonTable(comparison) {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'comparison-table-wrapper';
+        var html = '<table class="comparison-table"><thead><tr>';
+        comparison.headers.forEach(function(h) {
+            html += '<th>' + escapeHtml(h) + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        comparison.rows.forEach(function(row) {
+            html += '<tr>';
+            row.forEach(function(cell) {
+                html += '<td>' + escapeHtml(cell) + '</td>';
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        wrapper.innerHTML = html;
+        return wrapper;
+    }
+
+    function renderNextSteps(nextSteps) {
+        var div = document.createElement('div');
+        div.className = 'next-steps';
+        div.innerHTML = '<div class="next-steps-title">\uD83D\uDCCC \u10E8\u10D4\u10DB\u10D3\u10D4\u10D2\u10D8 \u10DC\u10D0\u10D1\u10D8\u10EF\u10D4\u10D1\u10D8</div>' +
+            nextSteps.map(function(step) {
+                return '<div class="next-step-item">' +
+                    '<span class="next-step-icon">' + (step.icon || '\u27A1\uFE0F') + '</span>' +
+                    '<span>' + escapeHtml(step.text) + '</span>' +
+                '</div>';
+            }).join('');
+        return div;
+    }
+
+    function renderTips(tips) {
+        var div = document.createElement('div');
+        div.className = 'tips-section';
+        div.innerHTML = '<div class="tips-title">\uD83D\uDCA1 \u10DE\u10E0\u10D0\u10E5\u10E2\u10D8\u10D9\u10E3\u10DA\u10D8 \u10E0\u10E9\u10D4\u10D5\u10D4\u10D1\u10D8</div>' +
+            tips.map(function(tip) {
+                return '<div class="tip-item">' +
+                    '<span>' + (tip.icon || '\uD83D\uDCA1') + '</span>' +
+                    '<span>' + escapeHtml(tip.text) + '</span>' +
+                '</div>';
+            }).join('');
+        return div;
     }
 
     function getResultIcon(type) {

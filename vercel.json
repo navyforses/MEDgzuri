@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 120
+    }
+  },
   "builds": [
     {
       "src": "api/**/*.js",

@@ -13,6 +13,8 @@
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
 
 // ═══════════════ HANDLER ═══════════════
 module.exports = async function handler(req, res) {
@@ -59,20 +61,24 @@ module.exports = async function handler(req, res) {
             return res.status(200).json(demoResult);
         }
 
-        // Build search pipeline based on type
-        let result;
-        switch (type) {
-            case 'research':
-                result = await searchResearch(data);
-                break;
-            case 'symptoms':
-                result = await analyzeSymptoms(data);
-                break;
-            case 'clinics':
-                result = await searchClinics(data);
-                break;
-            default:
-                return res.status(400).json({ error: 'Invalid search type' });
+        // Try n8n multi-agent pipeline first, fall back to direct pipeline
+        let result = await proxyToN8n(type, data);
+
+        if (!result) {
+            // Fallback to existing direct pipeline
+            switch (type) {
+                case 'research':
+                    result = await searchResearch(data);
+                    break;
+                case 'symptoms':
+                    result = await analyzeSymptoms(data);
+                    break;
+                case 'clinics':
+                    result = await searchClinics(data);
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Invalid search type' });
+            }
         }
 
         return res.status(200).json(result);
@@ -322,6 +328,61 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
         }
         throw err;
     }
+}
+
+// ═══════════════ N8N PROXY ═══════════════
+async function proxyToN8n(type, data) {
+    if (!N8N_WEBHOOK_BASE_URL) return null;
+
+    const webhookPaths = {
+        research: '/research',
+        symptoms: '/symptoms',
+        clinics: '/clinics'
+    };
+
+    if (!webhookPaths[type]) return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    try {
+        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}${webhookPaths[type]}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Webhook-Secret': N8N_WEBHOOK_SECRET || ''
+            },
+            body: JSON.stringify({ type, data }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.error(`[MedGzuri] n8n webhook error: ${response.status}`);
+            return null;
+        }
+
+        const result = await response.json();
+        return ensureBackwardCompat(result);
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] n8n proxy timed out (90s)');
+        } else {
+            console.error('[MedGzuri] n8n proxy failed:', err.message);
+        }
+        return null;
+    }
+}
+
+function ensureBackwardCompat(result) {
+    if (result.sections && (!result.items || result.items.length === 0)) {
+        result.items = result.sections.flatMap(s => s.items || []);
+    }
+    if (!result.meta) {
+        result.meta = 'ძიების შედეგები';
+    }
+    return result;
 }
 
 // ═══════════════ HELPERS ═══════════════
