@@ -1852,6 +1852,11 @@
                 pagebreak: { mode: ['css', 'legacy'] }
             };
 
+            // Wait for Georgian font to load before rendering
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+
             await html2pdf().set(opt).from(element).save();
 
         } catch (err) {
@@ -1876,7 +1881,25 @@
             content: 'წინამდებარე ანგარიში მომზადებულია MED&გზურის საძიებო სისტემის მიერ მოპოვებული მონაცემების საფუძველზე.'
         });
 
-        if (result.items && result.items.length > 0) {
+        // Extract content from new sections format (n8n enhanced response)
+        if (result.sections && result.sections.length > 0) {
+            result.sections.forEach(function(section) {
+                var content = '';
+                if (section.items && section.items.length > 0) {
+                    section.items.forEach(function(item) {
+                        content += (item.title || '') + '\n' + (item.body || '') + '\n\n';
+                    });
+                }
+                if (content.trim()) {
+                    sections.push({
+                        heading: section.title || 'მიგნებები',
+                        content: content.trim()
+                    });
+                }
+            });
+        }
+        // Fallback to old items format
+        else if (result.items && result.items.length > 0) {
             var content = '';
             result.items.forEach(function(item) {
                 content += (item.title || '') + '\n' + (item.body || '') + '\n\n';

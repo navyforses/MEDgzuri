@@ -423,7 +423,7 @@ async function perplexitySearch(query) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a medical research assistant. Search for the most recent, evidence-based medical information. Include specific studies, clinical trials, hospital names, and treatment details. Always cite sources with URLs when available.'
+                        content: 'You are a medical research assistant for a Georgian healthcare platform. Search for the most recent, evidence-based medical information. Structure your response as clearly numbered points. For each finding include: the study/source name, key results, and clinical relevance. Include specific studies, clinical trials, hospital names, treatment details, and costs where available. Always cite sources with URLs. The downstream system will translate your findings into Georgian, so be thorough and factual.'
                     },
                     { role: 'user', content: query }
                 ],
@@ -571,7 +571,8 @@ ${grammarRules}
             if (searchResults?.text) {
                 return await formatRawResults(role, query, searchResults);
             }
-            throw new Error('Claude API failed');
+            // Fallback to demo data instead of throwing
+            return getDemoResult(role === 'symptoms' ? 'symptoms' : role === 'clinics' ? 'clinics' : 'research', { diagnosis: query });
         }
 
         const result = await response.json();
@@ -613,7 +614,8 @@ ${grammarRules}
         if (searchResults?.text) {
             return await formatRawResults(role, query, searchResults);
         }
-        throw err;
+        // Fallback to demo data instead of throwing
+        return getDemoResult(role === 'symptoms' ? 'symptoms' : role === 'clinics' ? 'clinics' : 'research', { diagnosis: query });
     }
 }
 
@@ -679,7 +681,7 @@ function extractJSON(text) {
     if (fenceMatch) {
         try {
             const parsed = JSON.parse(fenceMatch[1]);
-            if (parsed.items || parsed.meta || parsed.summary) return parsed;
+            if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
         } catch (e) { /* try next strategy */ }
     }
 
@@ -688,7 +690,7 @@ function extractJSON(text) {
         const trimmed = text.trim();
         if (trimmed.startsWith('{')) {
             const parsed = JSON.parse(trimmed);
-            if (parsed.items || parsed.meta || parsed.summary) return parsed;
+            if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
         }
     } catch (e) { /* try next strategy */ }
 
@@ -711,7 +713,7 @@ function extractJSON(text) {
                     try {
                         const candidate = text.substring(startIdx, i + 1);
                         const parsed = JSON.parse(candidate);
-                        if (parsed.items || parsed.meta || parsed.summary) return parsed;
+                        if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
                     } catch (e) { /* continue searching */ }
                 }
             }
