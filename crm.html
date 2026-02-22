@@ -592,6 +592,13 @@
         if (sessionStorage.getItem('medGzuriLoggedIn') !== 'true') {
             window.location.href = 'login.html';
         }
+        // Session timeout: 2 hours
+        const loginTime = sessionStorage.getItem('medGzuriLoginTime');
+        if (loginTime && Date.now() - parseInt(loginTime) > 2 * 60 * 60 * 1000) {
+            sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
+            window.location.href = 'login.html';
+        }
     </script>
 
     <header class="admin-header">
@@ -786,9 +793,15 @@
             return sampleLeads;
         }
 
-        // Save leads
+        // Save leads (with quota error handling)
         function saveLeads(leads) {
-            localStorage.setItem('medGzuriLeads', JSON.stringify(leads));
+            try {
+                localStorage.setItem('medGzuriLeads', JSON.stringify(leads));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.code === 22) {
+                    alert('შენახვის ლიმიტი ამოიწურა. გთხოვთ წაშალოთ ძველი ჩანაწერები ან ექსპორტი გააკეთოთ.');
+                }
+            }
         }
 
         // Current filter
@@ -1002,6 +1015,19 @@
             updateStats();
         }
 
+        // Sanitize a CSV cell to prevent injection and properly escape quotes
+        function escapeCsvCell(value) {
+            if (value == null) return '';
+            let str = String(value);
+            // CSV injection prevention: prefix dangerous starting chars
+            if (/^[=+\-@\t\r]/.test(str)) {
+                str = "'" + str;
+            }
+            // Escape double quotes and wrap in quotes
+            str = str.replace(/"/g, '""');
+            return '"' + str + '"';
+        }
+
         // Export to CSV
         function exportToCSV() {
             const leads = getLeads();
@@ -1016,8 +1042,8 @@
                 getStatusText(l.status),
                 formatDate(l.date)
             ]);
-            
-            const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            const csv = [headers, ...rows].map(row => row.map(escapeCsvCell).join(',')).join('\n');
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -1038,6 +1064,7 @@
         // Logout
         function logout() {
             sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
             window.location.href = 'login.html';
         }
 

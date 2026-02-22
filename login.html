@@ -245,64 +245,69 @@
             window.location.href = 'admin.html';
         }
 
-        // Default credentials (for first login)
-        const defaultCredentials = {
-            username: 'admin',
-            password: 'admin123'
-        };
-
-        // Get stored credentials or use default
+        // Get stored credentials (no hardcoded defaults)
         function getCredentials() {
             const stored = localStorage.getItem('medGzuriCredentials');
             if (stored) {
-                return JSON.parse(stored);
+                try { return JSON.parse(stored); }
+                catch (e) { return null; }
             }
-            return defaultCredentials;
+            return null;
         }
 
-        // Simple hash function (not secure, but better than plain text)
-        function simpleHash(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return hash.toString(16);
+        // SHA-256 hash via Web Crypto API
+        async function secureHash(str) {
+            const msgBuffer = new TextEncoder().encode(str);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // If no credentials exist yet, show setup form instead of login
+        if (!getCredentials()) {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('setupBtn').style.display = 'none';
+                document.getElementById('setupSection').classList.add('show');
+            });
         }
 
         // Login form
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const credentials = getCredentials();
-            
+
             // Clear previous errors
             document.getElementById('errorMessage').classList.remove('show');
             document.getElementById('username').classList.remove('error');
             document.getElementById('password').classList.remove('error');
-            
-            // Check credentials
-            const hashedPassword = simpleHash(password);
-            const storedHash = credentials.password.startsWith('hash:') 
-                ? credentials.password 
-                : 'hash:' + simpleHash(credentials.password);
-            
-            if (username === credentials.username && 
-                (hashedPassword === storedHash.replace('hash:', '') || password === credentials.password)) {
-                
+
+            if (!credentials) {
+                document.getElementById('errorMessage').textContent = 'ჯერ დააყენეთ პაროლი';
+                document.getElementById('errorMessage').classList.add('show');
+                return;
+            }
+
+            // Check credentials — compare SHA-256 hashes only
+            const hashedPassword = await secureHash(password);
+            const storedHash = credentials.password.replace('hash:', '');
+
+            if (username === credentials.username && hashedPassword === storedHash) {
                 // Success
                 document.getElementById('successMessage').classList.add('show');
                 sessionStorage.setItem('medGzuriLoggedIn', 'true');
-                
+                sessionStorage.setItem('medGzuriLoginTime', Date.now().toString());
+
                 // Redirect after short delay
                 setTimeout(() => {
                     window.location.href = 'admin.html';
                 }, 500);
             } else {
                 // Error
+                document.getElementById('errorMessage').textContent = 'არასწორი მომხმარებელი ან პაროლი';
                 document.getElementById('errorMessage').classList.add('show');
                 document.getElementById('username').classList.add('error');
                 document.getElementById('password').classList.add('error');
@@ -316,42 +321,44 @@
         }
 
         // Setup form (change password)
-        document.getElementById('setupForm').addEventListener('submit', function(e) {
+        document.getElementById('setupForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const newUsername = document.getElementById('newUsername').value.trim();
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
-            
+
             // Validation
             if (newUsername.length < 3) {
                 alert('მომხმარებელი უნდა იყოს მინიმუმ 3 სიმბოლო');
                 return;
             }
-            
+
             if (newPassword.length < 4) {
                 alert('პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო');
                 return;
             }
-            
+
             if (newPassword !== confirmPassword) {
                 alert('პაროლები არ ემთხვევა');
                 return;
             }
-            
-            // Save new credentials (hashed)
+
+            // Save new credentials (SHA-256 hashed)
             const credentials = {
                 username: newUsername,
-                password: 'hash:' + simpleHash(newPassword)
+                password: 'hash:' + await secureHash(newPassword)
             };
-            
+
             localStorage.setItem('medGzuriCredentials', JSON.stringify(credentials));
-            
-            alert('✅ ახალი პაროლი შენახულია! ახლა შეგიძლიათ შეხვიდეთ.');
-            
-            // Hide setup section
+
+            alert('ახალი პაროლი შენახულია! ახლა შეგიძლიათ შეხვიდეთ.');
+
+            // Hide setup section, show login form
             document.getElementById('setupSection').classList.remove('show');
-            
+            document.getElementById('loginForm').style.display = '';
+            document.getElementById('setupBtn').style.display = '';
+
             // Pre-fill login form
             document.getElementById('username').value = newUsername;
             document.getElementById('password').value = '';
@@ -363,7 +370,7 @@
             this.classList.remove('error');
             document.getElementById('errorMessage').classList.remove('show');
         });
-        
+
         document.getElementById('password').addEventListener('input', function() {
             this.classList.remove('error');
             document.getElementById('errorMessage').classList.remove('show');

@@ -1,0 +1,205 @@
+{
+  "name": "MedGzuri — Clinics Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clinics",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook-clinics",
+      "name": "Webhook: Clinics",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-webhook-secret'] }}",
+              "value2": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "validate-secret",
+      "name": "IF: Validate Secret",
+      "type": "n8n-nodes-base.if",
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { diagnosis, countries, budget, language, notes } = $input.first().json.body.data;\nconst countryStr = countries?.length > 0 ? countries.join(', ') : 'worldwide';\n\nconst clinicFinderQuery = `Best hospitals and specialized clinics for ${diagnosis} in ${countryStr}. Include: hospital name, department, specialization, international patient services, accreditations (JCI, ISO), notable doctors, website. ${language !== 'any' ? `Language support: ${language}` : ''}`;\n\nconst pricingQuery = `Treatment costs and pricing for ${diagnosis} at hospitals in ${countryStr}. Include: consultation fees, diagnostic costs, treatment/surgery costs, hospital stay costs, total estimated package price in EUR. ${budget ? `Budget range: ${budget}` : ''} Compare pricing across countries.`;\n\nconst reviewQuery = `Patient reviews and ratings for ${diagnosis} treatment at hospitals in ${countryStr}. Include: overall rating, patient satisfaction, success rates if available, waiting times, international patient experience, Google/Trustpilot ratings.`;\n\nreturn {\n  json: {\n    diagnosis, countries, countryStr, budget, language, notes,\n    queries: { clinicFinder: clinicFinderQuery, pricing: pricingQuery, reviews: reviewQuery }\n  }\n};"
+      },
+      "id": "clinic-orchestrator",
+      "name": "Clinic Orchestrator",
+      "type": "n8n-nodes-base.code",
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "sonar" },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a medical tourism and hospital specialist. Search for the best hospitals and clinics for a specific medical condition. For each clinic provide: full hospital name, city and country, department/center name, specializations, international accreditations, whether they have international patient office, languages supported, website URL. Focus on hospitals known for treating international patients. Return structured results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.clinicFinder }}\"}]"
+            },
+            { "name": "max_tokens", "value": 2500 },
+            { "name": "temperature", "value": 0.1 },
+            { "name": "return_citations", "value": true }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "clinic-finder",
+      "name": "Clinic Finder",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 150],
+      "credentials": {
+        "httpHeaderAuth": { "id": "perplexity-api", "name": "Perplexity API" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "sonar" },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a medical pricing analyst specializing in international healthcare costs. Search for treatment pricing information. For each hospital/country provide: consultation fee, diagnostic package cost, main treatment/procedure cost, hospital stay per day, total estimated package. All prices in EUR. Note what is included vs extra. Flag available package deals. Return structured results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.pricing }}\"}]"
+            },
+            { "name": "max_tokens", "value": 2500 },
+            { "name": "temperature", "value": 0.1 },
+            { "name": "return_citations", "value": true }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "pricing-analyst",
+      "name": "Pricing Analyst",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "perplexity-api", "name": "Perplexity API" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "sonar" },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a hospital review aggregator. Search for patient reviews, satisfaction scores, and quality ratings for hospitals treating a specific condition. Include: overall rating (out of 5), number of reviews, patient satisfaction themes (positive and negative), success/survival rates if available, average waiting time, quality of international patient services. Return structured results in English.\"},{\"role\":\"user\",\"content\":\"{{ $json.queries.reviews }}\"}]"
+            },
+            { "name": "max_tokens", "value": 2500 },
+            { "name": "temperature", "value": 0.1 },
+            { "name": "return_citations", "value": true }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "review-aggregator",
+      "name": "Review Aggregator",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 450],
+      "credentials": {
+        "httpHeaderAuth": { "id": "perplexity-api", "name": "Perplexity API" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "numberInputs": 3
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კლინიკების ანგარიშის დიზაინერი. შექმენი შედარებითი ანგარიში ქართულ ენაზე. ფასები EUR-ში და GEL-ში (1 EUR ≈ 2.85 GEL). პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [...], \"comparison\": { \"headers\": [...], \"rows\": [[...]] }, \"tips\": [{ \"icon\": \"...\", \"text\": \"...\" }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ფასები ინფორმაციული ხასიათისაა.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "options": { "timeout": 45000 }
+      },
+      "id": "clinic-report-designer",
+      "name": "Clinic Report Designer",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1550, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Clinics": {
+      "main": [[{ "node": "IF: Validate Secret", "type": "main", "index": 0 }]]
+    },
+    "IF: Validate Secret": {
+      "main": [[{ "node": "Clinic Orchestrator", "type": "main", "index": 0 }]]
+    },
+    "Clinic Orchestrator": {
+      "main": [
+        [
+          { "node": "Clinic Finder", "type": "main", "index": 0 },
+          { "node": "Pricing Analyst", "type": "main", "index": 0 },
+          { "node": "Review Aggregator", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Clinic Finder": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 0 }]]
+    },
+    "Pricing Analyst": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 1 }]]
+    },
+    "Review Aggregator": {
+      "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
+    },
+    "Merge Results": {
+      "main": [[{ "node": "Clinic Report Designer", "type": "main", "index": 0 }]]
+    },
+    "Clinic Report Designer": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

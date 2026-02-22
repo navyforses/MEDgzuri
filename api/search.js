@@ -13,11 +13,19 @@
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
 
 // ═══════════════ HANDLER ═══════════════
 module.exports = async function handler(req, res) {
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS — restrict to allowed origins when configured
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',')
+        : ['*'];
+    const origin = req.headers.origin || '*';
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -31,28 +39,46 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing type or data' });
         }
 
+        // Input validation
+        const MAX_TEXT_LENGTH = 2000;
+        const textFields = [data.diagnosis, data.symptoms, data.context, data.notes,
+                            data.existingConditions, data.medications];
+        for (const field of textFields) {
+            if (field && typeof field === 'string' && field.length > MAX_TEXT_LENGTH) {
+                return res.status(400).json({ error: 'Input too long' });
+            }
+        }
+        if (data.age && (isNaN(data.age) || data.age < 0 || data.age > 150)) {
+            return res.status(400).json({ error: 'Invalid age' });
+        }
+
         // Check API keys
         if (!PERPLEXITY_API_KEY && !ANTHROPIC_API_KEY) {
             // Demo mode - return mock data for testing
             console.log('[MedGzuri] No API keys configured, returning demo data');
             const demoResult = getDemoResult(type, data);
+            demoResult.isDemo = true;
             return res.status(200).json(demoResult);
         }
 
-        // Build search pipeline based on type
-        let result;
-        switch (type) {
-            case 'research':
-                result = await searchResearch(data);
-                break;
-            case 'symptoms':
-                result = await analyzeSymptoms(data);
-                break;
-            case 'clinics':
-                result = await searchClinics(data);
-                break;
-            default:
-                return res.status(400).json({ error: 'Invalid search type' });
+        // Try n8n multi-agent pipeline first, fall back to direct pipeline
+        let result = await proxyToN8n(type, data);
+
+        if (!result) {
+            // Fallback to existing direct pipeline
+            switch (type) {
+                case 'research':
+                    result = await searchResearch(data);
+                    break;
+                case 'symptoms':
+                    result = await analyzeSymptoms(data);
+                    break;
+                case 'clinics':
+                    result = await searchClinics(data);
+                    break;
+                default:
+                    return res.status(400).json({ error: 'Invalid search type' });
+            }
         }
 
         return res.status(200).json(result);
@@ -60,8 +86,7 @@ module.exports = async function handler(req, res) {
     } catch (err) {
         console.error('[MedGzuri] Search error:', err);
         return res.status(500).json({
-            error: 'Search failed',
-            message: err.message
+            error: 'ძიება ვერ შესრულდა. გთხოვთ სცადოთ მოგვიანებით.'
         });
     }
 };
@@ -132,6 +157,9 @@ async function perplexitySearch(query) {
     }
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         const response = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
@@ -150,8 +178,10 @@ async function perplexitySearch(query) {
                 max_tokens: 2000,
                 temperature: 0.1,
                 return_citations: true
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             console.error('[MedGzuri] Perplexity error:', response.status);
@@ -164,7 +194,11 @@ async function perplexitySearch(query) {
             citations: result.citations || []
         };
     } catch (err) {
-        console.error('[MedGzuri] Perplexity request failed:', err.message);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] Perplexity request timed out (30s)');
+        } else {
+            console.error('[MedGzuri] Perplexity request failed:', err.message);
+        }
         return null;
     }
 }
@@ -236,6 +270,9 @@ ${searchResults?.text ? `\nინტერნეტ ძიების შედ
 ${searchResults?.citations?.length ? `\nწყაროები: ${searchResults.citations.join(', ')}` : ''}`;
 
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -248,8 +285,10 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
                 max_tokens: 3000,
                 system: systemPrompts[role] || systemPrompts.research,
                 messages: [{ role: 'user', content: userMessage }]
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             console.error('[MedGzuri] Claude error:', response.status);
@@ -279,12 +318,71 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
         };
 
     } catch (err) {
-        console.error('[MedGzuri] Claude request failed:', err.message);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] Claude request timed out (45s)');
+        } else {
+            console.error('[MedGzuri] Claude request failed:', err.message);
+        }
         if (searchResults?.text) {
             return formatRawResults(role, query, searchResults);
         }
         throw err;
     }
+}
+
+// ═══════════════ N8N PROXY ═══════════════
+async function proxyToN8n(type, data) {
+    if (!N8N_WEBHOOK_BASE_URL) return null;
+
+    const webhookPaths = {
+        research: '/research',
+        symptoms: '/symptoms',
+        clinics: '/clinics'
+    };
+
+    if (!webhookPaths[type]) return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    try {
+        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}${webhookPaths[type]}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Webhook-Secret': N8N_WEBHOOK_SECRET || ''
+            },
+            body: JSON.stringify({ type, data }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.error(`[MedGzuri] n8n webhook error: ${response.status}`);
+            return null;
+        }
+
+        const result = await response.json();
+        return ensureBackwardCompat(result);
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] n8n proxy timed out (90s)');
+        } else {
+            console.error('[MedGzuri] n8n proxy failed:', err.message);
+        }
+        return null;
+    }
+}
+
+function ensureBackwardCompat(result) {
+    if (result.sections && (!result.items || result.items.length === 0)) {
+        result.items = result.sections.flatMap(s => s.items || []);
+    }
+    if (!result.meta) {
+        result.meta = 'ძიების შედეგები';
+    }
+    return result;
 }
 
 // ═══════════════ HELPERS ═══════════════

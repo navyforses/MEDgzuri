@@ -529,6 +529,13 @@
         if (sessionStorage.getItem('medGzuriLoggedIn') !== 'true') {
             window.location.href = 'login.html';
         }
+        // Session timeout: 2 hours
+        const loginTime = sessionStorage.getItem('medGzuriLoginTime');
+        if (loginTime && Date.now() - parseInt(loginTime) > 2 * 60 * 60 * 1000) {
+            sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
+            window.location.href = 'login.html';
+        }
     </script>
 
     <header class="admin-header">
@@ -1169,37 +1176,73 @@
             document.getElementById('colorBgAltValue').textContent = e.target.value;
         });
 
+        // SVG sanitization — remove dangerous elements and attributes
+        function sanitizeSVG(svgString) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, 'image/svg+xml');
+            const svg = doc.querySelector('svg');
+            if (!svg) return null;
+
+            const dangerousAttrs = ['onload', 'onclick', 'onerror', 'onmouseover',
+                'onfocus', 'onblur', 'onmouseenter', 'onanimationend'];
+
+            svg.querySelectorAll('*').forEach(el => {
+                // Remove script tags and foreignObject
+                if (['script', 'foreignobject', 'iframe', 'object', 'embed'].includes(el.tagName.toLowerCase())) {
+                    el.remove();
+                    return;
+                }
+                // Remove event handler attributes
+                dangerousAttrs.forEach(attr => el.removeAttribute(attr));
+                // Remove javascript: hrefs
+                if (el.hasAttribute('href') && el.getAttribute('href').trim().toLowerCase().startsWith('javascript:')) {
+                    el.removeAttribute('href');
+                }
+                if (el.hasAttribute('xlink:href') && el.getAttribute('xlink:href').trim().toLowerCase().startsWith('javascript:')) {
+                    el.removeAttribute('xlink:href');
+                }
+            });
+
+            // Also sanitize the SVG element itself
+            dangerousAttrs.forEach(attr => svg.removeAttribute(attr));
+
+            svg.setAttribute('width', '64');
+            svg.setAttribute('height', '64');
+            return svg.outerHTML;
+        }
+
         // Logo upload handler
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             if (file.size > 500 * 1024) {
-                showToast('❌ ფაილი ძალიან დიდია (მაქს. 500KB)', 'error');
+                showToast('ფაილი ძალიან დიდია (მაქს. 500KB)', 'error');
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const result = e.target.result;
-                if (file.type === 'image/svg+xml') {
-                    // For SVG, extract the SVG content
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(result, 'image/svg+xml');
-                    const svg = doc.querySelector('svg');
-                    if (svg) {
-                        svg.setAttribute('width', '64');
-                        svg.setAttribute('height', '64');
-                        document.getElementById('logoPreview').innerHTML = svg.outerHTML;
-                        currentConfig.logo.svg = svg.outerHTML;
+            if (file.type === 'image/svg+xml') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const sanitized = sanitizeSVG(e.target.result);
+                    if (sanitized) {
+                        document.getElementById('logoPreview').innerHTML = sanitized;
+                        currentConfig.logo.svg = sanitized;
+                    } else {
+                        showToast('SVG ფაილი არავალიდურია', 'error');
                     }
-                } else {
-                    // For images, create an img tag
-                    document.getElementById('logoPreview').innerHTML = `<img src="${result}" style="max-width: 100%; max-height: 100px;">`;
-                    currentConfig.logo.svg = `<img src="${result}" style="max-width: 100%; max-height: 100%;">`;
-                }
-            };
-            reader.readAsText(file);
+                };
+                reader.readAsText(file);
+            } else {
+                // PNG/JPG — use readAsDataURL for proper binary handling
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUrl = e.target.result;
+                    document.getElementById('logoPreview').innerHTML = `<img src="${dataUrl}" style="max-width: 100%; max-height: 100px;">`;
+                    currentConfig.logo.svg = `<img src="${dataUrl}" style="max-width: 100%; max-height: 100%;">`;
+                };
+                reader.readAsDataURL(file);
+            }
         }
 
         // Show/hide sections
@@ -1285,6 +1328,7 @@
         // Logout function
         function logout() {
             sessionStorage.removeItem('medGzuriLoggedIn');
+            sessionStorage.removeItem('medGzuriLoginTime');
             window.location.href = 'login.html';
         }
 

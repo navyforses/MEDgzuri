@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MED&გზური — სამედიცინო კვლევების სანავიგაციო სერვისი</title>
     <meta name="description" content="გეხმარებით სამეცნიერო კვლევების მოძიებაში, თარგმნაში და სტრუქტურირებაში საქართველოში">
-    
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="MED&გზური — სამედიცინო კვლევების სანავიგაციო სერვისი">
+    <meta property="og:description" content="გეხმარებით სამეცნიერო კვლევების მოძიებაში, თარგმნაში და სტრუქტურირებაში საქართველოში">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ka_GE">
+    <meta name="twitter:card" content="summary">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,7 +25,7 @@
             --color-primary-pale: rgba(95, 168, 211, 0.15);
             --color-text: #0A1628;
             --color-text-secondary: rgba(10, 22, 40, 0.6);
-            --color-text-muted: rgba(10, 22, 40, 0.4);
+            --color-text-muted: rgba(10, 22, 40, 0.55);
             --color-bg: #FAFBFC;
             --color-bg-alt: #F7FAFB;
             --color-bg-white: #FFFFFF;
@@ -1362,16 +1369,16 @@
 
     <!-- Section Navigation Dots -->
     <div class="section-nav">
-        <div class="section-dot active" onclick="goToSection(0)" title="მთავარი"></div>
-        <div class="section-dot" onclick="goToSection(1)" title="სერვისები"></div>
-        <div class="section-dot" onclick="goToSection(2)" title="პროცესი"></div>
-        <div class="section-dot" onclick="goToSection(3)" title="კონტაქტი"></div>
+        <div class="section-dot active" onclick="goToSection(0)" title="მთავარი" role="button" aria-label="მთავარი სექცია"></div>
+        <div class="section-dot" onclick="goToSection(1)" title="სერვისები" role="button" aria-label="სერვისების სექცია"></div>
+        <div class="section-dot" onclick="goToSection(2)" title="პროცესი" role="button" aria-label="პროცესის სექცია"></div>
+        <div class="section-dot" onclick="goToSection(3)" title="კონტაქტი" role="button" aria-label="კონტაქტის სექცია"></div>
     </div>
 
     <!-- Arrow Navigation -->
     <div class="nav-arrows">
-        <button class="nav-arrow" id="prevArrow" onclick="prevSection()">←</button>
-        <button class="nav-arrow" id="nextArrow" onclick="nextSection()">→</button>
+        <button class="nav-arrow" id="prevArrow" onclick="prevSection()" aria-label="წინა სექცია">←</button>
+        <button class="nav-arrow" id="nextArrow" onclick="nextSection()" aria-label="შემდეგი სექცია">→</button>
     </div>
 
     <!-- Horizontal Container -->
@@ -1660,16 +1667,21 @@
             nextArrow.disabled = currentSection === sections.length - 1;
         }
 
-        // Track scroll position
+        // Track scroll position (debounced with rAF)
+        let scrollRafId = null;
         container.addEventListener('scroll', () => {
-            const scrollLeft = container.scrollLeft;
-            const sectionWidth = window.innerWidth;
-            const newSection = Math.round(scrollLeft / sectionWidth);
-            
-            if (newSection !== currentSection) {
-                currentSection = newSection;
-                updateNavigation();
-            }
+            if (scrollRafId) return;
+            scrollRafId = requestAnimationFrame(() => {
+                const scrollLeft = container.scrollLeft;
+                const sectionWidth = window.innerWidth;
+                const newSection = Math.round(scrollLeft / sectionWidth);
+
+                if (newSection !== currentSection) {
+                    currentSection = newSection;
+                    updateNavigation();
+                }
+                scrollRafId = null;
+            });
         });
 
         // Keyboard navigation
@@ -1722,7 +1734,11 @@
             
             const existingLeads = JSON.parse(localStorage.getItem('medGzuriLeads') || '[]');
             existingLeads.push(lead);
-            localStorage.setItem('medGzuriLeads', JSON.stringify(existingLeads));
+            try {
+                localStorage.setItem('medGzuriLeads', JSON.stringify(existingLeads));
+            } catch (e) {
+                console.warn('localStorage quota exceeded');
+            }
             
             document.getElementById('contactForm').style.display = 'none';
             document.getElementById('formSuccess').classList.add('show');
@@ -1749,11 +1765,26 @@
                     if (config.colors.bgAlt) root.style.setProperty('--color-bg-alt', config.colors.bgAlt);
                 }
 
-                // Apply logo
-                if (config.logo) {
-                    if (config.logo.svg) {
+                // Apply logo (with sanitization)
+                if (config.logo && config.logo.svg) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(config.logo.svg, 'text/html');
+                    const parsed = doc.body.firstChild;
+                    if (parsed && (['svg', 'SVG', 'img', 'IMG'].includes(parsed.tagName))) {
+                        // Remove any dangerous attributes
+                        const dangerousAttrs = ['onload','onclick','onerror','onmouseover','onfocus'];
+                        if (parsed.tagName.toLowerCase() === 'svg') {
+                            parsed.querySelectorAll('*').forEach(el => {
+                                if (['script','foreignobject','iframe'].includes(el.tagName.toLowerCase())) {
+                                    el.remove();
+                                    return;
+                                }
+                                dangerousAttrs.forEach(attr => el.removeAttribute(attr));
+                            });
+                            dangerousAttrs.forEach(attr => parsed.removeAttribute(attr));
+                        }
                         const logoSvg = document.querySelector('.logo svg');
-                        if (logoSvg) logoSvg.outerHTML = config.logo.svg;
+                        if (logoSvg) logoSvg.outerHTML = parsed.outerHTML;
                     }
                 }
 
