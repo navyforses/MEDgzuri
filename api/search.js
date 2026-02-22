@@ -81,6 +81,9 @@ module.exports = async function handler(req, res) {
                 case 'clinics':
                     result = await searchClinics(data);
                     break;
+                case 'report':
+                    result = await generateReport(data.reportType, data.searchResult);
+                    break;
                 default:
                     return res.status(400).json({ error: 'Invalid search type' });
             }
@@ -159,6 +162,112 @@ async function searchClinics(data) {
     return structured;
 }
 
+// ═══════════════ REPORT GENERATION ═══════════════
+async function generateReport(reportType, searchResult) {
+    if (!ANTHROPIC_API_KEY) {
+        return getDemoReport(reportType, searchResult);
+    }
+
+    const reportPrompt = `შენ ხარ მედგზურის სამედიცინო ანგარიშის ავტორი. მოგეცემა ძიების შედეგები და შენ უნდა შექმნა სრული, პროფესიული სამედიცინო ანგარიში ქართულ ენაზე.
+
+ენობრივი მოთხოვნები:
+- გამოიყენე ლიტერატურული ქართული ენა, სწორი ბრუნვები და ზმნის ფორმები
+- სამედიცინო ტერმინოლოგია მხოლოდ ქართულად
+- წინადადებები სრული, გრამატიკულად გამართული და პროფესიული ტონით
+- აბზაცები ლოგიკურად დაკავშირებული და თანმიმდევრული
+
+ანგარიშის სტრუქტურა:
+1. შესავალი — თემის მოკლე აღწერა და ანგარიშის მიზანი
+2. მიმოხილვა — ძირითადი მიგნებები და არსებული მონაცემების ანალიზი
+3. დეტალური ანალიზი — თითოეული მნიშვნელოვანი აღმოჩენის განხილვა
+4. რეკომენდაციები — კონკრეტული, ქმედითი რჩევები
+5. დასკვნა — შეჯამება და შემდეგი ნაბიჯები
+
+პასუხი მხოლოდ JSON ფორმატში:
+{
+  "title": "ანგარიშის სათაური",
+  "sections": [
+    { "heading": "სექციის სათაური", "content": "სრული ტექსტი აბზაცებით" }
+  ],
+  "disclaimer": "სამედიცინო პასუხისმგებლობის უარყოფა"
+}`;
+
+    const userMessage = `ანგარიშის ტიპი: ${reportType || 'research'}
+ძიების შედეგები: ${JSON.stringify(searchResult)}`;
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-5-20250514',
+                max_tokens: 4000,
+                system: reportPrompt,
+                messages: [{ role: 'user', content: userMessage }]
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errorBody = await response.text().catch(() => 'unable to read body');
+            console.error('[MedGzuri] Claude report error:', response.status, errorBody);
+            return getDemoReport(reportType, searchResult);
+        }
+
+        const result = await response.json();
+        const text = result.content?.[0]?.text || '';
+
+        const parsed = extractJSON(text);
+        if (parsed && parsed.sections) {
+            return parsed;
+        }
+
+        return {
+            title: 'სამედიცინო ანგარიში',
+            sections: [{ heading: 'ანგარიში', content: text }],
+            disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.'
+        };
+    } catch (err) {
+        console.error('[MedGzuri] Report generation failed:', err.message);
+        return getDemoReport(reportType, searchResult);
+    }
+}
+
+function getDemoReport(reportType, searchResult) {
+    const query = searchResult?.meta || 'სამედიცინო მოთხოვნა';
+    return {
+        title: `სამედიცინო ანგარიში — ${query}`,
+        isDemo: true,
+        sections: [
+            {
+                heading: 'შესავალი',
+                content: 'წინამდებარე ანგარიში წარმოადგენს სადემონსტრაციო დოკუმენტს. რეალური ანგარიშის გენერაციისთვის საჭიროა სისტემის სრული კონფიგურაცია. ანგარიში მომზადებულია ხელმისაწვდომი სამედიცინო ლიტერატურისა და კლინიკური მონაცემების საფუძველზე.'
+            },
+            {
+                heading: 'მიმოხილვა',
+                content: 'ძიების შედეგების ანალიზის საფუძველზე გამოვლინდა რამდენიმე მნიშვნელოვანი მიგნება. აღნიშნული მიგნებები ეფუძნება თანამედროვე სამედიცინო კვლევებსა და კლინიკურ პრაქტიკას.'
+            },
+            {
+                heading: 'რეკომენდაციები',
+                content: 'რეკომენდირებულია კონსულტაცია შესაბამის სამედიცინო სპეციალისტთან. დამატებითი გამოკვლევების ჩატარება დაგეხმარებათ უფრო ზუსტი სურათის შექმნაში.'
+            },
+            {
+                heading: 'დასკვნა',
+                content: 'ეს სადემონსტრაციო ანგარიში ასახავს დოკუმენტის სტრუქტურასა და ფორმატს. სრული ანგარიში მოიცავს დეტალურ ანალიზს, წყაროების მითითებას და პერსონალიზებულ რეკომენდაციებს.'
+            }
+        ],
+        disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად.'
+    };
+}
+
 // ═══════════════ PERPLEXITY API ═══════════════
 async function perplexitySearch(query) {
     if (!PERPLEXITY_API_KEY) {
@@ -226,6 +335,15 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
         return getDemoResult(role === 'symptoms' ? 'symptoms' : role === 'clinics' ? 'clinics' : 'research', { diagnosis: query });
     }
 
+    const grammarRules = `
+
+ენობრივი მოთხოვნები:
+- გამოიყენე ლიტერატურული ქართული ენა, სწორი ბრუნვები და ზმნის ფორმები
+- სამედიცინო ტერმინოლოგია მხოლოდ ქართულად (არ გამოიყენო ინგლისური ფრჩხილებში)
+- წინადადებები სრული და გრამატიკულად გამართული უნდა იყოს
+- გამოიყენე პროფესიული სამედიცინო რეგისტრი
+- თითოეულ item-ის body ველში: მინიმუმ 2-3 სრული, შინაარსიანი წინადადება`;
+
     const systemPrompts = {
         research: `შენ ხარ მედგზურის სამედიცინო კვლევის ექსპერტი. მომხმარებელმა მოგაწოდა დიაგნოზი და სამედიცინო კონტექსტი. ინტერნეტ ძიების შედეგების საფუძველზე, შექმენი სტრუქტურირებული პასუხი ქართულ ენაზე.
 
@@ -235,12 +353,13 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 3. აქტიური კლინიკური კვლევები (თუ არსებობს)
 4. მკურნალობის ვარიანტები (სტანდარტული და ექსპერიმენტული)
 5. რეკომენდაცია შემდეგი ნაბიჯებისთვის
+${grammarRules}
 
-პასუხი უნდა იყოს JSON ფორმატში:
+პასუხი უნდა იყოს მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ის გარეთ):
 {
   "meta": "ნაპოვნია X კვლევა, Y კლინიკური კვლევა",
   "items": [
-    { "title": "სათაური", "source": "წყარო", "body": "აღწერა", "tags": ["tag1"], "url": "ლინკი" }
+    { "title": "სათაური", "source": "წყარო", "body": "აღწერა", "tags": ["ტეგი"], "url": "ლინკი" }
   ]
 }`,
 
@@ -250,13 +369,14 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 1. რა ტიპის გამოკვლევები არსებობს ამ სიმპტომებისთვის
 2. რომელ სპეციალისტთან შეიძლება მიმართვა
 3. რა კვლევები არსებობს ამ სიმპტომატიკასთან დაკავშირებით
+${grammarRules}
 
-პასუხი JSON ფორმატში:
+პასუხი მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ის გარეთ):
 {
   "meta": "სიმპტომების ანალიზი",
   "summary": "ზოგადი მიმოხილვა",
   "items": [
-    { "title": "რეკომენდებული გამოკვლევა/სპეციალისტი", "body": "აღწერა", "tags": ["tag1"] }
+    { "title": "რეკომენდებული გამოკვლევა/სპეციალისტი", "body": "აღწერა", "tags": ["ტეგი"] }
   ]
 }`,
 
@@ -267,12 +387,13 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 2. სავარაუდო ფასები (თუ ხელმისაწვდომია)
 3. მკურნალობის ტექნოლოგიები
 4. საკონტაქტო ინფორმაცია ან ვებსაიტი
+${grammarRules}
 
-პასუხი JSON ფორმატში:
+პასუხი მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ის გარეთ):
 {
   "meta": "ნაპოვნია X კლინიკა Y ქვეყანაში",
   "items": [
-    { "title": "კლინიკის სახელი", "source": "ქვეყანა", "body": "აღწერა, ფასი, ტექნოლოგია", "tags": ["tag1"], "url": "ვებსაიტი" }
+    { "title": "კლინიკის სახელი", "source": "ქვეყანა", "body": "აღწერა, ფასი, ტექნოლოგია", "tags": ["ტეგი"], "url": "ვებსაიტი" }
   ]
 }`
     };
