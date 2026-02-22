@@ -3,10 +3,18 @@
   "functions": {
     "api/search.js": {
       "maxDuration": 120
+    },
+    "api/auth.js": {
+      "maxDuration": 30
+    },
+    "api/leads.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     { "source": "/api/search", "destination": "/api/search.js" },
+    { "source": "/api/auth", "destination": "/api/auth.js" },
+    { "source": "/api/leads", "destination": "/api/leads.js" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/admin", "destination": "/admin.html" },

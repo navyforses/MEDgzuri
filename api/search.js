@@ -15,6 +15,100 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
 const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// ═══════════════ IN-MEMORY CACHE (LRU) ═══════════════
+const CACHE_MAX_SIZE = 100;
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const cache = new Map();
+
+function getCacheKey(type, data) {
+    const normalized = JSON.stringify({ type, ...data });
+    let hash = 0;
+    for (let i = 0; i < normalized.length; i++) {
+        const ch = normalized.charCodeAt(i);
+        hash = ((hash << 5) - hash) + ch;
+        hash |= 0;
+    }
+    return `${type}:${hash}`;
+}
+
+function cacheGet(key) {
+    const entry = cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL_MS) {
+        cache.delete(key);
+        return null;
+    }
+    // Move to end (LRU)
+    cache.delete(key);
+    cache.set(key, entry);
+    return entry.data;
+}
+
+function cacheSet(key, data) {
+    if (cache.size >= CACHE_MAX_SIZE) {
+        // Evict oldest entry
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
+    }
+    cache.set(key, { data, ts: Date.now() });
+}
+
+// ═══════════════ RATE LIMITER ═══════════════
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 20; // max requests per IP per minute
+const rateLimitMap = new Map();
+
+function isRateLimited(ip) {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+        rateLimitMap.set(ip, { windowStart: now, count: 1 });
+        return false;
+    }
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX) return true;
+    return false;
+}
+
+// Periodic cleanup of rate limit entries (every 5 min)
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+            rateLimitMap.delete(ip);
+        }
+    }
+}, 5 * 60 * 1000);
+
+// ═══════════════ SEARCH LOGGING (Supabase) ═══════════════
+async function logSearch(type, data, resultMeta, pipelineMs, source, clientIp) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/search_logs`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                search_type: type,
+                query: data.diagnosis || data.symptoms || data.notes || '',
+                result_count: resultMeta?.items?.length || 0,
+                pipeline_ms: pipelineMs,
+                source: source,
+                client_ip: clientIp,
+                created_at: new Date().toISOString()
+            })
+        });
+    } catch (err) {
+        console.error('[MedGzuri] Search log failed:', err.message);
+    }
+}
 
 // ═══════════════ HANDLER ═══════════════
 module.exports = async function handler(req, res) {
@@ -33,6 +127,12 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
+        // Rate limiting
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+        if (isRateLimited(clientIp)) {
+            return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
+        }
+
         const { type, data } = req.body;
 
         if (!type || !data) {
@@ -56,6 +156,18 @@ module.exports = async function handler(req, res) {
         const validTypes = ['research', 'symptoms', 'clinics', 'report'];
         if (!validTypes.includes(type)) {
             return res.status(400).json({ error: 'Invalid search type' });
+        }
+
+        // Check cache first (skip for reports)
+        if (type !== 'report') {
+            const cacheKey = getCacheKey(type, data);
+            const cached = cacheGet(cacheKey);
+            if (cached) {
+                console.log(`[MedGzuri] Cache HIT for ${type}`);
+                cached._cached = true;
+                cached._pipeline = { ms: 0, source: 'cache' };
+                return res.status(200).json(cached);
+            }
         }
 
         // Check API keys
@@ -102,8 +214,18 @@ module.exports = async function handler(req, res) {
 
         // Add pipeline debug info
         const pipelineMs = Date.now() - pipelineStart;
+        const pipelineSource = pipelineStatus.n8n === 'success' ? 'n8n' : 'direct';
         console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | n8n: ${pipelineStatus.n8n} | type: ${type}`);
         result._pipeline = { ms: pipelineMs, n8n: pipelineStatus.n8n };
+
+        // Cache the result (skip reports)
+        if (type !== 'report') {
+            const cacheKey = getCacheKey(type, data);
+            cacheSet(cacheKey, result);
+        }
+
+        // Log search to Supabase (async, non-blocking)
+        logSearch(type, data, result, pipelineMs, pipelineSource, clientIp);
 
         return res.status(200).json(result);
 

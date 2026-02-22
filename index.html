@@ -1716,30 +1716,36 @@
             }
         }
 
-        // Contact form handler
-        document.getElementById('contactForm').addEventListener('submit', function(e) {
+        // Contact form handler — sends to Leads API with localStorage fallback
+        document.getElementById('contactForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const lead = {
-                id: Date.now().toString(),
                 name: document.getElementById('contactName').value.trim(),
                 phone: document.getElementById('contactPhone').value.trim(),
-                email: document.getElementById('contactEmail').value.trim() || '-',
-                source: 'Website',
+                email: document.getElementById('contactEmail').value.trim() || '',
                 message: document.getElementById('contactMessage').value.trim(),
-                status: 'new',
-                date: new Date().toISOString(),
-                notes: []
+                source: 'website'
             };
-            
+
+            // Save to localStorage as backup
             const existingLeads = JSON.parse(localStorage.getItem('medGzuriLeads') || '[]');
-            existingLeads.push(lead);
+            existingLeads.push({ ...lead, id: Date.now().toString(), status: 'new', date: new Date().toISOString(), notes: [] });
             try {
                 localStorage.setItem('medGzuriLeads', JSON.stringify(existingLeads));
             } catch (e) {
                 console.warn('localStorage quota exceeded');
             }
-            
+
+            // Send to Leads API (non-blocking)
+            try {
+                fetch('/api/leads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'create', ...lead })
+                }).catch(() => {});
+            } catch (e) { /* API unavailable, localStorage backup exists */ }
+
             document.getElementById('contactForm').style.display = 'none';
             document.getElementById('formSuccess').classList.add('show');
         });
