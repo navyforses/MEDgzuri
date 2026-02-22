@@ -893,11 +893,12 @@
         /* ═══════════════ PDF REPORT STYLES ═══════════════ */
         .report-page {
             font-family: 'Noto Sans Georgian', sans-serif;
-            width: 190mm;
-            padding: 10mm;
+            width: 760px;
+            padding: 40px;
             color: #1a1a1a;
             line-height: 1.8;
             background: #fff;
+            box-sizing: border-box;
         }
         .report-header-block {
             text-align: center;
@@ -1232,8 +1233,8 @@
         <div id="results-list"></div>
     </div>
 
-    <!-- PDF REPORT TEMPLATE (hidden) -->
-    <div id="report-template" style="position:absolute;left:-9999px;top:0;">
+    <!-- PDF REPORT TEMPLATE (hidden via overflow, not offscreen — html2canvas compatible) -->
+    <div id="report-template" style="overflow:hidden;height:0;width:0;position:absolute;left:0;top:0;opacity:0;pointer-events:none;">
         <div class="report-page" id="report-page">
             <div class="report-header-block">
                 <div class="report-logo">MED&გზური</div>
@@ -1735,25 +1736,33 @@
         btn.disabled = true;
         btn.textContent = 'ანგარიში მზადდება...';
 
+        var reportTemplate = document.getElementById('report-template');
+
         try {
             // Request report from API
-            var response = await fetch('/api/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'report',
-                    data: {
-                        reportType: lastSearchType,
-                        searchResult: lastSearchResult
-                    }
-                })
-            });
-
             var report;
-            if (response.ok) {
-                report = await response.json();
-            } else {
-                // Fallback: build report from existing results
+            try {
+                var response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'report',
+                        data: {
+                            reportType: lastSearchType,
+                            searchResult: lastSearchResult
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    report = await response.json();
+                }
+            } catch (fetchErr) {
+                console.warn('[MedGzuri] Report API failed, using local:', fetchErr.message);
+            }
+
+            // Fallback: build report from existing results
+            if (!report || (!report.sections && !report.summary)) {
                 report = buildLocalReport(lastSearchType, lastSearchResult);
             }
 
@@ -1781,8 +1790,34 @@
             } else if (report.summary) {
                 bodyHtml = '<p>' + escapeHtml(report.summary) + '</p>';
             }
+
+            // Fallback if body is still empty
+            if (!bodyHtml && lastSearchResult.items && lastSearchResult.items.length > 0) {
+                report = buildLocalReport(lastSearchType, lastSearchResult);
+                report.sections.forEach(function(section) {
+                    bodyHtml += '<div class="report-section-heading">' + escapeHtml(section.heading) + '</div>';
+                    var paragraphs = (section.content || '').split('\n').filter(function(p) { return p.trim(); });
+                    paragraphs.forEach(function(p) {
+                        bodyHtml += '<p>' + escapeHtml(p) + '</p>';
+                    });
+                });
+            }
+
             bodyEl.innerHTML = bodyHtml;
             disclaimerEl.textContent = report.disclaimer || 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.';
+
+            // Make template visible for html2canvas to capture correctly
+            reportTemplate.style.overflow = 'visible';
+            reportTemplate.style.height = 'auto';
+            reportTemplate.style.width = 'auto';
+            reportTemplate.style.position = 'fixed';
+            reportTemplate.style.left = '0';
+            reportTemplate.style.top = '0';
+            reportTemplate.style.zIndex = '-9999';
+            reportTemplate.style.opacity = '0';
+
+            // Wait for browser to render the content
+            await new Promise(function(resolve) { setTimeout(resolve, 200); });
 
             // Generate PDF
             var element = document.getElementById('report-page');
@@ -1790,9 +1825,9 @@
                 margin: [10, 10, 15, 10],
                 filename: 'MedGzuri-' + (lastSearchType || 'report') + '-' + new Date().toISOString().slice(0, 10) + '.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, windowWidth: 800 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+                pagebreak: { mode: ['css', 'legacy'] }
             };
 
             await html2pdf().set(opt).from(element).save();
@@ -1801,6 +1836,14 @@
             console.error('[MedGzuri] Report download failed:', err);
             alert('ანგარიშის გენერაცია ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.');
         } finally {
+            // Hide template again
+            reportTemplate.style.overflow = 'hidden';
+            reportTemplate.style.height = '0';
+            reportTemplate.style.width = '0';
+            reportTemplate.style.position = 'absolute';
+            reportTemplate.style.zIndex = '';
+            reportTemplate.style.opacity = '0';
+
             btn.disabled = false;
             btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ანგარიშის ჩამოტვირთვა (PDF)';
         }
