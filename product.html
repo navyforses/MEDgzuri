@@ -13,9 +13,17 @@
     <meta property="og:locale" content="ka_GE">
     <meta name="twitter:card" content="summary">
 
+    <!-- Performance: DNS prefetch & preconnect -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0A1628">
 
     <style>
         :root {
@@ -852,6 +860,95 @@
             border-radius: 999px;
             margin-top: 0.5rem;
         }
+
+        /* ═══════════════ DOWNLOAD BUTTON ═══════════════ */
+        .download-report-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background: var(--teal);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Noto Sans Georgian', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+        }
+        .download-report-btn:hover { background: var(--teal-hover); }
+        .download-report-btn:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .results-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        /* ═══════════════ PDF REPORT STYLES ═══════════════ */
+        .report-page {
+            font-family: 'Noto Sans Georgian', sans-serif;
+            width: 190mm;
+            padding: 10mm;
+            color: #1a1a1a;
+            line-height: 1.8;
+            background: #fff;
+        }
+        .report-header-block {
+            text-align: center;
+            border-bottom: 2px solid #5FA8D3;
+            padding-bottom: 12pt;
+            margin-bottom: 16pt;
+        }
+        .report-logo {
+            font-size: 10pt;
+            color: #5FA8D3;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .report-title {
+            font-size: 16pt;
+            color: #1e293b;
+            margin: 8pt 0 4pt;
+            font-weight: 700;
+        }
+        .report-date {
+            font-size: 9pt;
+            color: #6b7280;
+        }
+        .report-section-heading {
+            font-size: 13pt;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 18pt 0 8pt;
+            padding-bottom: 4pt;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .report-body p {
+            text-align: justify;
+            margin: 0 0 8pt;
+            font-size: 10.5pt;
+        }
+        .report-disclaimer {
+            font-size: 8pt;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8pt;
+            margin-top: 20pt;
+            font-style: italic;
+        }
+        .report-footer {
+            text-align: center;
+            font-size: 7pt;
+            color: #9ca3af;
+            margin-top: 12pt;
+        }
     </style>
 </head>
 <body>
@@ -1127,8 +1224,28 @@
         <div class="results-header">
             <div class="results-title" id="results-title">ძიების შედეგები</div>
             <div class="results-meta" id="results-meta"></div>
+            <button id="download-report-btn" class="download-report-btn" onclick="downloadReport()" style="display:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                ანგარიშის ჩამოტვირთვა (PDF)
+            </button>
         </div>
         <div id="results-list"></div>
+    </div>
+
+    <!-- PDF REPORT TEMPLATE (hidden) -->
+    <div id="report-template" style="position:absolute;left:-9999px;top:0;">
+        <div class="report-page" id="report-page">
+            <div class="report-header-block">
+                <div class="report-logo">MED&გზური</div>
+                <h1 class="report-title" id="report-title-text"></h1>
+                <div class="report-date" id="report-date-text"></div>
+            </div>
+            <div class="report-body" id="report-body-content"></div>
+            <div class="report-disclaimer" id="report-disclaimer-text"></div>
+            <div class="report-footer">
+                MED&გზური &copy; 2026 | ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას
+            </div>
+        </div>
     </div>
 
     <!-- DISCLAIMER -->
@@ -1140,6 +1257,8 @@
     // ═══════════════ STATE ═══════════════
     let currentTab = 'research';
     let isSearching = false;
+    let lastSearchResult = null;
+    let lastSearchType = null;
 
     // ═══════════════ TAB SWITCHING ═══════════════
     function switchTab(tab) {
@@ -1201,7 +1320,7 @@
             updateAIStep(steps[0].key, 'active');
             updateAIStatus(steps[0].label + '...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
 
-            const response = await fetch(`/api/search.js`, {
+            const response = await fetch('/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type, data }),
@@ -1457,6 +1576,14 @@
             list.appendChild(disc);
         }
 
+        // Save result for report generation
+        lastSearchResult = result;
+        lastSearchType = type;
+
+        // Show download button
+        var dlBtn = document.getElementById('download-report-btn');
+        if (dlBtn) dlBtn.style.display = 'inline-flex';
+
         container.classList.add('visible');
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1598,6 +1725,121 @@
             .filter(l => l.trim())
             .map(l => `<p>${escapeHtml(l)}</p>`)
             .join('');
+    }
+
+    // ═══════════════ PDF REPORT GENERATION ═══════════════
+    async function downloadReport() {
+        if (!lastSearchResult) return;
+
+        var btn = document.getElementById('download-report-btn');
+        btn.disabled = true;
+        btn.textContent = 'ანგარიში მზადდება...';
+
+        try {
+            // Request report from API
+            var response = await fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'report',
+                    data: {
+                        reportType: lastSearchType,
+                        searchResult: lastSearchResult
+                    }
+                })
+            });
+
+            var report;
+            if (response.ok) {
+                report = await response.json();
+            } else {
+                // Fallback: build report from existing results
+                report = buildLocalReport(lastSearchType, lastSearchResult);
+            }
+
+            // Fill template
+            var titleEl = document.getElementById('report-title-text');
+            var dateEl = document.getElementById('report-date-text');
+            var bodyEl = document.getElementById('report-body-content');
+            var disclaimerEl = document.getElementById('report-disclaimer-text');
+
+            titleEl.textContent = report.title || 'სამედიცინო ანგარიში';
+            dateEl.textContent = new Date().toLocaleDateString('ka-GE', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            // Build body HTML
+            var bodyHtml = '';
+            if (report.sections && report.sections.length > 0) {
+                report.sections.forEach(function(section) {
+                    bodyHtml += '<div class="report-section-heading">' + escapeHtml(section.heading) + '</div>';
+                    var paragraphs = (section.content || '').split('\n').filter(function(p) { return p.trim(); });
+                    paragraphs.forEach(function(p) {
+                        bodyHtml += '<p>' + escapeHtml(p) + '</p>';
+                    });
+                });
+            } else if (report.summary) {
+                bodyHtml = '<p>' + escapeHtml(report.summary) + '</p>';
+            }
+            bodyEl.innerHTML = bodyHtml;
+            disclaimerEl.textContent = report.disclaimer || 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.';
+
+            // Generate PDF
+            var element = document.getElementById('report-page');
+            var opt = {
+                margin: [10, 10, 15, 10],
+                filename: 'MedGzuri-' + (lastSearchType || 'report') + '-' + new Date().toISOString().slice(0, 10) + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            await html2pdf().set(opt).from(element).save();
+
+        } catch (err) {
+            console.error('[MedGzuri] Report download failed:', err);
+            alert('ანგარიშის გენერაცია ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ანგარიშის ჩამოტვირთვა (PDF)';
+        }
+    }
+
+    function buildLocalReport(type, result) {
+        var typeNames = { research: 'კვლევების', symptoms: 'სიმპტომების', clinics: 'კლინიკების' };
+        var sections = [];
+
+        sections.push({
+            heading: 'შესავალი',
+            content: 'წინამდებარე ანგარიში მომზადებულია MED&გზურის საძიებო სისტემის მიერ მოპოვებული მონაცემების საფუძველზე.'
+        });
+
+        if (result.items && result.items.length > 0) {
+            var content = '';
+            result.items.forEach(function(item) {
+                content += (item.title || '') + '\n' + (item.body || '') + '\n\n';
+            });
+            sections.push({
+                heading: 'ძირითადი მიგნებები',
+                content: content.trim()
+            });
+        }
+
+        if (result.summary) {
+            sections.push({ heading: 'მიმოხილვა', content: result.summary });
+        }
+
+        sections.push({
+            heading: 'დასკვნა',
+            content: 'დამატებითი ინფორმაციისთვის მიმართეთ კვალიფიციურ სამედიცინო სპეციალისტს.'
+        });
+
+        return {
+            title: (typeNames[type] || 'სამედიცინო') + ' ანგარიში',
+            sections: sections,
+            disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად.'
+        };
     }
 
     function escapeHtml(str) {
