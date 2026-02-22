@@ -1201,7 +1201,7 @@
             updateAIStep(steps[0].key, 'active');
             updateAIStatus(steps[0].label + '...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
 
-            const response = await fetch(`/api/search.js`, {
+            const response = await fetch('/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type, data }),

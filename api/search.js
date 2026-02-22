@@ -61,8 +61,13 @@ module.exports = async function handler(req, res) {
             return res.status(200).json(demoResult);
         }
 
+        // Pipeline tracking
+        const pipelineStart = Date.now();
+        const pipelineStatus = { n8n: 'skipped', perplexity: 'skipped', claude: 'skipped' };
+
         // Try n8n multi-agent pipeline first, fall back to direct pipeline
         let result = await proxyToN8n(type, data);
+        pipelineStatus.n8n = result ? 'success' : (N8N_WEBHOOK_BASE_URL ? 'failed' : 'skipped');
 
         if (!result) {
             // Fallback to existing direct pipeline
@@ -80,6 +85,11 @@ module.exports = async function handler(req, res) {
                     return res.status(400).json({ error: 'Invalid search type' });
             }
         }
+
+        // Add pipeline debug info
+        const pipelineMs = Date.now() - pipelineStart;
+        console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | n8n: ${pipelineStatus.n8n} | type: ${type}`);
+        result._pipeline = { ms: pipelineMs, n8n: pipelineStatus.n8n };
 
         return res.status(200).json(result);
 
@@ -184,13 +194,16 @@ async function perplexitySearch(query) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.error('[MedGzuri] Perplexity error:', response.status);
+            const errorBody = await response.text().catch(() => 'unable to read body');
+            console.error('[MedGzuri] Perplexity error:', response.status, errorBody);
             return null;
         }
 
         const result = await response.json();
+        const content = result.choices?.[0]?.message?.content || '';
+        console.log(`[MedGzuri] Perplexity success: ${content.length} chars, ${(result.citations || []).length} citations`);
         return {
-            text: result.choices?.[0]?.message?.content || '',
+            text: content,
             citations: result.citations || []
         };
     } catch (err) {
@@ -264,10 +277,15 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 }`
     };
 
+    const searchSection = searchResults?.text
+        ? `\nინტერნეტ ძიების შედეგები:\n${searchResults.text}`
+        : '\n⚠ ინტერნეტ ძიება ვერ შესრულდა. გთხოვთ მიაწოდოთ ინფორმაცია თქვენი ცოდნის საფუძველზე და აღნიშნოთ, რომ შედეგები ვერ დადასტურდა ონლაინ წყაროებით. items მასივი არ უნდა იყოს ცარიელი — მიაწოდეთ საუკეთესო ცოდნა.';
+    const citationSection = searchResults?.citations?.length
+        ? `\nწყაროები: ${searchResults.citations.join(', ')}`
+        : '';
+
     const userMessage = `ძიების მოთხოვნა: ${query}
-კონტექსტი: ${JSON.stringify(context)}
-${searchResults?.text ? `\nინტერნეტ ძიების შედეგები:\n${searchResults.text}` : ''}
-${searchResults?.citations?.length ? `\nწყაროები: ${searchResults.citations.join(', ')}` : ''}`;
+კონტექსტი: ${JSON.stringify(context)}${searchSection}${citationSection}`;
 
     try {
         const controller = new AbortController();
@@ -291,7 +309,8 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            console.error('[MedGzuri] Claude error:', response.status);
+            const errorBody = await response.text().catch(() => 'unable to read body');
+            console.error('[MedGzuri] Claude error:', response.status, errorBody);
             if (searchResults?.text) {
                 return formatRawResults(role, query, searchResults);
             }
@@ -302,17 +321,13 @@ ${searchResults?.citations?.length ? `\nწყაროები: ${searchResult
         const text = result.content?.[0]?.text || '';
 
         // Try to parse JSON from response
-        try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                return JSON.parse(jsonMatch[0]);
-            }
-        } catch (e) {
-            // Not valid JSON, wrap in standard format
+        const parsed = extractJSON(text);
+        if (parsed) {
+            return parsed;
         }
 
         return {
-            meta: '',
+            meta: 'ძიების შედეგები (არასტრუქტურირებული)',
             summary: text,
             items: []
         };
@@ -343,7 +358,7 @@ async function proxyToN8n(type, data) {
     if (!webhookPaths[type]) return null;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
         const response = await fetch(`${N8N_WEBHOOK_BASE_URL}${webhookPaths[type]}`, {
@@ -367,7 +382,7 @@ async function proxyToN8n(type, data) {
     } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-            console.error('[MedGzuri] n8n proxy timed out (90s)');
+            console.error('[MedGzuri] n8n proxy timed out (30s)');
         } else {
             console.error('[MedGzuri] n8n proxy failed:', err.message);
         }
@@ -383,6 +398,55 @@ function ensureBackwardCompat(result) {
         result.meta = 'ძიების შედეგები';
     }
     return result;
+}
+
+// ═══════════════ JSON EXTRACTION ═══════════════
+function extractJSON(text) {
+    // Strategy 1: Try code fence (```json ... ```)
+    const fenceMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (fenceMatch) {
+        try {
+            const parsed = JSON.parse(fenceMatch[1]);
+            if (parsed.items || parsed.meta || parsed.summary) return parsed;
+        } catch (e) { /* try next strategy */ }
+    }
+
+    // Strategy 2: Try full text as JSON
+    try {
+        const trimmed = text.trim();
+        if (trimmed.startsWith('{')) {
+            const parsed = JSON.parse(trimmed);
+            if (parsed.items || parsed.meta || parsed.summary) return parsed;
+        }
+    } catch (e) { /* try next strategy */ }
+
+    // Strategy 3: Balanced braces extraction
+    const startIdx = text.indexOf('{');
+    if (startIdx !== -1) {
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        for (let i = startIdx; i < text.length; i++) {
+            const ch = text[i];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\' && inString) { escape = true; continue; }
+            if (ch === '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (ch === '{') depth++;
+            else if (ch === '}') {
+                depth--;
+                if (depth === 0) {
+                    try {
+                        const candidate = text.substring(startIdx, i + 1);
+                        const parsed = JSON.parse(candidate);
+                        if (parsed.items || parsed.meta || parsed.summary) return parsed;
+                    } catch (e) { /* continue searching */ }
+                }
+            }
+        }
+    }
+
+    return null;
 }
 
 // ═══════════════ HELPERS ═══════════════
