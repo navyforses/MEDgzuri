@@ -463,19 +463,22 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
     if (!ANTHROPIC_API_KEY) {
         // Fallback: return raw search results formatted
         if (searchResults?.text) {
-            return formatRawResults(role, query, searchResults);
+            return await formatRawResults(role, query, searchResults);
         }
         return getDemoResult(role === 'symptoms' ? 'symptoms' : role === 'clinics' ? 'clinics' : 'research', { diagnosis: query });
     }
 
     const grammarRules = `
 
-ენობრივი მოთხოვნები:
+კრიტიკული ენობრივი მოთხოვნები (სავალდებულო):
+- ყველა ტექსტი, სათაური, აღწერა და ტეგი უნდა იყოს მხოლოდ ქართულ ენაზე
+- აკრძალულია ინგლისური ტექსტის გამოყენება (გარდა URL ლინკებისა და სამეცნიერო ჟურნალის სახელებისა)
 - გამოიყენე ლიტერატურული ქართული ენა, სწორი ბრუნვები და ზმნის ფორმები
-- სამედიცინო ტერმინოლოგია მხოლოდ ქართულად (არ გამოიყენო ინგლისური ფრჩხილებში)
+- სამედიცინო ტერმინოლოგია ქართულად (შეგიძლია ფრჩხილებში მიუთითო ლათინური/ინგლისური ტერმინი საჭიროებისას)
 - წინადადებები სრული და გრამატიკულად გამართული უნდა იყოს
 - გამოიყენე პროფესიული სამედიცინო რეგისტრი
-- თითოეულ item-ის body ველში: მინიმუმ 2-3 სრული, შინაარსიანი წინადადება`;
+- თითოეულ item-ის body ველში: მინიმუმ 2-3 სრული, შინაარსიანი წინადადება
+- JSON ველების მნიშვნელობები (title, body, source, tags, meta) - ყველა ქართულად!`;
 
     const systemPrompts = {
         research: `შენ ხარ მედგზურის სამედიცინო კვლევის ექსპერტი. მომხმარებელმა მოგაწოდა დიაგნოზი და სამედიცინო კონტექსტი. ინტერნეტ ძიების შედეგების საფუძველზე, შექმენი სტრუქტურირებული პასუხი ქართულ ენაზე.
@@ -566,7 +569,7 @@ ${grammarRules}
             const errorBody = await response.text().catch(() => 'unable to read body');
             console.error('[MedGzuri] Claude error:', response.status, errorBody);
             if (searchResults?.text) {
-                return formatRawResults(role, query, searchResults);
+                return await formatRawResults(role, query, searchResults);
             }
             throw new Error('Claude API failed');
         }
@@ -576,8 +579,23 @@ ${grammarRules}
 
         // Try to parse JSON from response
         const parsed = extractJSON(text);
-        if (parsed) {
+        if (parsed && parsed.items && parsed.items.length > 0) {
             return parsed;
+        }
+
+        // Claude responded but not in valid JSON — try to use the text as Georgian content
+        if (text.length > 50) {
+            // Check if text contains Georgian characters
+            const hasGeorgian = /[\u10A0-\u10FF]/.test(text);
+            return {
+                meta: 'ძიების შედეგები',
+                items: [{
+                    title: query || 'სამედიცინო ინფორმაცია',
+                    body: hasGeorgian ? text : 'ძიების შედეგები დამუშავდა, მაგრამ ფორმატირება ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.',
+                    tags: ['ძიება']
+                }],
+                summary: hasGeorgian ? undefined : text
+            };
         }
 
         return {
@@ -593,7 +611,7 @@ ${grammarRules}
             console.error('[MedGzuri] Claude request failed:', err.message);
         }
         if (searchResults?.text) {
-            return formatRawResults(role, query, searchResults);
+            return await formatRawResults(role, query, searchResults);
         }
         throw err;
     }
@@ -721,16 +739,54 @@ function buildResearchQuery(diagnosis, ageGroup, researchType, context) {
     return query;
 }
 
-function formatRawResults(role, query, searchResults) {
+async function formatRawResults(role, query, searchResults) {
     const text = searchResults.text || '';
-    const paragraphs = text.split('\n').filter(p => p.trim().length > 20);
 
+    // Try a lightweight Claude call to translate raw results to Georgian
+    if (ANTHROPIC_API_KEY && text.length > 0) {
+        try {
+            const translateResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'x-api-key': ANTHROPIC_API_KEY,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-5-20250514',
+                    max_tokens: 2000,
+                    messages: [{
+                        role: 'user',
+                        content: `თარგმნე ეს სამედიცინო ტექსტი ქართულ ენაზე და დააბრუნე JSON ფორმატში. პასუხი მხოლოდ JSON, ტექსტი არ დაწერო JSON-ის გარეთ.
+
+{"meta":"ძიების შედეგები","items":[{"title":"სათაური ქართულად","body":"შინაარსი ქართულად","tags":["ტეგი"]}]}
+
+ტექსტი: ${text.slice(0, 3000)}`
+                    }]
+                })
+            });
+
+            if (translateResponse.ok) {
+                const tResult = await translateResponse.json();
+                const tText = tResult.content?.[0]?.text || '';
+                const parsed = extractJSON(tText);
+                if (parsed && parsed.items && parsed.items.length > 0) {
+                    return parsed;
+                }
+            }
+        } catch (err) {
+            console.error('[MedGzuri] Translation fallback failed:', err.message);
+        }
+    }
+
+    // Final fallback: raw results with Georgian warning
+    const paragraphs = text.split('\n').filter(p => p.trim().length > 20);
     return {
-        meta: `ძიების შედეგები`,
+        meta: 'ძიების შედეგები (ავტომატური თარგმანი მიუწვდომელია)',
         items: paragraphs.slice(0, 5).map((p, i) => ({
             title: `შედეგი ${i + 1}`,
             body: p.trim(),
-            tags: ['ძიება']
+            tags: ['ძიება', 'ინგლისურად']
         })),
         summary: paragraphs.length === 0 ? text : undefined
     };

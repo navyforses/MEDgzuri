@@ -1736,7 +1736,7 @@
         btn.disabled = true;
         btn.textContent = 'ანგარიში მზადდება...';
 
-        var reportTemplate = document.getElementById('report-template');
+        var pdfContainer = null;
 
         try {
             // Request report from API
@@ -1766,18 +1766,15 @@
                 report = buildLocalReport(lastSearchType, lastSearchResult);
             }
 
-            // Fill template
-            var titleEl = document.getElementById('report-title-text');
-            var dateEl = document.getElementById('report-date-text');
-            var bodyEl = document.getElementById('report-body-content');
-            var disclaimerEl = document.getElementById('report-disclaimer-text');
+            // Build date string
+            var dateStr;
+            try {
+                dateStr = new Date().toLocaleDateString('ka-GE', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch (e) {
+                dateStr = new Date().toISOString().slice(0, 10);
+            }
 
-            titleEl.textContent = report.title || 'სამედიცინო ანგარიში';
-            dateEl.textContent = new Date().toLocaleDateString('ka-GE', {
-                year: 'numeric', month: 'long', day: 'numeric'
-            });
-
-            // Build body HTML
+            // Build body HTML from report
             var bodyHtml = '';
             if (report.sections && report.sections.length > 0) {
                 report.sections.forEach(function(section) {
@@ -1792,7 +1789,7 @@
             }
 
             // Fallback if body is still empty
-            if (!bodyHtml && lastSearchResult.items && lastSearchResult.items.length > 0) {
+            if (!bodyHtml) {
                 report = buildLocalReport(lastSearchType, lastSearchResult);
                 report.sections.forEach(function(section) {
                     bodyHtml += '<div class="report-section-heading">' + escapeHtml(section.heading) + '</div>';
@@ -1803,29 +1800,54 @@
                 });
             }
 
-            bodyEl.innerHTML = bodyHtml;
-            disclaimerEl.textContent = report.disclaimer || 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.';
+            // Create a standalone container for PDF rendering (avoids clipping issues)
+            pdfContainer = document.createElement('div');
+            pdfContainer.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none;background:#fff;';
+            pdfContainer.innerHTML =
+                '<div id="pdf-render-target" style="' +
+                    'font-family:Noto Sans Georgian,sans-serif;' +
+                    'width:700px;' +
+                    'padding:40px 50px;' +
+                    'color:#1a1a1a;' +
+                    'line-height:1.8;' +
+                    'background:#fff;' +
+                    'box-sizing:border-box;' +
+                '">' +
+                    '<div style="text-align:center;border-bottom:2px solid #5FA8D3;padding-bottom:14px;margin-bottom:20px;">' +
+                        '<div style="font-size:11pt;color:#5FA8D3;font-weight:700;letter-spacing:1px;">MED&amp;გზური</div>' +
+                        '<h1 style="font-size:16pt;color:#1e293b;margin:10px 0 6px;font-weight:700;">' + escapeHtml(report.title || 'სამედიცინო ანგარიში') + '</h1>' +
+                        '<div style="font-size:9pt;color:#6b7280;">' + escapeHtml(dateStr) + '</div>' +
+                    '</div>' +
+                    '<div class="report-body">' + bodyHtml + '</div>' +
+                    '<div style="font-size:8pt;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:24px;font-style:italic;">' +
+                        escapeHtml(report.disclaimer || 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.') +
+                    '</div>' +
+                    '<div style="text-align:center;font-size:7pt;color:#9ca3af;margin-top:14px;">' +
+                        'MED&amp;გზური &copy; 2026 | ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(pdfContainer);
 
-            // Make template visible for html2canvas to capture correctly
-            reportTemplate.style.overflow = 'visible';
-            reportTemplate.style.height = 'auto';
-            reportTemplate.style.width = 'auto';
-            reportTemplate.style.position = 'fixed';
-            reportTemplate.style.left = '0';
-            reportTemplate.style.top = '0';
-            reportTemplate.style.zIndex = '-9999';
-            reportTemplate.style.opacity = '0';
+            // Wait for browser to render
+            await new Promise(function(resolve) { setTimeout(resolve, 300); });
 
-            // Wait for browser to render the content
-            await new Promise(function(resolve) { setTimeout(resolve, 200); });
-
-            // Generate PDF
-            var element = document.getElementById('report-page');
+            // Generate PDF from the standalone element
+            var element = document.getElementById('pdf-render-target');
             var opt = {
-                margin: [10, 10, 15, 10],
+                margin: [8, 5, 12, 5],
                 filename: 'MedGzuri-' + (lastSearchType || 'report') + '-' + new Date().toISOString().slice(0, 10) + '.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, windowWidth: 800 },
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    scrollX: 0,
+                    scrollY: 0,
+                    x: 0,
+                    y: 0,
+                    width: 700,
+                    windowWidth: 700
+                },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
                 pagebreak: { mode: ['css', 'legacy'] }
             };
@@ -1836,14 +1858,10 @@
             console.error('[MedGzuri] Report download failed:', err);
             alert('ანგარიშის გენერაცია ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.');
         } finally {
-            // Hide template again
-            reportTemplate.style.overflow = 'hidden';
-            reportTemplate.style.height = '0';
-            reportTemplate.style.width = '0';
-            reportTemplate.style.position = 'absolute';
-            reportTemplate.style.zIndex = '';
-            reportTemplate.style.opacity = '0';
-
+            // Remove temporary container
+            if (pdfContainer && pdfContainer.parentNode) {
+                pdfContainer.parentNode.removeChild(pdfContainer);
+            }
             btn.disabled = false;
             btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ანგარიშის ჩამოტვირთვა (PDF)';
         }
