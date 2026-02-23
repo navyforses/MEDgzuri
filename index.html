@@ -134,13 +134,13 @@
             font-size: 1.125rem;
             color: var(--color-text);
             text-decoration: none;
-        }
+     }
 
         .logo svg {
             width: 28px;
             height: 28px;
             color: var(--color-primary);
-        }
+     }
 
         .nav-center {
             flex: 1;
@@ -247,7 +247,7 @@
             text-decoration: none;
             border: none;
             cursor: pointer;
-        }
+     }
 
         .btn-primary {
             background: var(--color-primary);
@@ -268,7 +268,7 @@
         .btn-secondary:hover {
             border-color: var(--color-primary);
             color: var(--color-primary);
-        }
+     }
 
         .btn-white {
             background: white;
@@ -306,7 +306,7 @@
             cursor: pointer;
             transition: all 0.3s;
             border: 2px solid transparent;
-        }
+     }
 
         .section-dot:hover {
             background: var(--color-primary);
@@ -317,7 +317,7 @@
             background: var(--color-primary);
             border-color: white;
             box-shadow: 0 0 0 2px var(--color-primary);
-        }
+     }
 
         /* Arrow Navigation */
         .nav-arrows {
@@ -787,7 +787,7 @@
             gap: var(--spacing-2xl);
             align-items: center;
             width: 100%;
-        }
+     }
 
         .contact-left {
             color: white;
@@ -1274,7 +1274,7 @@
         }
 
         /* Extra Small Screens (max-width: 480px) */
-        @media (max-width: 480px) {
+     @media (max-width: 480px) {
             .hero-visual {
                 display: none;
             }
@@ -1346,7 +1346,7 @@
                 <a href="/product" class="nav-search-teaser" id="navSearchTeaser">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <span class="search-text"><span id="searchTyping"></span><span class="search-cursor">|</span></span>
-                    <span class="search-live-dot" title="ძიება აქტიურია"></span>
+                    <span class="section-dot active" onclick="goToSection(3);closeMobileMenu()">ძიება აქტიურია"></span>
                 </a>
             </div>
             <div class="nav-right">
@@ -1410,7 +1410,7 @@
                             <div class="stat-item">
                                 <div class="stat-number" data-config="hero.stats.1.number">400K+</div>
                                 <div class="stat-label" data-config="hero.stats.1.label">კლინიკური კვლევა</div>
-                            </div>
+                         </div>
                             <div class="stat-item">
                                 <div class="stat-number" data-config="hero.stats.2.number">24სთ</div>
                                 <div class="stat-label" data-config="hero.stats.2.label">პასუხის დრო</div>
@@ -1449,7 +1449,7 @@
                     <div class="hero-value-card">
                         <div class="hero-value-icon">💰</div>
                         <div class="hero-value-text">
-                            <div class="hero-value-title">99₾ — არა ათასობით</div>
+                            <div class="hero-value-title">200₾-დან — არა ათასობით</div>
                             <div class="hero-value-desc">საერთაშორისო დონის ინფორმაცია, ქართული ფასით</div>
                         </div>
                     </div>
@@ -1471,19 +1471,19 @@
                             <div class="service-icon">🔍</div>
                             <h3 class="service-title" data-config="services.items.0.title">კვლევების ძიება</h3>
                             <p class="service-description" data-config="services.items.0.desc">ჩაწერეთ დიაგნოზი და მიიღეთ სტრუქტურირებული ინფორმაცია საერთაშორისო კვლევებიდან, კლინიკური კვლევებიდან და კლინიკებიდან</p>
-                            <span class="service-price" data-config="services.items.0.price">თვეში 99₾-დან</span>
+                            <span class="service-price" data-config="services.items.0.price">200–600₾</span>
                         </div>
                         <div class="service-card">
                             <div class="service-icon">🤝</div>
                             <h3 class="service-title" data-config="services.items.1.title">სამედიცინო ადვოკატი</h3>
                             <p class="service-description" data-config="services.items.1.desc">პერსონალური კონსულტანტი, რომელიც მოიძიებს კვლევებს, დაგიკავშირებთ კლინიკებთან და მოამზადებს განაცხადებს</p>
-                            <span class="service-price" data-config="services.items.1.price">500-3,000₾</span>
+                            <span class="service-price" data-config="services.items.1.price">600–1,500₾</span>
                         </div>
                         <div class="service-card">
                             <div class="service-icon">🌐</div>
                             <h3 class="service-title" data-config="services.items.2.title">კლინიკებთან კომუნიკაცია</h3>
                             <p class="service-description" data-config="services.items.2.desc">საერთაშორისო კლინიკებთან კომუნიკაცია, დოკუმენტაციის თარგმანი და კოორდინაცია მკურნალობის პროცესში</p>
-                            <span class="service-price" data-config="services.items.2.price">თვეში 199₾-დან</span>
+                            <span class="service-price" data-config="services.items.2.price">1,500–3,000₾</span>
                         </div>
                     </div>
                 </div>
@@ -1613,7 +1613,7 @@
                         return;
                     }
                     setTimeout(tick, 30);
-                }
+             }
             }
             setTimeout(tick, 800);
         })();
@@ -1689,6 +1689,34 @@
             if (e.key === 'ArrowRight') nextSection();
             if (e.key === 'ArrowLeft') prevSection();
         });
+
+        // Mouse wheel navigation (desktop scroll → horizontal section change)
+        let wheelTimeout = null;
+        let wheelLocked = false;
+        container.addEventListener('wheel', (e) => {
+            // Only intercept on desktop (non-mobile) with horizontal layout
+            if (window.innerWidth <= 768) return;
+
+            const isVerticalScroll = Math.abs(e.deltaY) > Math.abs(e.deltaX);
+            if (!isVerticalScroll) return;
+
+            e.preventDefault();
+
+            if (wheelLocked) return;
+            wheelLocked = true;
+
+            if (e.deltaY > 0) {
+                nextSection();
+            } else {
+                prevSection();
+            }
+
+            // Debounce: lock wheel for 800ms to prevent rapid section switching
+            clearTimeout(wheelTimeout);
+            wheelTimeout = setTimeout(() => {
+                wheelLocked = false;
+            }, 800);
+        }, { passive: false });
 
         // Touch/swipe support
         let touchStartX = 0;
