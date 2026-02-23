@@ -20,6 +20,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js" defer></script>
 
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -497,217 +499,227 @@
         .result-icon svg {
             width: 20px;
             height: 20px;
-            color: var(--teal);
         }
 
-        .result-card-title {
-            font-size: 0.9375rem;
+        .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .result-title {
+            font-size: 1rem;
             font-weight: 700;
-            line-height: 1.4;
             margin-bottom: 0.25rem;
+            line-height: 1.3;
         }
 
-        .result-card-source {
-            font-size: 0.6875rem;
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .result-source {
+            font-size: 0.75rem;
             color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
-        .result-card-body {
-            font-size: 0.8125rem;
+        .result-source svg { width: 12px; height: 12px; }
+
+        .result-body {
+            font-size: 0.875rem;
             color: var(--text-secondary);
-            line-height: 1.7;
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
         }
-
-        .result-card-body p { margin-bottom: 0.5rem; }
-        .result-card-body p:last-child { margin-bottom: 0; }
 
         .result-tags {
             display: flex;
             flex-wrap: wrap;
             gap: 0.375rem;
-            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
         }
 
-        .result-tag {
-            padding: 0.25rem 0.625rem;
+        .tag-pill {
             font-size: 0.6875rem;
-            font-weight: 500;
-            color: var(--teal);
+            font-weight: 600;
+            padding: 0.1875rem 0.5rem;
             background: var(--teal-light);
+            color: var(--teal);
             border-radius: 999px;
         }
 
-        .result-link {
+        .result-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-visit {
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
-            margin-top: 0.75rem;
-            font-size: 0.8125rem;
+            gap: 0.375rem;
+            padding: 0.375rem 0.875rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
+            border-radius: 999px;
             text-decoration: none;
+            transition: all 0.2s;
         }
 
-        .result-link:hover { text-decoration: underline; }
+        .btn-visit:hover {
+            background: var(--teal);
+            color: white;
+            border-color: var(--teal);
+        }
 
-        /* AI Processing Animation */
-        .ai-processing {
+        .btn-visit svg { width: 12px; height: 12px; }
+
+        /* ═══════════════ PRIORITY BADGES ═══════════════ */
+        .priority-badge {
+            font-size: 0.625rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .priority-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #DC2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .priority-med {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .priority-low {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        /* ═══════════════ LOADING ═══════════════ */
+        .loading {
             display: none;
             text-align: center;
-            padding: 3rem 1.5rem;
+            padding: 3rem 0;
         }
 
-        .ai-processing.visible { display: block; }
+        .loading.visible { display: block; }
 
-        .ai-orb {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--teal);
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--teal), var(--navy));
-            animation: orbPulse 2s ease-in-out infinite;
-            position: relative;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
 
-        .ai-orb::after {
-            content: '';
-            position: absolute;
-            inset: -8px;
+        .loading-steps {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .loading-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            border: 2px solid var(--teal-pale);
-            animation: orbRing 3s linear infinite;
+            background: var(--teal-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
-        @keyframes orbPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(95, 168, 211, 0.3); }
-            50% { transform: scale(1.08); box-shadow: 0 0 50px rgba(95, 168, 211, 0.5); }
+        .step-icon svg { width: 12px; height: 12px; color: var(--teal); }
+
+        .loading-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
         }
 
-        @keyframes orbRing {
-            to { transform: rotate(360deg); }
+        /* ═══════════════ ERROR & EMPTY ═══════════════ */
+        .error-state, .empty-state {
+            text-align: center;
+            padding: 3rem 0;
+            display: none;
         }
 
-        .ai-status {
-            font-size: 1rem;
-            font-weight: 600;
+        .error-state.visible, .empty-state.visible { display: block; }
+
+        .state-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+        }
+
+        .error-state .state-icon { background: rgba(239, 68, 68, 0.1); }
+        .empty-state .state-icon { background: var(--teal-light); }
+
+        .state-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .error-state .state-icon svg { color: var(--danger); }
+        .empty-state .state-icon svg { color: var(--teal); }
+
+        .state-title {
+            font-size: 1.125rem;
+            font-weight: 700;
             margin-bottom: 0.5rem;
         }
 
-        .ai-substatus {
-            font-size: 0.8125rem;
+        .state-desc {
+            font-size: 0.875rem;
             color: var(--text-secondary);
             margin-bottom: 1.5rem;
         }
 
-        .ai-steps {
-            display: flex;
-            justify-content: center;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .ai-step {
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            transition: all 0.3s;
-        }
-
-        .ai-step.active { color: var(--teal); font-weight: 600; }
-        .ai-step.done { color: var(--success); }
-
-        .ai-step .step-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--border);
-            transition: all 0.3s;
-        }
-
-        .ai-step.active .step-dot { background: var(--teal); animation: pulse 1s infinite; }
-        .ai-step.done .step-dot { background: var(--success); }
-
-        /* ═══════════════ DISCLAIMER ═══════════════ */
-        .disclaimer {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 1.5rem 2rem;
-            text-align: center;
-        }
-
-        .disclaimer p {
-            font-size: 0.6875rem;
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-
-        /* ═══════════════ RESPONSIVE ═══════════════ */
-        @media (max-width: 768px) {
-            .hero { padding: 2rem 1rem 1.5rem; }
-            .hero h1 { font-size: 1.5rem; }
-            .search-container { padding: 0 1rem 2rem; }
-            .panel-header { padding: 1.25rem 1.25rem 0; }
-            .panel-body { padding: 0 1.25rem 1.25rem; }
-            .submit-section {
-                padding: 1rem 1.25rem;
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            .submit-info { text-align: center; }
-        }
-
-        /* ═══════════════ ERROR STATE ═══════════════ */
-        .error-message {
-            padding: 1rem;
-            background: rgba(239, 68, 68, 0.05);
-            border: 1px solid rgba(239, 68, 68, 0.15);
-            border-radius: var(--radius-md);
-            color: var(--danger);
-            font-size: 0.8125rem;
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .error-message.visible { display: block; }
-
-        /* ═══════════════ ENHANCED RESULTS (n8n multi-agent) ═══════════════ */
-        .result-section {
-            margin-bottom: 1.5rem;
-        }
-
-        .result-section-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--teal-pale);
-        }
-
-        .result-section-icon {
-            font-size: 1.25rem;
-        }
-
-        .result-section-title {
-            font-size: 1.0625rem;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .priority-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.625rem;
-            font-size: 0.6875rem;
+        .btn-retry {
+            padding: 0.5rem 1.5rem;
+            font-size: 0.875rem;
             font-weight: 600;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
             border-radius: 999px;
-            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .priority-high {
+        .btn-retry:hover { background: var(--teal); color: white; }
+
+        /* ═══════════════ FOOTER�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�V@���(������������ѕȁ�(��������������ɝ���ѽ�聅�Ѽ�(�����������������ɽչ��مȠ�������(������������������ɝ�����԰��԰��԰��ؤ�(���������������������ɕ��ĸ�ɕ��(������������ѕ�е�����聍��ѕ��(���������������еͥ������ɕ��(���������((������������ѕȁ��쁍�����مȠ��ѕ����ѕ�е����Ʌѥ��聹�����((������������VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�VC�V@�IMA=9M%Y����(������������������ݥ�Ѡ�����ँ�(���������������ɼ�����������ɕ���ɕ��ĸ�ɕ���(���������������ɼ��ā쁙��еͥ��ĸ�ɕ���(������������������������ȁ����������ɕ���ɕ�����(�����������������������������������ɕ���ɕ���(��������������Չ��е͕�ѥ���쁙��൑�ɕ�ѥ��聍��յ�쁝�������ɕ���(��������������Չ��е͕�ѥ�����Ѹ�͕�ɍ���ݥ�Ѡ�����쁩��ѥ�䵍��ѕ��聍��ѕ���(�������������ɕ�ձе��ɐ�����������ɕ���(�������������ɕ�ձ�̵�����ȁ쁙��൑�ɕ�ѥ��聍��յ�쁅������ѕ��聙����х��쁝������ɕ���(�������������ɕ�ձ�̵���х���ȁ������������ɕ���ɕ���(�������������͕�ɍ�����х���ȁ������������ɕ���ɕ���(���������((�����������AI%=I%Qd�!����������܀�����ᕐ�Ѽ�ɕ��ٔ��ɥ�������������ѕ́��ѕȁɕ�������(����������ɥ�ɥ�䵡����쁉����ɽչ��ɝ�����䰀�ఀ�ఀ��Ĥ쁍����耍����쁉�ɑ�������ͽ����ɝ�����䰀�ఀ�ఀ��Ȥ��(����������ɥ�ɥ�䵵���쁉����ɽչ��ɝ�����԰���ఀ�İ���Ĥ쁍����耍igh {
             background: rgba(239, 68, 68, 0.1);
             color: #DC2626;
             border: 1px solid rgba(239, 68, 68, 0.2);
@@ -1151,7 +1163,7 @@
                             <input type="checkbox" value="spain"> ესპანეთი
                         </label>
                         <label class="checkbox-item" onclick="toggleCheck(this)">
-                            <input type="checkbox" value="india"> ინდოეთი
+                            <input type="checkbox" value="india"> იაპაზონი
                         </label>
                     </div>
                 </div>
@@ -1721,6 +1733,29 @@
 
     function formatResultBody(text) {
         if (!text) return '';
+        // Use marked.js for markdown parsing if available, with DOMPurify for XSS prevention
+        if (typeof marked !== 'undefined') {
+            try {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                    headerIds: false,
+                    mangle: false
+                });
+                const rawHtml = marked.parse(text);
+                // Sanitize with DOMPurify if available
+                if (typeof DOMPurify !== 'undefined') {
+                    return DOMPurify.sanitize(rawHtml, {
+                        ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'h3', 'h4', 'a', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sup', 'sub'],
+                        ALLOWED_ATTR: ['href', 'target', 'rel']
+                    });
+                }
+                return rawHtml;
+            } catch (e) {
+                console.warn('[MedGzuri] Markdown parse failed, falling back:', e.message);
+            }
+        }
+        // Fallback: plain text with paragraph wrapping
         return text
             .split('\n')
             .filter(l => l.trim())
