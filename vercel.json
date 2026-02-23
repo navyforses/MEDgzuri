@@ -1,5 +1,6 @@
 {
   "version": 2,
+    "alias": ["medgzuri.ge", "www.medgzuri.ge"],
   "functions": {
     "api/search.js": {
       "maxDuration": 120
