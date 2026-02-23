@@ -134,13 +134,13 @@
             font-size: 1.125rem;
             color: var(--color-text);
             text-decoration: none;
-     }
+        }
 
         .logo svg {
             width: 28px;
             height: 28px;
             color: var(--color-primary);
-     }
+        }
 
         .nav-center {
             flex: 1;
@@ -247,7 +247,7 @@
             text-decoration: none;
             border: none;
             cursor: pointer;
-     }
+        }
 
         .btn-primary {
             background: var(--color-primary);
@@ -268,7 +268,7 @@
         .btn-secondary:hover {
             border-color: var(--color-primary);
             color: var(--color-primary);
-     }
+        }
 
         .btn-white {
             background: white;
@@ -306,7 +306,7 @@
             cursor: pointer;
             transition: all 0.3s;
             border: 2px solid transparent;
-     }
+        }
 
         .section-dot:hover {
             background: var(--color-primary);
@@ -317,7 +317,7 @@
             background: var(--color-primary);
             border-color: white;
             box-shadow: 0 0 0 2px var(--color-primary);
-     }
+        }
 
         /* Arrow Navigation */
         .nav-arrows {
@@ -787,7 +787,7 @@
             gap: var(--spacing-2xl);
             align-items: center;
             width: 100%;
-     }
+        }
 
         .contact-left {
             color: white;
@@ -1274,7 +1274,7 @@
         }
 
         /* Extra Small Screens (max-width: 480px) */
-     @media (max-width: 480px) {
+        @media (max-width: 480px) {
             .hero-visual {
                 display: none;
             }
@@ -1346,7 +1346,7 @@
                 <a href="/product" class="nav-search-teaser" id="navSearchTeaser">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <span class="search-text"><span id="searchTyping"></span><span class="search-cursor">|</span></span>
-                    <span class="section-dot active" onclick="goToSection(3);closeMobileMenu()">ძიება აქტიურია"></span>
+                    <span class="search-live-dot" title="ძიება აქტიურია"></span>
                 </a>
             </div>
             <div class="nav-right">
@@ -1410,7 +1410,7 @@
                             <div class="stat-item">
                                 <div class="stat-number" data-config="hero.stats.1.number">400K+</div>
                                 <div class="stat-label" data-config="hero.stats.1.label">კლინიკური კვლევა</div>
-                         </div>
+                            </div>
                             <div class="stat-item">
                                 <div class="stat-number" data-config="hero.stats.2.number">24სთ</div>
                                 <div class="stat-label" data-config="hero.stats.2.label">პასუხის დრო</div>
@@ -1475,7 +1475,7 @@
                         </div>
                         <div class="service-card">
                             <div class="service-icon">🤝</div>
-                            <h3 class="service-title" data-config="services.items.1.title">სამედიცინო ადვოკატი</h3>
+                            <h3 class="service-title" data-config="services.items.0.title">სამედიცინო ადვოკატი</h3>
                             <p class="service-description" data-config="services.items.1.desc">პერსონალური კონსულტანტი, რომელიც მოიძიებს კვლევებს, დაგიკავშირებთ კლინიკებთან და მოამზადებს განაცხადებს</p>
                             <span class="service-price" data-config="services.items.1.price">600–1,500₾</span>
                         </div>
@@ -1613,7 +1613,7 @@
                         return;
                     }
                     setTimeout(tick, 30);
-             }
+                }
             }
             setTimeout(tick, 800);
         })();
