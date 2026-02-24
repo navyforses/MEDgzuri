@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED&გზური — ხარისხის კონტროლი</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --teal: #5FA8D3;
+            --teal-hover: #4A8FB8;
+            --teal-light: rgba(95, 168, 211, 0.08);
+            --teal-pale: rgba(95, 168, 211, 0.15);
+            --navy: #0A1628;
+            --navy-soft: #1A2A42;
+            --text: #0A1628;
+            --text-secondary: rgba(10, 22, 40, 0.6);
+            --text-muted: rgba(10, 22, 40, 0.4);
+            --bg: #FAFBFC;
+            --white: #FFFFFF;
+            --border: #E2E8EA;
+            --border-light: #F0F2F4;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 1px 3px rgba(10, 22, 40, 0.06);
+            --shadow-md: 0 4px 12px rgba(10, 22, 40, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans Georgian', -apple-system, sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ═══════════════ NAVBAR ═══════════════ */
+        .navbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(255,255,255,0.97);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.875rem 1.5rem;
+        }
+        .navbar-inner {
+            max-width: 1100px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .logo {
+            display: flex; align-items: center; gap: 0.625rem;
+            text-decoration: none; color: var(--text);
+            font-weight: 700; font-size: 1.125rem;
+        }
+        .logo svg { width: 28px; height: 28px; color: var(--teal); }
+        .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+        .nav-link {
+            padding: 0.5rem 0.875rem; font-size: 0.8125rem; font-weight: 500;
+            color: var(--text-secondary); text-decoration: none;
+            border-radius: 8px; transition: all 0.2s;
+        }
+        .nav-link:hover { color: var(--teal); background: var(--teal-light); }
+
+        /* ═══════════════ HEADER ═══════════════ */
+        .qa-header {
+            max-width: 1100px; margin: 0 auto;
+            padding: 2rem 1.5rem 1.5rem;
+        }
+        .qa-header h1 {
+            font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem;
+        }
+        .qa-header h1 span { color: var(--teal); }
+        .qa-header p { color: var(--text-secondary); font-size: 0.9375rem; }
+
+        /* ═══════════════ ACTIONS ═══════════════ */
+        .qa-actions {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 1.5rem;
+            display: flex; gap: 0.75rem; flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.625rem 1.25rem; font-size: 0.875rem;
+            font-weight: 600; font-family: inherit;
+            border: 1.5px solid var(--border); border-radius: 999px;
+            cursor: pointer; transition: all 0.2s;
+            background: var(--white); color: var(--text);
+        }
+        .btn:hover { border-color: var(--teal); color: var(--teal); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--teal), var(--teal-hover));
+            color: white; border-color: transparent;
+            box-shadow: 0 4px 15px rgba(95,168,211,0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(95,168,211,0.4);
+            color: white;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn svg { width: 18px; height: 18px; }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ═══════════════ STATUS BAR ═══════════════ */
+        .status-bar {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 1rem;
+            display: none;
+        }
+        .status-bar.visible { display: block; }
+        .status-content {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.75rem 1.25rem;
+            background: var(--teal-light); border: 1px solid var(--teal-pale);
+            border-radius: var(--radius-md);
+            font-size: 0.8125rem; color: var(--teal);
+            font-weight: 500;
+        }
+
+        /* ═══════════════ SCORE CARD ═══════════════ */
+        .score-section {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 1.5rem;
+            display: none;
+        }
+        .score-section.visible { display: block; }
+        .score-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            padding: 2rem;
+            display: flex; align-items: center; gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .score-circle {
+            width: 120px; height: 120px;
+            border-radius: 50%; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .score-circle svg { width: 120px; height: 120px; transform: rotate(-90deg); }
+        .score-circle circle {
+            fill: none; stroke-width: 6; cx: 60; cy: 60; r: 52;
+        }
+        .score-bg { stroke: var(--border-light); }
+        .score-fg { stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+        .score-value {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .score-number { font-size: 2rem; font-weight: 800; line-height: 1; }
+        .score-label { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .grade-A .score-fg { stroke: var(--success); }
+        .grade-A .score-number { color: var(--success); }
+        .grade-B .score-fg { stroke: #22C55E; }
+        .grade-B .score-number { color: #22C55E; }
+        .grade-C .score-fg { stroke: var(--warning); }
+        .grade-C .score-number { color: var(--warning); }
+        .grade-D .score-fg { stroke: #F97316; }
+        .grade-D .score-number { color: #F97316; }
+        .grade-F .score-fg { stroke: var(--danger); }
+        .grade-F .score-number { color: var(--danger); }
+
+        .score-details { flex: 1; min-width: 200px; }
+        .score-summary { list-style: none; margin-bottom: 1rem; }
+        .score-summary li {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.375rem 0; font-size: 0.8125rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .score-summary li:last-child { border-bottom: none; }
+        .score-meta {
+            display: flex; gap: 1.5rem; flex-wrap: wrap;
+            font-size: 0.75rem; color: var(--text-muted);
+        }
+
+        /* ═══════════════ RESULTS GRID ═══════════════ */
+        .results-section {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            display: none;
+        }
+        .results-section.visible { display: block; }
+        .results-section h2 {
+            font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem;
+        }
+        .audit-cards { display: grid; gap: 1rem; }
+        .audit-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden; transition: all 0.2s;
+        }
+        .audit-card:hover { box-shadow: var(--shadow-md); }
+        .audit-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-light);
+            cursor: pointer;
+        }
+        .audit-card-left { display: flex; align-items: center; gap: 0.75rem; }
+        .audit-grade {
+            width: 40px; height: 40px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.125rem; color: white;
+        }
+        .audit-grade.grade-A { background: var(--success); }
+        .audit-grade.grade-B { background: #22C55E; }
+        .audit-grade.grade-C { background: var(--warning); }
+        .audit-grade.grade-D { background: #F97316; }
+        .audit-grade.grade-F { background: var(--danger); }
+        .audit-card-title { font-weight: 600; font-size: 0.9375rem; }
+        .audit-card-subtitle {
+            font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem;
+        }
+        .audit-card-right { display: flex; align-items: center; gap: 1rem; }
+        .audit-score { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+        .audit-expand { color: var(--text-muted); transition: transform 0.2s; }
+        .audit-card.expanded .audit-expand { transform: rotate(180deg); }
+
+        .audit-card-body {
+            display: none; padding: 0 1.25rem 1.25rem;
+        }
+        .audit-card.expanded .audit-card-body { display: block; }
+
+        .check-list { list-style: none; }
+        .check-item {
+            display: flex; align-items: flex-start; gap: 0.625rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.8125rem;
+        }
+        .check-item:last-child { border-bottom: none; }
+        .check-icon { flex-shrink: 0; margin-top: 2px; font-size: 0.875rem; }
+        .check-info { flex: 1; }
+        .check-label { font-weight: 600; }
+        .check-value { color: var(--text-secondary); margin-left: 0.5rem; }
+        .check-issues {
+            margin-top: 0.25rem; font-size: 0.75rem; color: var(--danger);
+        }
+
+        /* ═══════════════ RECOMMENDATIONS ═══════════════ */
+        .recs-section {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            display: none;
+        }
+        .recs-section.visible { display: block; }
+        .recs-section h2 { font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem; }
+        .rec-item {
+            display: flex; align-items: flex-start; gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            margin-bottom: 0.5rem; font-size: 0.8125rem;
+        }
+        .rec-priority {
+            font-size: 0.625rem; font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px; text-transform: uppercase;
+            flex-shrink: 0; margin-top: 2px;
+        }
+        .rec-priority.high { background: rgba(239,68,68,0.1); color: #DC2626; }
+        .rec-priority.medium { background: rgba(245,158,11,0.1); color: #D97706; }
+
+        /* ═══════════════ HEALTH ═══════════════ */
+        .health-section {
+            max-width: 1100px; margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            display: none;
+        }
+        .health-section.visible { display: block; }
+        .health-section h2 { font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem; }
+        .health-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+        .health-item {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+        }
+        .health-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        .health-value { font-size: 1rem; font-weight: 700; }
+        .health-value.ok { color: var(--success); }
+        .health-value.warn { color: var(--warning); }
+        .health-value.err { color: var(--danger); }
+        .health-value.off { color: var(--text-muted); }
+
+        /* ═══════════════ RESPONSIVE ═══════════════ */
+        @media (max-width: 640px) {
+            .score-card { flex-direction: column; text-align: center; }
+            .score-meta { justify-content: center; }
+            .qa-actions { flex-direction: column; }
+            .btn { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/" class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                MED&გზური
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">მთავარი</a>
+                <a href="/product" class="nav-link">ძიება</a>
+                <a href="/admin" class="nav-link">ადმინი</a>
+                <a href="/qa" class="nav-link" style="color: var(--teal);">QA</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HEADER -->
+    <section class="qa-header">
+        <h1>ხარისხის <span>კონტროლი</span></h1>
+        <p>ავტომატური აუდიტი სისტემის მუშაობის შეფასებისთვის — სტრუქტურა, ქართული ენა, სამედიცინო უსაფრთხოება, სისრულე</p>
+    </section>
+
+    <!-- ACTIONS -->
+    <div class="qa-actions">
+        <button class="btn btn-primary" id="btn-full-audit" onclick="runAudit('audit')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            სრული აუდიტი
+        </button>
+        <button class="btn" id="btn-health" onclick="runAudit('health')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            ჯანმრთელობის შემოწმება
+        </button>
+        <button class="btn" onclick="runAudit('audit-single', 'research')">კვლევა</button>
+        <button class="btn" onclick="runAudit('audit-single', 'symptoms')">სიმპტომი</button>
+        <button class="btn" onclick="runAudit('audit-single', 'clinics')">კლინიკა</button>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar" id="status-bar">
+        <div class="status-content">
+            <div class="spinner" style="border-color: var(--teal-pale); border-top-color: var(--teal);"></div>
+            <span id="status-text">აუდიტი მიმდინარეობს...</span>
+        </div>
+    </div>
+
+    <!-- HEALTH CHECK -->
+    <div class="health-section" id="health-section"></div>
+
+    <!-- SCORE -->
+    <div class="score-section" id="score-section"></div>
+
+    <!-- RESULTS -->
+    <div class="results-section" id="results-section"></div>
+
+    <!-- RECOMMENDATIONS -->
+    <div class="recs-section" id="recs-section"></div>
+
+    <script>
+    // ═══════════════ STATE ═══════════════
+    let isRunning = false;
+
+    // ═══════════════ AUDIT RUNNER ═══════════════
+    async function runAudit(action, type) {
+        if (isRunning) return;
+        isRunning = true;
+
+        // Disable buttons
+        document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+
+        // Show status
+        const statusBar = document.getElementById('status-bar');
+        const statusText = document.getElementById('status-text');
+        statusBar.classList.add('visible');
+
+        const labels = {
+            'audit': 'სრული აუდიტი მიმდინარეობს... (3 ტესტი)',
+            'health': 'ჯანმრთელობის შემოწმება...',
+            'audit-single': type === 'research' ? 'კვლევის ტესტი...' : type === 'symptoms' ? 'სიმპტომების ტესტი...' : 'კლინიკების ტესტი...'
+        };
+        statusText.textContent = labels[action] || 'მიმდინარეობს...';
+
+        // Hide previous results
+        document.getElementById('health-section').classList.remove('visible');
+        document.getElementById('score-section').classList.remove('visible');
+        document.getElementById('results-section').classList.remove('visible');
+        document.getElementById('recs-section').classList.remove('visible');
+
+        try {
+            const body = { action };
+            if (action === 'audit-single') {
+                body.type = type;
+                body.data = getTestData(type);
+            }
+
+            const response = await fetch('/api/qa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const result = await response.json();
+
+            if (action === 'health') {
+                renderHealth(result);
+            } else if (action === 'audit') {
+                renderFullAudit(result);
+            } else if (action === 'audit-single') {
+                renderSingleAudit(result);
+            }
+        } catch (err) {
+            statusText.textContent = 'შეცდომა: ' + err.message;
+        } finally {
+            statusBar.classList.remove('visible');
+            document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+            isRunning = false;
+        }
+    }
+
+    function getTestData(type) {
+        const cases = {
+            research: { diagnosis: 'ტიპი 2 დიაბეტი', ageGroup: 'adult', researchType: 'all', context: '', regions: ['global'] },
+            symptoms: { symptoms: 'თავის ტკივილი, გულისრევა, მხედველობის დარღვევა', age: 35, sex: 'male', existingConditions: '', medications: '' },
+            clinics: { diagnosis: 'მუხლის ენდოპროთეზირება', countries: ['germany', 'turkey'], budget: 'mid', language: 'english', notes: '' }
+        };
+        return cases[type] || cases.research;
+    }
+
+    // ═══════════════ RENDER: HEALTH ═══════════════
+    function renderHealth(data) {
+        const section = document.getElementById('health-section');
+
+        const envItems = Object.entries(data.environment || {}).map(function(entry) {
+            var key = entry[0]; var val = entry[1];
+            return '<div class="health-item">' +
+                '<div class="health-label">' + escapeHtml(key) + '</div>' +
+                '<div class="health-value ' + (val ? 'ok' : 'off') + '">' + (val ? 'კონფიგურირებული' : 'არ არის') + '</div>' +
+            '</div>';
+        }).join('');
+
+        var apiClass = data.api?.status === 'ok' ? 'ok' : 'err';
+        var overallClass = data.overallStatus === 'healthy' ? 'ok' : 'warn';
+
+        section.innerHTML =
+            '<h2>სისტემის ჯანმრთელობა</h2>' +
+            '<div class="health-grid">' +
+                '<div class="health-item">' +
+                    '<div class="health-label">სტატუსი</div>' +
+                    '<div class="health-value ' + overallClass + '">' + (data.overallStatus === 'healthy' ? 'ჯანმრთელი' : 'დეგრადირებული') + '</div>' +
+                '</div>' +
+                '<div class="health-item">' +
+                    '<div class="health-label">API</div>' +
+                    '<div class="health-value ' + apiClass + '">' + (data.api?.status || 'unknown') + '</div>' +
+                '</div>' +
+                '<div class="health-item">' +
+                    '<div class="health-label">პასუხის დრო</div>' +
+                    '<div class="health-value">' + (data.api?.responseTimeMs || '—') + 'ms</div>' +
+                '</div>' +
+                '<div class="health-item">' +
+                    '<div class="health-label">რეჟიმი</div>' +
+                    '<div class="health-value ' + (data.isDemo ? 'warn' : 'ok') + '">' + (data.isDemo ? 'დემო' : 'პროდაქშენ') + '</div>' +
+                '</div>' +
+                '<div class="health-item">' +
+                    '<div class="health-label">N8N</div>' +
+                    '<div class="health-value ' + (data.pipeline?.n8n === 'success' ? 'ok' : data.pipeline?.n8n === 'skipped' ? 'off' : 'err') + '">' + (data.pipeline?.n8n || 'unknown') + '</div>' +
+                '</div>' +
+                envItems +
+            '</div>';
+
+        section.classList.add('visible');
+    }
+
+    // ═══════════════ RENDER: FULL AUDIT ═══════════════
+    function renderFullAudit(data) {
+        // Score
+        renderScoreCard(data.overallScore, data.grade, data.summary, data.durationMs);
+
+        // Per-type results
+        var section = document.getElementById('results-section');
+        var cardsHtml = '';
+        for (var key in data.results) {
+            cardsHtml += renderAuditCard(data.results[key]);
+        }
+        section.innerHTML = '<h2>დეტალური შედეგები</h2><div class="audit-cards">' + cardsHtml + '</div>';
+        section.classList.add('visible');
+
+        // Recommendations
+        if (data.recommendations && data.recommendations.length > 0) {
+            renderRecommendations(data.recommendations);
+        }
+    }
+
+    // ═══════════════ RENDER: SINGLE ═══════════════
+    function renderSingleAudit(data) {
+        renderScoreCard(data.score, data.grade,
+            [data.label + ': ' + data.grade + ' (' + data.score + '/100)' + (data.isDemo ? ' [დემო]' : '')],
+            data.responseTimeMs);
+
+        var section = document.getElementById('results-section');
+        section.innerHTML = '<h2>ტესტის შედეგი</h2><div class="audit-cards">' + renderAuditCard(data) + '</div>';
+        section.classList.add('visible');
+    }
+
+    // ═══════════════ RENDER HELPERS ═══════════════
+    function renderScoreCard(score, grade, summary, durationMs) {
+        var section = document.getElementById('score-section');
+        var circumference = 2 * Math.PI * 52;
+        var offset = circumference - (score / 100) * circumference;
+
+        var summaryHtml = (summary || []).map(function(line) {
+            return '<li>' + escapeHtml(line) + '</li>';
+        }).join('');
+
+        section.innerHTML =
+            '<div class="score-card grade-' + grade + '">' +
+                '<div class="score-circle">' +
+                    '<svg viewBox="0 0 120 120">' +
+                        '<circle class="score-bg" r="52" cx="60" cy="60" stroke-dasharray="' + circumference + '"/>' +
+                        '<circle class="score-fg" r="52" cx="60" cy="60" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset + '"/>' +
+                    '</svg>' +
+                    '<div class="score-value">' +
+                        '<div class="score-number">' + score + '</div>' +
+                        '<div class="score-label">/ 100</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="score-details">' +
+                    '<ul class="score-summary">' + summaryHtml + '</ul>' +
+                    '<div class="score-meta">' +
+                        '<span>ხანგრძლივობა: ' + (durationMs || 0) + 'ms</span>' +
+                        '<span>თარიღი: ' + new Date().toLocaleString('ka-GE') + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+
+        section.classList.add('visible');
+    }
+
+    function renderAuditCard(result) {
+        var checksHtml = '';
+        if (result.checks) {
+            for (var key in result.checks) {
+                var check = result.checks[key];
+                var icon = check.passed ? '&#x2705;' : '&#x274C;';
+                var issuesHtml = '';
+                if (check.issues && check.issues.length > 0) {
+                    issuesHtml = '<div class="check-issues">' +
+                        check.issues.map(function(i) { return '&bull; ' + escapeHtml(i); }).join('<br>') +
+                    '</div>';
+                }
+                checksHtml +=
+                    '<li class="check-item">' +
+                        '<span class="check-icon">' + icon + '</span>' +
+                        '<div class="check-info">' +
+                            '<span class="check-label">' + escapeHtml(check.label || key) + '</span>' +
+                            '<span class="check-value">' + escapeHtml(String(check.value || '')) + (check.details ? ' — ' + escapeHtml(check.details) : '') + '</span>' +
+                            issuesHtml +
+                        '</div>' +
+                    '</li>';
+            }
+        }
+
+        return '<div class="audit-card" onclick="this.classList.toggle(\'expanded\')">' +
+            '<div class="audit-card-header">' +
+                '<div class="audit-card-left">' +
+                    '<div class="audit-grade grade-' + result.grade + '">' + result.grade + '</div>' +
+                    '<div>' +
+                        '<div class="audit-card-title">' + escapeHtml(result.label || result.type) + '</div>' +
+                        '<div class="audit-card-subtitle">' + result.responseTimeMs + 'ms' + (result.isDemo ? ' &middot; დემო რეჟიმი' : '') + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="audit-card-right">' +
+                    '<span class="audit-score">' + result.score + '/100</span>' +
+                    '<svg class="audit-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>' +
+                '</div>' +
+            '</div>' +
+            '<div class="audit-card-body">' +
+                '<ul class="check-list">' + checksHtml + '</ul>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderRecommendations(recs) {
+        var section = document.getElementById('recs-section');
+        var html = '<h2>რეკომენდაციები</h2>';
+        recs.forEach(function(rec) {
+            html += '<div class="rec-item">' +
+                '<span class="rec-priority ' + rec.priority + '">' + (rec.priority === 'high' ? 'მაღალი' : 'საშუალო') + '</span>' +
+                '<span>' + escapeHtml(rec.text) + '</span>' +
+            '</div>';
+        });
+        section.innerHTML = html;
+        section.classList.add('visible');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    </script>
+</body>
+</html>

@@ -258,6 +258,90 @@ testAsync('Returns 401 for list without auth', async () => {
     assert.ok([401, 503].includes(res.statusCode));
 });
 
+// ═══════════════ QA API TESTS ═══════════════
+
+console.log('\n\x1b[1mQA API (api/qa.js)\x1b[0m');
+
+const qaHandler = require('../api/qa.js');
+
+testAsync('Returns 405 for GET requests', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('GET', null), res);
+    assert.strictEqual(res.statusCode, 405);
+});
+
+testAsync('Returns 200 for OPTIONS (CORS preflight)', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('OPTIONS', null), res);
+    assert.strictEqual(res.statusCode, 200);
+});
+
+testAsync('Returns 400 for missing action', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', {}), res);
+    assert.strictEqual(res.statusCode, 400);
+});
+
+testAsync('Returns 400 for audit-single without type', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', { action: 'audit-single' }), res);
+    assert.strictEqual(res.statusCode, 400);
+});
+
+testAsync('Health check returns environment status', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', { action: 'health' }, { host: 'localhost:3000' }), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.ok(res.body.environment);
+    assert.ok('PERPLEXITY_API_KEY' in res.body.environment);
+    assert.ok('ANTHROPIC_API_KEY' in res.body.environment);
+    assert.ok('N8N_WEBHOOK_BASE_URL' in res.body.environment);
+});
+
+testAsync('Audit-single validates demo response structure', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', {
+        action: 'audit-single',
+        type: 'research',
+        data: { diagnosis: 'test' }
+    }, { host: 'localhost:3000' }), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.ok(res.body.score >= 0 && res.body.score <= 100);
+    assert.ok(res.body.grade);
+    assert.ok(res.body.checks);
+    assert.ok(res.body.checks.structure);
+    assert.ok(res.body.checks.georgianLanguage);
+    assert.ok(res.body.checks.medicalSafety);
+    assert.ok(res.body.checks.completeness);
+    assert.ok(res.body.checks.dataIntegrity);
+});
+
+testAsync('QA validates Georgian language in demo results', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', {
+        action: 'audit-single',
+        type: 'symptoms',
+        data: { symptoms: 'თავის ტკივილი' }
+    }, { host: 'localhost:3000' }), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.ok(res.body.checks.georgianLanguage, 'Georgian language check missing');
+    // Demo data is in Georgian, so should pass
+    assert.strictEqual(res.body.checks.georgianLanguage.passed, true,
+        'Georgian language check should pass for demo data (got: ' + res.body.checks.georgianLanguage.value + ')');
+});
+
+testAsync('QA medical safety check passes for demo data', async () => {
+    const res = mockRes();
+    await qaHandler(mockReq('POST', {
+        action: 'audit-single',
+        type: 'symptoms',
+        data: { symptoms: 'test symptoms' }
+    }, { host: 'localhost:3000' }), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.body.checks.medicalSafety.passed, true,
+        'Medical safety should pass for demo data');
+});
+
 // ═══════════════ RESULTS ═══════════════
 
 // Wait for all async tests to complete
@@ -270,4 +354,4 @@ setTimeout(() => {
         console.log('\x1b[32mAll tests passed!\x1b[0m\n');
         process.exit(0);
     }
-}, 3000);
+}, 5000);
