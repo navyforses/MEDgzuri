@@ -1,6 +1,7 @@
 """B2 — Differential Analysis Agent.
 
-Uses Claude Opus for complex medical reasoning to identify research directions.
+Uses Claude Sonnet for medical reasoning to identify research directions.
+Falls back to static response if unavailable.
 CRITICAL: This agent does NOT diagnose — it suggests research directions only.
 """
 
@@ -8,7 +9,7 @@ import json
 import logging
 
 from app.orchestrator.schemas import ParsedSymptoms, ResearchDirection
-from app.services.llm_client import call_opus_json, call_sonnet_json, load_prompt
+from app.services.llm_client import call_sonnet_json, load_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +50,12 @@ class DifferentialAnalysis:
         )
 
         try:
-            result = await call_opus_json(system_prompt, user_message, max_tokens=3000)
+            result = await call_sonnet_json(system_prompt, user_message, max_tokens=3000)
             if result and result.get("research_directions"):
                 logger.info("B2 analyzed | directions=%d", len(result["research_directions"]))
                 return result
         except Exception as e:
-            logger.warning("B2 Opus failed, trying Sonnet | %s", str(e)[:200])
-
-        # Fallback to Sonnet
-        try:
-            result = await call_sonnet_json(system_prompt, user_message, max_tokens=2500)
-            if result and result.get("research_directions"):
-                return result
-        except Exception as e:
-            logger.warning("B2 Sonnet also failed | %s", str(e)[:200])
+            logger.warning("B2 Sonnet failed | %s", str(e)[:200])
 
         # Final fallback
         return {
