@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-teal: #5FA8D3;
+  --color-teal-hover: #4A8FB8;
+  --color-teal-light: rgba(95, 168, 211, 0.08);
+  --color-teal-pale: rgba(95, 168, 211, 0.15);
+  --color-navy: #0A1628;
+  --color-navy-soft: #1A2A42;
+  --color-text-primary: #0A1628;
+  --color-text-secondary: rgba(10, 22, 40, 0.6);
+  --color-text-muted: rgba(10, 22, 40, 0.4);
+  --color-bg: #FAFBFC;
+  --color-border: #E2E8EA;
+  --color-border-light: #F0F2F4;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+}
+
+body {
+  font-family: "Noto Sans Georgian", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Checkbox custom styling */
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  user-select: none;
+}
+.checkbox-item:hover {
+  border-color: var(--color-teal);
+  background: var(--color-teal-light);
+}
+.checkbox-item.checked {
+  border-color: var(--color-teal);
+  background: var(--color-teal-pale);
+  color: var(--color-teal-hover);
+  font-weight: 500;
+}
+
+/* Loading animation */
+@keyframes pulse-step {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.step-active {
+  animation: pulse-step 1.5s ease-in-out infinite;
+}
+
+/* Result card body markdown */
+.result-body h1,
+.result-body h2,
+.result-body h3 {
+  font-weight: 600;
+  margin-top: 0.75em;
+  margin-bottom: 0.25em;
+}
+.result-body ul, .result-body ol {
+  padding-left: 1.25em;
+  margin: 0.5em 0;
+}
+.result-body li {
+  margin-bottom: 0.25em;
+}
+.result-body p {
+  margin-bottom: 0.5em;
+}
+.result-body strong {
+  font-weight: 600;
+}
