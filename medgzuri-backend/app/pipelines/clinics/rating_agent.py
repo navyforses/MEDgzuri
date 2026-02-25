@@ -83,8 +83,9 @@ class ClinicRatingAgent:
         # Calculate score
         score = self._calculate_score(clinic, jci, pub_count)
 
+        data = clinic.model_dump(exclude={"jci_accredited"})
         return ClinicWithRating(
-            **clinic.model_dump(),
+            **data,
             rating_score=score,
             publication_count=pub_count,
             jci_accredited=jci,
@@ -96,8 +97,9 @@ class ClinicRatingAgent:
         jci = any(known in name_lower for known in JCI_ACCREDITED if JCI_ACCREDITED[known])
         score = 50 + (10 if jci else 0) + min(clinic.active_trials_count * 5, 20)
 
+        data = clinic.model_dump(exclude={"jci_accredited"})
         return ClinicWithRating(
-            **clinic.model_dump(),
+            **data,
             rating_score=min(score, 100),
             jci_accredited=jci,
         )
