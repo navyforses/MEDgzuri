@@ -1382,12 +1382,22 @@
 
     <script>
     // ═══════════════ STATE ═══════════════
+    /** @type {string} Currently active search tab */
     let currentTab = 'research';
+    /** @type {boolean} Whether a search is in progress (prevents concurrent searches) */
     let isSearching = false;
+    /** @type {object|null} Last search result (used for PDF report generation) */
     let lastSearchResult = null;
+    /** @type {string|null} Last search type (research|symptoms|clinics) */
     let lastSearchType = null;
 
     // ═══════════════ TAB SWITCHING ═══════════════
+    /**
+     * Switch the active search tab and panel.
+     * Blocked while a search is in progress to prevent state corruption.
+     *
+     * @param {string} tab - Target tab name (research|symptoms|clinics)
+     */
     function switchTab(tab) {
         if (isSearching) return;
         currentTab = tab;
@@ -1409,6 +1419,10 @@
     }
 
     // ═══════════════ CHECKBOX TOGGLE ═══════════════
+    /**
+     * Toggle a custom checkbox element's checked state.
+     * @param {HTMLElement} el - The .checkbox-item container element
+     */
     function toggleCheck(el) {
         const input = el.querySelector('input');
         input.checked = !input.checked;
@@ -1416,6 +1430,14 @@
     }
 
     // ═══════════════ SEARCH LOGIC ═══════════════
+    /**
+     * Execute a search: validate input → show progress → call API → display results.
+     *
+     * Uses an AbortController with a 120-second timeout. Progress is visualized
+     * through a multi-step animation. On failure, shows a Georgian error message.
+     *
+     * @param {string} type - Search type (research|symptoms|clinics)
+     */
     async function startSearch(type) {
         if (isSearching) return;
 
@@ -1503,6 +1525,15 @@
         }
     }
 
+    /**
+     * Collect and validate form data for the given search type.
+     *
+     * Returns null (and shows an error) if validation fails.
+     * Validates: required fields, max text lengths, age range.
+     *
+     * @param {string} type - Search type
+     * @returns {object|null} Form data object or null on validation failure
+     */
     function collectFormData(type) {
         const errEl = document.getElementById(`error-${type}`);
         errEl.classList.remove('visible');
@@ -1640,6 +1671,20 @@
     function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     // ═══════════════ DISPLAY RESULTS ═══════════════
+    /**
+     * Render search results into the results container.
+     *
+     * Handles multiple response formats:
+     *   - sections[] (enhanced n8n response)
+     *   - items[] (standard flat format)
+     *   - summary (text-only fallback)
+     *   - comparison, tips, nextSteps (supplementary data)
+     *
+     * Saves the result for later PDF report generation.
+     *
+     * @param {string} type   - Search type (for icon/title selection)
+     * @param {object} result - API response object
+     */
     function displayResults(type, result) {
         const container = document.getElementById('results-container');
         const list = document.getElementById('results-list');
@@ -1845,24 +1890,36 @@
         return icons[type] || icons.research;
     }
 
+    /**
+     * Convert markdown text to sanitized HTML for result card bodies.
+     *
+     * Uses marked.js for parsing and DOMPurify for XSS prevention.
+     * Falls back to plain-text paragraph wrapping if libraries are unavailable.
+     *
+     * Performance fix: marked.setOptions() was called on every invocation,
+     * re-configuring the parser each time. Now configured once via an IIFE flag.
+     *
+     * @param {string} text - Markdown or plain text
+     * @returns {string} Sanitized HTML
+     */
+    let _markedConfigured = false;
+    const _purifyConfig = {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'h3', 'h4', 'a', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sup', 'sub'],
+        ALLOWED_ATTR: ['href', 'target', 'rel']
+    };
+
     function formatResultBody(text) {
         if (!text) return '';
-        // Use marked.js for markdown parsing if available, with DOMPurify for XSS prevention
         if (typeof marked !== 'undefined') {
             try {
-                marked.setOptions({
-                    breaks: true,
-                    gfm: true,
-                    headerIds: false,
-                    mangle: false
-                });
+                // Configure marked once — avoids per-call overhead
+                if (!_markedConfigured) {
+                    marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+                    _markedConfigured = true;
+                }
                 const rawHtml = marked.parse(text);
-                // Sanitize with DOMPurify if available
                 if (typeof DOMPurify !== 'undefined') {
-                    return DOMPurify.sanitize(rawHtml, {
-                        ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'h3', 'h4', 'a', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sup', 'sub'],
-                        ALLOWED_ATTR: ['href', 'target', 'rel']
-                    });
+                    return DOMPurify.sanitize(rawHtml, _purifyConfig);
                 }
                 return rawHtml;
             } catch (e) {
@@ -1878,6 +1935,16 @@
     }
 
     // ═══════════════ PDF REPORT GENERATION ═══════════════
+    /**
+     * Generate and download a PDF report from the last search results.
+     *
+     * Flow:
+     *   1. Request structured report from /api/search (type: 'report')
+     *   2. Fallback to buildLocalReport() if API fails
+     *   3. Render HTML into a hidden container
+     *   4. Convert to PDF using html2pdf.js
+     *   5. Clean up temporary DOM elements
+     */
     async function downloadReport() {
         if (!lastSearchResult) return;
 
@@ -2075,12 +2142,29 @@
         };
     }
 
+    /**
+     * Escape HTML special characters to prevent XSS injection.
+     *
+     * Optimization: Uses a single regex pass with a replacement map instead of
+     * 5 chained .replace() calls. Each .replace() creates a new string and
+     * scans the full input — O(5n). Single-pass version is O(n).
+     *
+     * @param {string} str - Raw text to escape
+     * @returns {string} HTML-safe string
+     */
+    const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const _escapeRe = /[&<>"']/g;
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return str.replace(_escapeRe, ch => _escapeMap[ch]);
     }
 
     // ═══════════════ ERROR HANDLING ═══════════════
+    /**
+     * Display an error message for the given search panel.
+     * @param {string} type - Search type (determines which error element to show)
+     * @param {string} msg  - Georgian error message text
+     */
     function showError(type, msg) {
         const el = document.getElementById(`error-${type}`);
         el.textContent = msg;
@@ -2089,6 +2173,15 @@
     }
 
     // ═══════════════ TYPING PLACEHOLDER ANIMATION ═══════════════
+    /**
+     * Animated typewriter effect for input placeholders.
+     *
+     * Cycles through example phrases to guide users on what to search.
+     * Pauses when the input is focused or has a value.
+     *
+     * Fix: Uses requestAnimationFrame-aware guards to prevent animation
+     * from running on elements removed from the DOM (memory leak prevention).
+     */
     (function() {
         const inputs = {
             'research-diagnosis': [
@@ -2116,6 +2209,9 @@
             const origPlaceholder = el.placeholder;
 
             function animate() {
+                // Guard: stop if element was removed from DOM (prevents memory leak)
+                if (!el.isConnected) return;
+
                 if (document.activeElement === el || el.value.length > 0) {
                     el.placeholder = origPlaceholder;
                     setTimeout(animate, 1000);

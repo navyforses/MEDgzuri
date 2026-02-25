@@ -1,28 +1,78 @@
 /**
- * MedGzuri AI Search API
+ * MedGzuri AI Search API — Serverless Endpoint
  *
- * Serverless function that orchestrates multi-AI search pipeline:
- * 1. Perplexity API - Web search for medical research, clinics
- * 2. Anthropic Claude - Analysis, structuring, Georgian translation
- * 3. OpenAI GPT - Verification and fact-checking (Phase 2)
+ * Orchestrates a multi-AI search pipeline for Georgian-language medical research:
  *
- * Supports 3 search types: research, symptoms, clinics
+ *   Request  ──►  Cache  ──►  n8n (optional)  ──►  Perplexity  ──►  Claude  ──►  Response
+ *                  hit?         multi-agent          web search       structure
+ *                   │              │                     │              & translate
+ *                   ▼              ▼                     ▼                  │
+ *                 return        return               fallback ◄────────────┘
+ *
+ * Pipeline stages:
+ *   1. Perplexity API — web search for medical research, clinical trials, clinics
+ *   2. Anthropic Claude — analysis, structuring, and Georgian translation
+ *   3. OpenAI GPT — verification and fact-checking (Phase 2, not yet active)
+ *
+ * Search types:
+ *   - "research"  — PubMed/ClinicalTrials.gov literature search
+ *   - "symptoms"  — test & specialist recommendations (never diagnoses)
+ *   - "clinics"   — global hospital/clinic search with pricing
+ *   - "report"    — PDF report generation from prior search results
+ *
+ * Graceful degradation:
+ *   n8n failure  →  direct Perplexity+Claude pipeline
+ *   Claude failure →  raw Perplexity results
+ *   Both fail     →  demo/mock data
+ *
+ * @module api/search
  */
 
 // ═══════════════ CONFIG ═══════════════
+/** @type {string|undefined} */
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
+/** @type {string|undefined} */
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+/** @type {string|undefined} */
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+/** @type {string|undefined} */
 const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
+/** @type {string|undefined} */
 const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
+/** @type {string|undefined} */
 const SUPABASE_URL = process.env.SUPABASE_URL;
+/** @type {string|undefined} */
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// ═══════════════ IN-MEMORY CACHE (LRU) ═══════════════
+// ═══════════════ IN-MEMORY CACHE (LRU + TTL) ═══════════════
+/**
+ * LRU cache with time-based expiration.
+ *
+ * Uses a Map (insertion-ordered) for O(1) get/set/delete.
+ * On access, entries are moved to the tail (most-recently-used).
+ * On insert beyond capacity, the head (least-recently-used) is evicted.
+ *
+ * Complexity:
+ *   getCacheKey — O(n) where n = JSON-serialized input length (unavoidable)
+ *   cacheGet    — O(1) amortized (Map.get + delete + set)
+ *   cacheSet    — O(1) amortized
+ *
+ * Previous issue: TTL-expired entries were never proactively purged, only
+ * evicted by LRU pressure. Now a periodic sweep removes stale entries,
+ * bounding memory to min(CACHE_MAX_SIZE, active entries).
+ */
 const CACHE_MAX_SIZE = 100;
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const cache = new Map();
 
+/**
+ * Build a cache key from search type + input data.
+ * Uses djb2 hash over the canonical JSON representation.
+ *
+ * @param {string} type  - Search type (research|symptoms|clinics)
+ * @param {object} data  - Search parameters
+ * @returns {string}       Cache key in the form "type:hash"
+ */
 function getCacheKey(type, data) {
     const normalized = JSON.stringify({ type, ...data });
     let hash = 0;
@@ -34,6 +84,13 @@ function getCacheKey(type, data) {
     return `${type}:${hash}`;
 }
 
+/**
+ * Retrieve a cached entry, returning null on miss or expiry.
+ * Promotes the entry to most-recently-used on hit.
+ *
+ * @param {string} key
+ * @returns {object|null}
+ */
 function cacheGet(key) {
     const entry = cache.get(key);
     if (!entry) return null;
@@ -41,26 +98,61 @@ function cacheGet(key) {
         cache.delete(key);
         return null;
     }
-    // Move to end (LRU)
+    // Move to end (LRU promotion) — O(1)
     cache.delete(key);
     cache.set(key, entry);
     return entry.data;
 }
 
+/**
+ * Store a result in the cache, evicting the LRU entry if at capacity.
+ *
+ * @param {string} key
+ * @param {object} data
+ */
 function cacheSet(key, data) {
-    if (cache.size >= CACHE_MAX_SIZE) {
-        // Evict oldest entry
+    // If updating an existing key, delete first to refresh LRU position
+    if (cache.has(key)) {
+        cache.delete(key);
+    } else if (cache.size >= CACHE_MAX_SIZE) {
         const firstKey = cache.keys().next().value;
         cache.delete(firstKey);
     }
     cache.set(key, { data, ts: Date.now() });
 }
 
+/**
+ * Periodic TTL sweep — removes expired entries to prevent memory creep.
+ * Runs every 5 minutes. O(n) scan but n ≤ CACHE_MAX_SIZE = 100.
+ */
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of cache) {
+        if (now - entry.ts > CACHE_TTL_MS) {
+            cache.delete(key);
+        }
+    }
+}, 5 * 60 * 1000);
+
 // ═══════════════ RATE LIMITER ═══════════════
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX = 20; // max requests per IP per minute
+/**
+ * Fixed-window rate limiter using an in-memory Map.
+ *
+ * Each IP gets a counter that resets after RATE_LIMIT_WINDOW_MS.
+ * Stale entries are purged every 5 minutes to bound memory.
+ *
+ * Complexity: O(1) per request check, O(n) periodic cleanup where n = unique IPs.
+ */
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1-minute window
+const RATE_LIMIT_MAX = 20;              // max requests per IP per window
 const rateLimitMap = new Map();
 
+/**
+ * Check whether a client IP has exceeded the rate limit.
+ *
+ * @param {string} ip - Client IP address
+ * @returns {boolean}   true if the IP should be throttled
+ */
 function isRateLimited(ip) {
     const now = Date.now();
     const entry = rateLimitMap.get(ip);
@@ -69,21 +161,34 @@ function isRateLimited(ip) {
         return false;
     }
     entry.count++;
-    if (entry.count > RATE_LIMIT_MAX) return true;
-    return false;
+    return entry.count > RATE_LIMIT_MAX;
 }
 
-// Periodic cleanup of rate limit entries (every 5 min)
+// Periodic cleanup — remove entries whose window expired > 2× ago
 setInterval(() => {
     const now = Date.now();
+    const cutoff = RATE_LIMIT_WINDOW_MS * 2;
     for (const [ip, entry] of rateLimitMap) {
-        if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+        if (now - entry.windowStart > cutoff) {
             rateLimitMap.delete(ip);
         }
     }
 }, 5 * 60 * 1000);
 
 // ═══════════════ SEARCH LOGGING (Supabase) ═══════════════
+/**
+ * Fire-and-forget search telemetry to Supabase.
+ *
+ * Called without `await` in the handler so it never blocks the response.
+ * Failures are silently logged — logging should never degrade the user experience.
+ *
+ * @param {string} type       - Search type
+ * @param {object} data       - Original request payload
+ * @param {object} resultMeta - API result (used for item count)
+ * @param {number} pipelineMs - Total pipeline duration in ms
+ * @param {string} source     - Which pipeline served the result (n8n|direct|cache)
+ * @param {string} clientIp   - Client IP for analytics
+ */
 async function logSearch(type, data, resultMeta, pipelineMs, source, clientIp) {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return;
     try {
@@ -100,7 +205,7 @@ async function logSearch(type, data, resultMeta, pipelineMs, source, clientIp) {
                 query: data.diagnosis || data.symptoms || data.notes || '',
                 result_count: resultMeta?.items?.length || 0,
                 pipeline_ms: pipelineMs,
-                source: source,
+                source,
                 client_ip: clientIp,
                 created_at: new Date().toISOString()
             })
@@ -111,6 +216,34 @@ async function logSearch(type, data, resultMeta, pipelineMs, source, clientIp) {
 }
 
 // ═══════════════ HANDLER ═══════════════
+
+/** Set of valid search types — O(1) lookup vs O(n) Array.includes */
+const VALID_TYPES = new Set(['research', 'symptoms', 'clinics', 'report']);
+
+/** Dispatch table mapping search types to their handler functions */
+const SEARCH_HANDLERS = {
+    research: (data) => searchResearch(data),
+    symptoms: (data) => analyzeSymptoms(data),
+    clinics:  (data) => searchClinics(data),
+    report:   (data) => generateReport(data.reportType, data.searchResult),
+};
+
+/**
+ * Main request handler — Vercel serverless entry point.
+ *
+ * Flow:
+ *   1. CORS + method check
+ *   2. Rate limiting by IP
+ *   3. Input validation (type, text lengths, age range)
+ *   4. LRU cache check (skip for reports)
+ *   5. Demo mode fallback if no API keys
+ *   6. n8n multi-agent pipeline attempt
+ *   7. Direct Perplexity → Claude pipeline fallback
+ *   8. Cache result + async logging
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
+ */
 module.exports = async function handler(req, res) {
     // CORS — restrict to allowed origins when configured
     const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -127,10 +260,14 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        // Rate limiting
-        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+        // Rate limiting — extract first IP from X-Forwarded-For chain
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+            || req.socket?.remoteAddress
+            || 'unknown';
         if (isRateLimited(clientIp)) {
-            return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
+            return res.status(429).json({
+                error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.'
+            });
         }
 
         const { type, data } = req.body;
@@ -139,10 +276,17 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Missing type or data' });
         }
 
-        // Input validation
+        // Validate search type — O(1) Set lookup instead of O(n) array scan
+        if (!VALID_TYPES.has(type)) {
+            return res.status(400).json({ error: 'Invalid search type' });
+        }
+
+        // Input validation — guard against oversized payloads
         const MAX_TEXT_LENGTH = 2000;
-        const textFields = [data.diagnosis, data.symptoms, data.context, data.notes,
-                            data.existingConditions, data.medications];
+        const textFields = [
+            data.diagnosis, data.symptoms, data.context,
+            data.notes, data.existingConditions, data.medications
+        ];
         for (const field of textFields) {
             if (field && typeof field === 'string' && field.length > MAX_TEXT_LENGTH) {
                 return res.status(400).json({ error: 'Input too long' });
@@ -152,15 +296,10 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid age' });
         }
 
-        // Validate search type
-        const validTypes = ['research', 'symptoms', 'clinics', 'report'];
-        if (!validTypes.includes(type)) {
-            return res.status(400).json({ error: 'Invalid search type' });
-        }
-
-        // Check cache first (skip for reports)
+        // Cache check — compute key once, reuse for both get and set
+        let cacheKey;
         if (type !== 'report') {
-            const cacheKey = getCacheKey(type, data);
+            cacheKey = getCacheKey(type, data);
             const cached = cacheGet(cacheKey);
             if (cached) {
                 console.log(`[MedGzuri] Cache HIT for ${type}`);
@@ -170,61 +309,40 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // Check API keys
+        // Demo mode — return mock data when no API keys are configured
         if (!PERPLEXITY_API_KEY && !ANTHROPIC_API_KEY) {
-            // Demo mode - return mock data for testing
             console.log('[MedGzuri] No API keys configured, returning demo data');
-            let demoResult;
-            if (type === 'report') {
-                demoResult = getDemoReport(data.reportType, data.searchResult);
-            } else {
-                demoResult = getDemoResult(type, data);
-            }
+            const demoResult = type === 'report'
+                ? getDemoReport(data.reportType, data.searchResult)
+                : getDemoResult(type, data);
             demoResult.isDemo = true;
             return res.status(200).json(demoResult);
         }
 
-        // Pipeline tracking
+        // Pipeline execution
         const pipelineStart = Date.now();
-        const pipelineStatus = { n8n: 'skipped', perplexity: 'skipped', claude: 'skipped' };
 
-        // Try n8n multi-agent pipeline first, fall back to direct pipeline
+        // Try n8n multi-agent pipeline first
         let result = await proxyToN8n(type, data);
-        pipelineStatus.n8n = result ? 'success' : (N8N_WEBHOOK_BASE_URL ? 'failed' : 'skipped');
+        const n8nStatus = result ? 'success' : (N8N_WEBHOOK_BASE_URL ? 'failed' : 'skipped');
 
+        // Fallback to direct pipeline via dispatch table (eliminates switch/case)
         if (!result) {
-            // Fallback to existing direct pipeline
-            switch (type) {
-                case 'research':
-                    result = await searchResearch(data);
-                    break;
-                case 'symptoms':
-                    result = await analyzeSymptoms(data);
-                    break;
-                case 'clinics':
-                    result = await searchClinics(data);
-                    break;
-                case 'report':
-                    result = await generateReport(data.reportType, data.searchResult);
-                    break;
-                default:
-                    return res.status(400).json({ error: 'Invalid search type' });
-            }
+            result = await SEARCH_HANDLERS[type](data);
         }
 
-        // Add pipeline debug info
+        // Pipeline metadata
         const pipelineMs = Date.now() - pipelineStart;
-        const pipelineSource = pipelineStatus.n8n === 'success' ? 'n8n' : 'direct';
-        console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | n8n: ${pipelineStatus.n8n} | type: ${type}`);
-        result._pipeline = { ms: pipelineMs, n8n: pipelineStatus.n8n };
+        const pipelineSource = n8nStatus === 'success' ? 'n8n' : 'direct';
+        console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | n8n: ${n8nStatus} | type: ${type}`);
+        result._pipeline = { ms: pipelineMs, n8n: n8nStatus };
 
-        // Cache the result (skip reports)
-        if (type !== 'report') {
-            const cacheKey = getCacheKey(type, data);
+        // Cache the result (reports are unique, skip caching)
+        if (cacheKey) {
             cacheSet(cacheKey, result);
         }
 
-        // Log search to Supabase (async, non-blocking)
+        // Log search to Supabase (fire-and-forget — never blocks response)
         logSearch(type, data, result, pipelineMs, pipelineSource, clientIp);
 
         return res.status(200).json(result);
@@ -238,61 +356,74 @@ module.exports = async function handler(req, res) {
 };
 
 // ═══════════════ SEARCH: RESEARCH ═══════════════
+/**
+ * Research pipeline: Perplexity web search → Claude structuring.
+ *
+ * Searches PubMed, ClinicalTrials.gov, and medical literature for the
+ * given diagnosis, then structures results into Georgian-language items.
+ *
+ * @param {object} data - { diagnosis, ageGroup, researchType, context, regions }
+ * @returns {Promise<object>} Structured result with meta + items[]
+ */
 async function searchResearch(data) {
     const { diagnosis, ageGroup, researchType, context, regions } = data;
 
-    // Step 1: Search with Perplexity
     const searchQuery = buildResearchQuery(diagnosis, ageGroup, researchType, context);
     const searchResults = await perplexitySearch(searchQuery);
 
-    // Step 2: Structure with Claude
-    const structured = await claudeAnalyze({
+    return claudeAnalyze({
         role: 'research',
         query: diagnosis,
         searchResults,
         context: { ageGroup, researchType, regions, additionalContext: context }
     });
-
-    return structured;
 }
 
 // ═══════════════ SEARCH: SYMPTOMS ═══════════════
+/**
+ * Symptom analysis pipeline: Perplexity search → Claude analysis.
+ *
+ * Recommends tests and specialists — never provides a diagnosis.
+ *
+ * @param {object} data - { symptoms, age, sex, existingConditions, medications }
+ * @returns {Promise<object>} Analysis result with meta + items[]
+ */
 async function analyzeSymptoms(data) {
     const { symptoms, age, sex, existingConditions, medications } = data;
 
-    // Step 1: Search for symptom patterns
     const searchQuery = `medical tests and examinations for symptoms: ${symptoms}. Patient age: ${age || 'not specified'}, sex: ${sex || 'not specified'}. Existing conditions: ${existingConditions || 'none'}`;
     const searchResults = await perplexitySearch(searchQuery);
 
-    // Step 2: Analyze with Claude
-    const analysis = await claudeAnalyze({
+    return claudeAnalyze({
         role: 'symptoms',
         query: symptoms,
         searchResults,
         context: { age, sex, existingConditions, medications }
     });
-
-    return analysis;
 }
 
 // ═══════════════ SEARCH: CLINICS ═══════════════
+/**
+ * Clinic search pipeline: Perplexity search → Claude structuring.
+ *
+ * Finds hospitals and clinics worldwide with pricing and treatment details.
+ *
+ * @param {object} data - { diagnosis, countries, budget, language, notes }
+ * @returns {Promise<object>} Structured result with meta + items[]
+ */
 async function searchClinics(data) {
     const { diagnosis, countries, budget, language, notes } = data;
 
-    // Step 1: Search clinics
     const countryStr = countries.length > 0 ? countries.join(', ') : 'worldwide';
     const searchQuery = `best hospitals and clinics for ${diagnosis} in ${countryStr}. Treatment options, estimated costs, patient reviews. ${budget ? `Budget range: ${budget}` : ''} ${notes || ''}`;
     const searchResults = await perplexitySearch(searchQuery);
 
-    // Step 2: Structure with Claude
-    const structured = await claudeAnalyze({
+    return claudeAnalyze({
         role: 'clinics',
         query: diagnosis,
         searchResults,
         context: { countries, budget, language, notes }
     });
-
-    return structured;
 }
 
 // ═══════════════ REPORT GENERATION ═══════════════
@@ -402,6 +533,16 @@ function getDemoReport(reportType, searchResult) {
 }
 
 // ═══════════════ PERPLEXITY API ═══════════════
+/**
+ * Search the web for medical information using Perplexity AI.
+ *
+ * Returns structured search results with citations, or null on failure.
+ * Uses the "sonar" model with low temperature for factual responses.
+ * Timeout: 30 seconds.
+ *
+ * @param {string} query - Natural language search query
+ * @returns {Promise<{text: string, citations: string[]}|null>}
+ */
 async function perplexitySearch(query) {
     if (!PERPLEXITY_API_KEY) {
         console.log('[MedGzuri] Perplexity API key not set, skipping');
@@ -459,6 +600,24 @@ async function perplexitySearch(query) {
 }
 
 // ═══════════════ CLAUDE API ═══════════════
+/**
+ * Analyze and structure search results using Anthropic Claude.
+ *
+ * Takes raw Perplexity search results and transforms them into structured,
+ * Georgian-language JSON with items, tags, and metadata.
+ *
+ * Includes a Georgian content validation step: if < 50% of items contain
+ * Georgian text, a follow-up translation request is made (with its own timeout).
+ *
+ * Fallback chain: Claude failure → raw Perplexity results → demo data
+ *
+ * @param {object} params
+ * @param {string} params.role          - System prompt key (research|symptoms|clinics)
+ * @param {string} params.query         - Original user query
+ * @param {object|null} params.searchResults - Perplexity results { text, citations }
+ * @param {object} params.context       - Additional search context
+ * @returns {Promise<object>} Structured result with meta + items[]
+ */
 async function claudeAnalyze({ role, query, searchResults, context }) {
     if (!ANTHROPIC_API_KEY) {
         // Fallback: return raw search results formatted
@@ -592,7 +751,9 @@ ${grammarRules}
 
             if (georgianRatio < 0.5) {
                 console.warn(`[MedGzuri] Low Georgian ratio: ${(georgianRatio * 100).toFixed(0)}% — attempting translation fix`);
-                // Items are mostly English — wrap in translation prompt
+                // Items are mostly English — request Georgian translation with its own timeout
+                const fixController = new AbortController();
+                const fixTimeoutId = setTimeout(() => fixController.abort(), 30000);
                 try {
                     const fixResponse = await fetch('https://api.anthropic.com/v1/messages', {
                         method: 'POST',
@@ -608,8 +769,10 @@ ${grammarRules}
                                 role: 'user',
                                 content: `თარგმნე ეს JSON ქართულ ენაზე. ყველა title, body, source, tags ველი უნდა იყოს ქართულად. URL-ები არ შეცვალო. დააბრუნე მხოლოდ JSON, სხვა ტექსტი არ დაწერო.\n\n${JSON.stringify(parsed)}`
                             }]
-                        })
+                        }),
+                        signal: fixController.signal
                     });
+                    clearTimeout(fixTimeoutId);
                     if (fixResponse.ok) {
                         const fixResult = await fixResponse.json();
                         const fixText = fixResult.content?.[0]?.text || '';
@@ -620,6 +783,7 @@ ${grammarRules}
                         }
                     }
                 } catch (fixErr) {
+                    clearTimeout(fixTimeoutId);
                     console.error('[MedGzuri] Georgian fix failed:', fixErr.message);
                 }
             }
@@ -662,6 +826,17 @@ ${grammarRules}
 }
 
 // ═══════════════ N8N PROXY ═══════════════
+/**
+ * Proxy a search request to the n8n multi-agent workflow.
+ *
+ * Returns null if n8n is not configured, if the type is unsupported,
+ * or if the request fails/times out (30s). The caller falls back to
+ * the direct Perplexity+Claude pipeline.
+ *
+ * @param {string} type - Search type
+ * @param {object} data - Search parameters
+ * @returns {Promise<object|null>} Structured result or null
+ */
 async function proxyToN8n(type, data) {
     if (!N8N_WEBHOOK_BASE_URL) return null;
 
@@ -706,6 +881,13 @@ async function proxyToN8n(type, data) {
     }
 }
 
+/**
+ * Normalize n8n response to match the frontend's expected format.
+ * Converts sections-based responses to flat items[] when needed.
+ *
+ * @param {object} result - Raw n8n response
+ * @returns {object} Normalized result
+ */
 function ensureBackwardCompat(result) {
     if (result.sections && (!result.items || result.items.length === 0)) {
         result.items = result.sections.flatMap(s => s.items || []);
@@ -717,28 +899,45 @@ function ensureBackwardCompat(result) {
 }
 
 // ═══════════════ JSON EXTRACTION ═══════════════
+/**
+ * Extract a valid JSON object from potentially messy LLM output.
+ *
+ * Uses three strategies in order of likelihood:
+ *   1. Code fence (```json { ... } ```) — most structured responses
+ *   2. Full text as JSON                — when LLM returns pure JSON
+ *   3. Balanced-brace extraction        — when LLM wraps JSON in prose
+ *
+ * Validates that the parsed object contains expected keys (items/meta/summary/sections).
+ *
+ * Performance note (Strategy 3): Previous version called JSON.parse() at every
+ * depth-0 closing brace, making it O(n * k) where k = number of top-level `}`.
+ * Now it only parses the FIRST complete balanced object, then stops — O(n) scan
+ * + one parse attempt. If the first candidate fails, it continues to the next.
+ *
+ * @param {string} text - Raw LLM response text
+ * @returns {object|null} Parsed JSON object, or null if extraction fails
+ */
 function extractJSON(text) {
     // Strategy 1: Try code fence (```json ... ```)
     const fenceMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (fenceMatch) {
-        try {
-            const parsed = JSON.parse(fenceMatch[1]);
-            if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
-        } catch (e) { /* try next strategy */ }
+        const result = tryParseValid(fenceMatch[1]);
+        if (result) return result;
     }
 
-    // Strategy 2: Try full text as JSON
-    try {
-        const trimmed = text.trim();
-        if (trimmed.startsWith('{')) {
-            const parsed = JSON.parse(trimmed);
-            if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
-        }
-    } catch (e) { /* try next strategy */ }
+    // Strategy 2: Try full text as JSON (avoid regex overhead)
+    const trimmed = text.trim();
+    if (trimmed.charCodeAt(0) === 123) { // '{' char code — faster than startsWith
+        const result = tryParseValid(trimmed);
+        if (result) return result;
+    }
 
-    // Strategy 3: Balanced braces extraction
-    const startIdx = text.indexOf('{');
-    if (startIdx !== -1) {
+    // Strategy 3: Balanced braces extraction — single O(n) scan
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+        const startIdx = text.indexOf('{', searchFrom);
+        if (startIdx === -1) break;
+
         let depth = 0;
         let inString = false;
         let escape = false;
@@ -752,20 +951,48 @@ function extractJSON(text) {
             else if (ch === '}') {
                 depth--;
                 if (depth === 0) {
-                    try {
-                        const candidate = text.substring(startIdx, i + 1);
-                        const parsed = JSON.parse(candidate);
-                        if (parsed.items || parsed.meta || parsed.summary || parsed.sections) return parsed;
-                    } catch (e) { /* continue searching */ }
+                    const candidate = text.substring(startIdx, i + 1);
+                    const result = tryParseValid(candidate);
+                    if (result) return result;
+                    // This candidate wasn't valid — search for next '{' after this block
+                    searchFrom = i + 1;
+                    break;
                 }
             }
         }
+        // If we exit the loop without depth reaching 0, no more valid JSON
+        if (depth !== 0) break;
     }
 
     return null;
 }
 
+/**
+ * Attempt to parse a string as JSON and validate it has expected MedGzuri keys.
+ *
+ * @param {string} str - JSON candidate string
+ * @returns {object|null} Parsed object if valid, null otherwise
+ */
+function tryParseValid(str) {
+    try {
+        const parsed = JSON.parse(str);
+        if (parsed && (parsed.items || parsed.meta || parsed.summary || parsed.sections)) {
+            return parsed;
+        }
+    } catch { /* not valid JSON */ }
+    return null;
+}
+
 // ═══════════════ HELPERS ═══════════════
+/**
+ * Build a natural-language search query for the Perplexity research endpoint.
+ *
+ * @param {string} diagnosis    - Medical condition or diagnosis
+ * @param {string} ageGroup     - Patient age group (e.g., "adult", "pediatric")
+ * @param {string} researchType - Filter: clinical_trial, systematic_review, etc.
+ * @param {string} context      - Additional free-text context
+ * @returns {string} Constructed search query
+ */
 function buildResearchQuery(diagnosis, ageGroup, researchType, context) {
     let query = `Latest medical research, clinical trials, and treatment options for ${diagnosis}.`;
     if (ageGroup) query += ` Patient age group: ${ageGroup}.`;
@@ -783,6 +1010,15 @@ function buildResearchQuery(diagnosis, ageGroup, researchType, context) {
 }
 
 // ═══════════════ FORMAT RAW RESULTS ═══════════════
+/**
+ * Wrap raw Perplexity text into the standard MedGzuri response format.
+ * Used as a fallback when Claude is unavailable.
+ *
+ * @param {string} role          - Search role (unused, kept for signature consistency)
+ * @param {string} query         - Original search query
+ * @param {object} searchResults - Raw Perplexity results { text, citations }
+ * @returns {Promise<object>} Formatted result
+ */
 async function formatRawResults(role, query, searchResults) {
     return {
         meta: 'ძიების შედეგები',
@@ -797,6 +1033,14 @@ async function formatRawResults(role, query, searchResults) {
 }
 
 // ═══════════════ DEMO DATA ═══════════════
+/**
+ * Return static Georgian mock data for demo/development mode.
+ * Activated when no API keys are configured.
+ *
+ * @param {string} type - Search type (research|symptoms|clinics)
+ * @param {object} data - Search parameters (used for context in future)
+ * @returns {object} Demo result in standard MedGzuri response format
+ */
 function getDemoResult(type, data) {
     if (type === 'research') {
         return {

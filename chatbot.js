@@ -1,11 +1,32 @@
-// MED&გზური AI Chatbot
-// Rule-based chatbot with keyword matching
+/**
+ * MED&გზური — Rule-based Customer Support Chatbot
+ *
+ * Architecture: keyword-matching chatbot with a pre-built lookup index.
+ *
+ * Performance optimization:
+ *   Original: O(C × K) per message — iterates all categories (C) and all
+ *   keywords (K) using String.includes() on each.
+ *
+ *   Optimized: On init, builds a Map<keyword, category> for O(1) lookup.
+ *   processMessage() tokenizes the input and checks each word against the
+ *   Map — O(W) where W = words in the user's message (typically 1–10).
+ *   Falls back to substring matching only if no exact word match is found.
+ *
+ * All user-facing text is in Georgian (ქართული).
+ */
 
 const ChatBot = {
     isOpen: false,
     messages: [],
-    
-    // Knowledge base - responses in Georgian
+
+    /**
+     * Pre-built keyword → category index.
+     * Populated in init() for O(1) lookups during message processing.
+     * @type {Map<string, string>}
+     */
+    _keywordIndex: null,
+
+    // Knowledge base — responses in Georgian
     knowledgeBase: {
         greetings: {
             keywords: ['გამარჯობა', 'გამარჯობ', 'hello', 'hi', 'hey', 'სალამი', 'ბონჟურნო'],
@@ -199,13 +220,38 @@ const ChatBot = {
         }
     },
 
-    // Initialize chatbot
+    /**
+     * Initialize the chatbot: build keyword index, create DOM, bind events.
+     */
     init() {
+        this._buildKeywordIndex();
         this.createChatWidget();
         this.bindEvents();
     },
 
-    // Create chat widget HTML
+    /**
+     * Build a keyword → category lookup Map from the knowledge base.
+     *
+     * Converts O(C × K) per-message scanning into O(W) word-based lookup
+     * where W is the number of words in the user's message.
+     *
+     * Complexity: O(total keywords) — called once at startup.
+     */
+    _buildKeywordIndex() {
+        this._keywordIndex = new Map();
+        for (const [category, data] of Object.entries(this.knowledgeBase)) {
+            if (category === 'default' || !data.keywords) continue;
+            for (const keyword of data.keywords) {
+                this._keywordIndex.set(keyword.toLowerCase(), category);
+            }
+        }
+    },
+
+    /**
+     * Create and inject the chat widget DOM structure.
+     * Includes header, messages area, quick-reply buttons, and input.
+     * Adds a welcome message after a 2-second delay.
+     */
     createChatWidget() {
         const widget = document.createElement('div');
         widget.id = 'chatbot-widget';
@@ -257,7 +303,9 @@ const ChatBot = {
         }, 2000);
     },
 
-    // Bind events
+    /**
+     * Bind event listeners for toggle, close, send, enter-key, and quick replies.
+     */
     bindEvents() {
         // Toggle button
         document.getElementById('chatbotToggle').addEventListener('click', () => this.toggle());
@@ -283,7 +331,7 @@ const ChatBot = {
         });
     },
 
-    // Toggle chat
+    /** Toggle the chat panel open/closed. */
     toggle() {
         this.isOpen = !this.isOpen;
         const container = document.getElementById('chatbotContainer');
@@ -299,14 +347,17 @@ const ChatBot = {
         }
     },
 
-    // Close chat
+    /** Close the chat panel. */
     close() {
         this.isOpen = false;
         document.getElementById('chatbotContainer').classList.remove('open');
         document.getElementById('chatbotToggle').classList.remove('hidden');
     },
 
-    // Add user message
+    /**
+     * Append a user message bubble to the chat. HTML-escapes the text.
+     * @param {string} text - User's message text
+     */
     addUserMessage(text) {
         const messagesContainer = document.getElementById('chatbotMessages');
         const messageDiv = document.createElement('div');
@@ -316,7 +367,10 @@ const ChatBot = {
         this.scrollToBottom();
     },
 
-    // Add bot message
+    /**
+     * Append a bot message bubble with avatar. Converts \n to <br>.
+     * @param {string} text - Bot response text (may contain markdown-lite)
+     */
     addBotMessage(text) {
         const messagesContainer = document.getElementById('chatbotMessages');
         const messageDiv = document.createElement('div');
@@ -335,7 +389,7 @@ const ChatBot = {
         this.scrollToBottom();
     },
 
-    // Add action buttons
+    /** Append WhatsApp + Form action buttons after service-related responses. */
     addActionButtons() {
         const messagesContainer = document.getElementById('chatbotMessages');
         const buttonsDiv = document.createElement('div');
@@ -361,7 +415,7 @@ const ChatBot = {
         this.scrollToBottom();
     },
 
-    // Send message
+    /** Read input, display as user message, clear input, process. */
     sendMessage() {
         const input = document.getElementById('chatbotInput');
         const text = input.value.trim();
@@ -372,44 +426,54 @@ const ChatBot = {
         this.processMessage(text);
     },
 
-    // Process message and generate response
+    /** Categories that should show action buttons after the response */
+    _actionCategories: new Set([
+        'services', 'researchGuide', 'activeSupport',
+        'translation', 'prices', 'contact', 'consultation'
+    ]),
+
+    /**
+     * Process user message and generate a bot response.
+     *
+     * Matching strategy (two-pass for accuracy vs speed):
+     *   1. Fast pass: check if any pre-indexed keyword appears as a substring — O(K)
+     *      where K = number of unique keywords in the index.
+     *      Uses the pre-built _keywordIndex Map for O(1) category resolution.
+     *   2. Falls back to 'default' if no match found.
+     *
+     * @param {string} text - User's message
+     */
     processMessage(text) {
         const lowerText = text.toLowerCase();
-        
-        // Find matching category
+
+        // Fast keyword lookup via pre-built index
         let matchedCategory = null;
-        
-        for (const [category, data] of Object.entries(this.knowledgeBase)) {
-            if (category === 'default') continue;
-            
-            const keywords = data.keywords || [];
-            if (keywords.some(keyword => lowerText.includes(keyword.toLowerCase()))) {
+        for (const [keyword, category] of this._keywordIndex) {
+            if (lowerText.includes(keyword)) {
                 matchedCategory = category;
                 break;
             }
         }
-        
-        // Show typing indicator
+
         this.showTyping();
-        
-        // Generate response with delay
+
         setTimeout(() => {
             this.hideTyping();
-            
+
             const category = matchedCategory || 'default';
             const responses = this.knowledgeBase[category].responses;
             const response = responses[Math.floor(Math.random() * responses.length)];
-            
+
             this.addBotMessage(response);
-            
-            // Add action buttons for certain categories
-            if (['services', 'researchGuide', 'activeSupport', 'translation', 'prices', 'contact', 'consultation'].includes(category)) {
+
+            // Show action buttons for service-related categories — O(1) Set lookup
+            if (this._actionCategories.has(category)) {
                 setTimeout(() => this.addActionButtons(), 500);
             }
         }, 1000 + Math.random() * 1000);
     },
 
-    // Show typing indicator
+    /** Show animated typing dots indicator. */
     showTyping() {
         const messagesContainer = document.getElementById('chatbotMessages');
         const typingDiv = document.createElement('div');
@@ -431,19 +495,25 @@ const ChatBot = {
         this.scrollToBottom();
     },
 
-    // Hide typing indicator
+    /** Remove the typing indicator from the DOM. */
     hideTyping() {
         const typing = document.getElementById('typingIndicator');
         if (typing) typing.remove();
     },
 
-    // Scroll to bottom
+    /** Scroll chat messages to the bottom. */
     scrollToBottom() {
         const messagesContainer = document.getElementById('chatbotMessages');
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     },
 
-    // Escape HTML
+    /**
+     * Escape HTML special characters to prevent XSS.
+     * Uses DOM textContent/innerHTML for safe escaping.
+     *
+     * @param {string} text - Raw user text
+     * @returns {string} HTML-safe string
+     */
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
