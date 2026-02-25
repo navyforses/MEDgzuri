@@ -1,11 +1,13 @@
 """Async Anthropic API wrapper with retry, logging, and JSON extraction."""
 
+import asyncio
 import json
 import logging
 import time
 from pathlib import Path
 
 import anthropic
+import httpx
 
 from app.config import settings
 
@@ -18,7 +20,10 @@ _client: anthropic.AsyncAnthropic | None = None
 def _get_client() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        _client = anthropic.AsyncAnthropic(
+            api_key=settings.anthropic_api_key,
+            timeout=httpx.Timeout(settings.llm_timeout_seconds, connect=10.0),
+        )
     return _client
 
 
@@ -56,15 +61,21 @@ async def _call_model(
     client = _get_client()
     last_error = None
 
-    for attempt in range(1, settings.llm_max_retries + 2):
+    max_attempts = settings.llm_max_retries + 1
+
+    hard_timeout = settings.llm_timeout_seconds
+
+    for attempt in range(1, max_attempts + 1):
         start = time.monotonic()
         try:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user_message}],
-                timeout=settings.llm_timeout_seconds,
+            response = await asyncio.wait_for(
+                client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": user_message}],
+                ),
+                timeout=hard_timeout,
             )
             elapsed_ms = int((time.monotonic() - start) * 1000)
             text = response.content[0].text if response.content else ""
@@ -75,26 +86,36 @@ async def _call_model(
             )
             return text
 
+        except asyncio.TimeoutError:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            logger.warning(
+                "LLM timeout | model=%s | %dms (hard limit %ds) — no retry",
+                model, elapsed_ms, hard_timeout,
+            )
+            raise TimeoutError(f"LLM timeout after {elapsed_ms}ms")
+
         except anthropic.APIStatusError as e:
             elapsed_ms = int((time.monotonic() - start) * 1000)
             logger.warning(
                 "LLM error | model=%s | status=%d | attempt=%d/%d | %dms | %s",
-                model, e.status_code, attempt, settings.llm_max_retries + 1,
+                model, e.status_code, attempt, max_attempts,
                 elapsed_ms, str(e)[:200],
             )
             last_error = e
-            if e.status_code in (429, 500, 502, 503, 529):
+            if e.status_code in (429, 500, 502, 503) and attempt < max_attempts:
                 continue
             raise
 
-        except anthropic.APITimeoutError:
+        except (anthropic.APITimeoutError, anthropic.APIConnectionError) as e:
             elapsed_ms = int((time.monotonic() - start) * 1000)
             logger.warning(
-                "LLM timeout | model=%s | attempt=%d/%d | %dms",
-                model, attempt, settings.llm_max_retries + 1, elapsed_ms,
+                "LLM connection error | model=%s | attempt=%d/%d | %dms",
+                model, attempt, max_attempts, elapsed_ms,
             )
-            last_error = TimeoutError(f"LLM timeout after {elapsed_ms}ms")
-            continue
+            last_error = e
+            if attempt < max_attempts:
+                continue
+            raise
 
     raise last_error or RuntimeError("LLM call failed after all retries")
 

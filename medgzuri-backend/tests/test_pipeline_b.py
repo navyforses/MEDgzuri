@@ -58,11 +58,9 @@ class TestSymptomParser:
 
 class TestDifferentialAnalysis:
     @pytest.mark.asyncio
-    async def test_fallback_when_both_fail(self):
-        """Returns empty structure when both Opus and Sonnet fail."""
-        with patch("app.pipelines.symptoms.differential.call_opus_json",
-                    new_callable=AsyncMock, side_effect=Exception("no key")), \
-             patch("app.pipelines.symptoms.differential.call_sonnet_json",
+    async def test_fallback_when_sonnet_fails(self):
+        """Returns empty structure when Sonnet fails."""
+        with patch("app.pipelines.symptoms.differential.call_sonnet_json",
                     new_callable=AsyncMock, side_effect=Exception("no key")):
             diff = DifferentialAnalysis()
             parsed = ParsedSymptoms(
@@ -74,8 +72,8 @@ class TestDifferentialAnalysis:
             assert "disclaimer" in result
 
     @pytest.mark.asyncio
-    async def test_opus_success(self):
-        """Test successful Opus analysis."""
+    async def test_sonnet_success(self):
+        """Test successful Sonnet analysis."""
         mock_response = {
             "research_directions": [
                 {
@@ -98,7 +96,7 @@ class TestDifferentialAnalysis:
             "medication_interaction_note": "",
             "disclaimer": "ეს არ არის დიაგნოზი",
         }
-        with patch("app.pipelines.symptoms.differential.call_opus_json",
+        with patch("app.pipelines.symptoms.differential.call_sonnet_json",
                     new_callable=AsyncMock, return_value=mock_response):
             diff = DifferentialAnalysis()
             parsed = ParsedSymptoms(

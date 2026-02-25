@@ -8,8 +8,8 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str = ""
-    claude_sonnet_model: str = "claude-sonnet-4-5-20250514"
-    claude_opus_model: str = "claude-opus-4-5-20250514"
+    claude_sonnet_model: str = "claude-sonnet-4-6"
+    claude_opus_model: str = "claude-opus-4-6"
 
     # External APIs
     ncbi_api_key: str = ""
@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     cache_ttl_clinics: int = 2592000            # 30 days
 
     # LLM defaults
-    llm_max_retries: int = 2
-    llm_timeout_seconds: int = 45
+    llm_max_retries: int = 1
+    llm_timeout_seconds: int = 60
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
