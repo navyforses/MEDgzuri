@@ -1,10 +1,7 @@
 {
   "version": 2,
-    "alias": ["medgzuri.ge", "www.medgzuri.ge"],
+  "alias": ["medgzuri.ge", "www.medgzuri.ge"],
   "functions": {
-    "api/search.js": {
-      "maxDuration": 120
-    },
     "api/auth.js": {
       "maxDuration": 30
     },
@@ -16,7 +13,7 @@
     }
   },
   "rewrites": [
-    { "source": "/api/search", "destination": "/api/search.js" },
+    { "source": "/api/search", "destination": "https://medgzuri-production.up.railway.app/api/search" },
     { "source": "/api/auth", "destination": "/api/auth.js" },
     { "source": "/api/leads", "destination": "/api/leads.js" },
     { "source": "/api/qa", "destination": "/api/qa.js" },

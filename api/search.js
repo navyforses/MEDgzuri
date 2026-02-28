@@ -3,11 +3,11 @@
  *
  * Orchestrates a multi-AI search pipeline for Georgian-language medical research:
  *
- *   Request  ──►  Cache  ──►  n8n (optional)  ──►  Perplexity  ──►  Claude  ──►  Response
- *                  hit?         multi-agent          web search       structure
- *                   │              │                     │              & translate
- *                   ▼              ▼                     ▼                  │
- *                 return        return               fallback ◄────────────┘
+ *   Request  ──►  Cache  ──►  n8n  ──►  Railway  ──►  Perplexity  ──►  Claude  ──►  Response
+ *                  hit?      optional    FastAPI        web search       structure
+ *                   │           │        agents            │              & translate
+ *                   ▼           ▼           ▼              ▼                  │
+ *                 return     return      return         fallback ◄────────────┘
  *
  * Pipeline stages:
  *   1. Perplexity API — web search for medical research, clinical trials, clinics
@@ -21,9 +21,10 @@
  *   - "report"    — PDF report generation from prior search results
  *
  * Graceful degradation:
- *   n8n failure  →  direct Perplexity+Claude pipeline
- *   Claude failure →  raw Perplexity results
- *   Both fail     →  demo/mock data
+ *   n8n failure    →  Railway FastAPI agents
+ *   Railway failure →  direct Perplexity+Claude pipeline
+ *   Claude failure  →  raw Perplexity results
+ *   All fail       →  demo/mock data
  *
  * @module api/search
  */
@@ -43,6 +44,8 @@ const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 /** @type {string|undefined} */
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+/** @type {string|undefined} Railway FastAPI backend URL for agent-based pipelines */
+const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL;
 
 // ═══════════════ IN-MEMORY CACHE (LRU + TTL) ═══════════════
 /**
@@ -238,8 +241,9 @@ const SEARCH_HANDLERS = {
  *   4. LRU cache check (skip for reports)
  *   5. Demo mode fallback if no API keys
  *   6. n8n multi-agent pipeline attempt
- *   7. Direct Perplexity → Claude pipeline fallback
- *   8. Cache result + async logging
+ *   7. Railway FastAPI agent pipeline attempt
+ *   8. Direct Perplexity → Claude pipeline fallback
+ *   9. Cache result + async logging
  *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res
@@ -326,6 +330,13 @@ module.exports = async function handler(req, res) {
         let result = await proxyToN8n(type, data);
         const n8nStatus = result ? 'success' : (N8N_WEBHOOK_BASE_URL ? 'failed' : 'skipped');
 
+        // Try Railway FastAPI backend (agent-based pipelines)
+        let railwayStatus = 'skipped';
+        if (!result) {
+            result = await proxyToRailway(type, data);
+            railwayStatus = result ? 'success' : (RAILWAY_BACKEND_URL ? 'failed' : 'skipped');
+        }
+
         // Fallback to direct pipeline via dispatch table (eliminates switch/case)
         if (!result) {
             result = await SEARCH_HANDLERS[type](data);
@@ -333,9 +344,11 @@ module.exports = async function handler(req, res) {
 
         // Pipeline metadata
         const pipelineMs = Date.now() - pipelineStart;
-        const pipelineSource = n8nStatus === 'success' ? 'n8n' : 'direct';
-        console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | n8n: ${n8nStatus} | type: ${type}`);
-        result._pipeline = { ms: pipelineMs, n8n: n8nStatus };
+        const pipelineSource = n8nStatus === 'success' ? 'n8n'
+            : railwayStatus === 'success' ? 'railway'
+            : 'direct';
+        console.log(`[MedGzuri] Pipeline completed in ${pipelineMs}ms | source: ${pipelineSource} | n8n: ${n8nStatus} | railway: ${railwayStatus} | type: ${type}`);
+        result._pipeline = { ms: pipelineMs, n8n: n8nStatus, railway: railwayStatus };
 
         // Cache the result (reports are unique, skip caching)
         if (cacheKey) {
@@ -896,6 +909,52 @@ function ensureBackwardCompat(result) {
         result.meta = 'ძიების შედეგები';
     }
     return result;
+}
+
+// ═══════════════ RAILWAY BACKEND PROXY ═══════════════
+/**
+ * Proxy search requests to the Railway FastAPI backend (agent-based pipelines).
+ * Supports research, symptoms, and clinics types.
+ * Returns null on failure so the caller can fall back to the direct pipeline.
+ *
+ * @param {string} type - Search type (research|symptoms|clinics)
+ * @param {object} data - Search parameters
+ * @returns {Promise<object|null>} Parsed result or null on failure
+ */
+async function proxyToRailway(type, data) {
+    if (!RAILWAY_BACKEND_URL) return null;
+
+    const PROXY_TYPES = new Set(['research', 'symptoms', 'clinics']);
+    if (!PROXY_TYPES.has(type)) return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+    try {
+        const response = await fetch(`${RAILWAY_BACKEND_URL}/api/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, data }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.error(`[MedGzuri] Railway proxy error: ${response.status}`);
+            return null;
+        }
+
+        const result = await response.json();
+        return ensureBackwardCompat(result);
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            console.error('[MedGzuri] Railway proxy timed out (90s)');
+        } else {
+            console.error('[MedGzuri] Railway proxy failed:', err.message);
+        }
+        return null;
+    }
 }
 
 // ═══════════════ JSON EXTRACTION ═══════════════
