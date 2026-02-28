@@ -13,6 +13,7 @@ from typing import Any
 from app.config import settings
 from app.orchestrator.schemas import (
     ClinicInput,
+    ReportSection,
     ResearchInput,
     ResultItem,
     SearchRequest,
@@ -49,6 +50,8 @@ class OrchestratorRouter:
             return await self._run_symptoms(data)
         elif pipeline_type == "clinic_search":
             return await self._run_clinics(data)
+        elif pipeline_type == "report_generation":
+            return await self._run_report(data)
         else:
             return _error_response("უცნობი ძიების ტიპი.")
 
@@ -81,6 +84,41 @@ class OrchestratorRouter:
         from app.pipelines.clinics import ClinicPipeline
         pipeline = ClinicPipeline()
         return await pipeline.execute(inp)
+
+    async def _run_report(self, data: dict[str, Any]) -> SearchResponse:
+        """Report generation — structures search results into a formal report."""
+        import json
+        report_type = data.get("reportType", data.get("report_type", "research"))
+        search_result = data.get("searchResult", data.get("search_result", {}))
+
+        if not search_result:
+            return _error_response("ძიების შედეგები არ მოიძებნა ანგარიშის გენერაციისთვის.")
+
+        from app.services.llm_client import call_sonnet_json, load_prompt
+
+        try:
+            system_prompt = load_prompt("report")
+        except FileNotFoundError:
+            system_prompt = _default_report_prompt()
+
+        user_message = f"ანგარიშის ტიპი: {report_type}\nძიების შედეგები: {json.dumps(search_result, ensure_ascii=False)}"
+
+        try:
+            parsed = await call_sonnet_json(system_prompt, user_message, max_tokens=4000)
+            if parsed and parsed.get("sections"):
+                return SearchResponse(
+                    title=parsed.get("title", "სამედიცინო ანგარიში"),
+                    sections=[
+                        ReportSection(heading=s.get("heading", ""), content=s.get("content", ""))
+                        for s in parsed["sections"]
+                    ],
+                    disclaimer=parsed.get("disclaimer", "ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას."),
+                )
+        except Exception as e:
+            logger.error("Report generation failed: %s", str(e)[:200])
+
+        # Fallback: build a simple report from the search result
+        return _fallback_report(report_type, search_result)
 
 
 # ═══════════════ INPUT PARSING (old format → new) ═══════════════
@@ -138,3 +176,56 @@ def _demo_response(pipeline_type: str, data: dict) -> SearchResponse:
     """Return mock data for demo/dev mode."""
     from app.orchestrator.demo_data import get_demo_data
     return get_demo_data(pipeline_type, data)
+
+
+def _default_report_prompt() -> str:
+    """Fallback report prompt when prompts/report.txt is missing."""
+    return (
+        "შენ ხარ მედგზურის სამედიცინო ანგარიშის ავტორი. მოგეცემა ძიების შედეგები და შენ უნდა "
+        "შექმნა სრული, პროფესიული სამედიცინო ანგარიში ქართულ ენაზე.\n\n"
+        "ანგარიშის სტრუქტურა:\n"
+        "1. შესავალი — თემის მოკლე აღწერა\n"
+        "2. მიმოხილვა — ძირითადი მიგნებები\n"
+        "3. დეტალური ანალიზი — თითოეული აღმოჩენის განხილვა\n"
+        "4. რეკომენდაციები — კონკრეტული რჩევები\n"
+        "5. დასკვნა — შეჯამება\n\n"
+        "პასუხი მხოლოდ JSON ფორმატში:\n"
+        '{"title": "სათაური", "sections": [{"heading": "სექცია", "content": "ტექსტი"}], '
+        '"disclaimer": "სამედიცინო პასუხისმგებლობის უარყოფა"}'
+    )
+
+
+def _fallback_report(report_type: str, search_result: dict) -> SearchResponse:
+    """Build a simple structured report from raw search results when LLM fails."""
+    meta = search_result.get("meta", "სამედიცინო მოთხოვნა")
+    items = search_result.get("items", [])
+
+    sections = [
+        ReportSection(heading="შესავალი", content=f"წინამდებარე ანგარიში მომზადებულია ძიების შედეგების ({meta}) საფუძველზე."),
+    ]
+
+    if items:
+        body_parts = []
+        for item in items[:10]:
+            title = item.get("title", "")
+            body = item.get("body", "")
+            source = item.get("source", "")
+            entry = f"**{title}**" if title else ""
+            if source:
+                entry += f" ({source})"
+            if body:
+                entry += f"\n{body}"
+            if entry:
+                body_parts.append(entry)
+        sections.append(ReportSection(heading="მიმოხილვა", content="\n\n".join(body_parts)))
+
+    sections.append(ReportSection(
+        heading="რეკომენდაციები",
+        content="რეკომენდირებულია კონსულტაცია შესაბამის სამედიცინო სპეციალისტთან.",
+    ))
+
+    return SearchResponse(
+        title=f"სამედიცინო ანგარიში — {meta}",
+        sections=sections,
+        disclaimer="ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.",
+    )

@@ -1,6 +1,6 @@
 """Demo/mock data returned when no API keys are configured."""
 
-from app.orchestrator.schemas import ResultItem, SearchResponse, TipItem
+from app.orchestrator.schemas import ReportSection, ResultItem, SearchResponse, TipItem
 
 
 def get_demo_data(pipeline_type: str, data: dict) -> SearchResponse:
@@ -11,6 +11,8 @@ def get_demo_data(pipeline_type: str, data: dict) -> SearchResponse:
         return _demo_symptoms()
     elif pipeline_type == "clinic_search":
         return _demo_clinics()
+    elif pipeline_type == "report_generation":
+        return _demo_report(data)
     return SearchResponse(meta="სადემონსტრაციო რეჟიმი", isDemo=True)
 
 
@@ -100,4 +102,37 @@ def _demo_clinics() -> SearchResponse:
             ),
         ],
         disclaimer="⚕️ ფასები საინფორმაციო ხასიათისაა. მედგზური არ ანაცვლებს ექიმის კონსულტაციას.",
+    )
+
+
+def _demo_report(data: dict) -> SearchResponse:
+    search_result = data.get("searchResult", data.get("search_result", {}))
+    query = search_result.get("meta", "სამედიცინო მოთხოვნა") if search_result else "სამედიცინო მოთხოვნა"
+    return SearchResponse(
+        title=f"სამედიცინო ანგარიში — {query}",
+        isDemo=True,
+        sections=[
+            ReportSection(
+                heading="შესავალი",
+                content="წინამდებარე ანგარიში წარმოადგენს სადემონსტრაციო დოკუმენტს. "
+                        "რეალური ანგარიშის გენერაციისთვის საჭიროა სისტემის სრული კონფიგურაცია.",
+            ),
+            ReportSection(
+                heading="მიმოხილვა",
+                content="ძიების შედეგების ანალიზის საფუძველზე გამოვლინდა რამდენიმე მნიშვნელოვანი მიგნება. "
+                        "აღნიშნული მიგნებები ეფუძნება თანამედროვე სამედიცინო კვლევებსა და კლინიკურ პრაქტიკას.",
+            ),
+            ReportSection(
+                heading="რეკომენდაციები",
+                content="რეკომენდირებულია კონსულტაცია შესაბამის სამედიცინო სპეციალისტთან. "
+                        "დამატებითი გამოკვლევების ჩატარება დაგეხმარებათ უფრო ზუსტი სურათის შექმნაში.",
+            ),
+            ReportSection(
+                heading="დასკვნა",
+                content="ეს სადემონსტრაციო ანგარიში ასახავს დოკუმენტის სტრუქტურასა და ფორმატს. "
+                        "სრული ანგარიში მოიცავს დეტალურ ანალიზს, წყაროების მითითებას და პერსონალიზებულ რეკომენდაციებს.",
+            ),
+        ],
+        disclaimer="ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. "
+                   "ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად.",
     )

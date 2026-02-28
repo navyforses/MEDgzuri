@@ -23,7 +23,7 @@ class SearchRequest(BaseModel):
     source_tab: str | None = None
 
     def get_pipeline_type(self) -> str:
-        """Resolve to pipeline type: research_search | symptom_navigation | clinic_search."""
+        """Resolve to pipeline type: research_search | symptom_navigation | clinic_search | report_generation."""
         if self.source_tab:
             return self.source_tab
 
@@ -31,6 +31,7 @@ class SearchRequest(BaseModel):
             "research": "research_search",
             "symptoms": "symptom_navigation",
             "clinics": "clinic_search",
+            "report": "report_generation",
         }
         return type_map.get(self.type or "", "")
 
@@ -198,6 +199,12 @@ class TipItem(BaseModel):
     icon: str = ""
 
 
+class ReportSection(BaseModel):
+    """Single section in a generated report."""
+    heading: str = ""
+    content: str = ""
+
+
 class SearchResponse(BaseModel):
     """Final response sent to the frontend — matches existing format."""
     meta: str = ""
@@ -208,3 +215,6 @@ class SearchResponse(BaseModel):
     nextSteps: list[TipItem] = Field(default_factory=list)
     disclaimer: str = ""
     isDemo: bool = False
+    # Report-specific fields (used by type: 'report')
+    title: str = ""
+    sections: list[ReportSection] = Field(default_factory=list)

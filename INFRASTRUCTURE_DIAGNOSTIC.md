@@ -138,7 +138,8 @@ keyword-matching სისტემა 12+ კატეგორიით. ყ�
 |----------|------------|
 | **ტიპი** | Static site + Serverless Functions |
 | **დომენი** | `medgzuri.ge`, `www.medgzuri.ge` |
-| **Serverless Functions** | `api/search.js` (120s), `api/auth.js` (30s), `api/leads.js` (30s), `api/qa.js` (120s) |
+| **Serverless Functions** | `api/auth.js` (30s), `api/leads.js` (30s), `api/qa.js` (120s) |
+| **Rewrite Proxy** | `/api/search` → Railway FastAPI (`medgzuri-production.up.railway.app`) |
 | **Framework** | არცერთი (vanilla HTML/CSS/JS) |
 | **Node.js** | >= 18.0.0 |
 
@@ -232,35 +233,21 @@ keyword-matching სისტემა 12+ კატეგორიით. ყ�
 
 ## 5. API Pipeline-ის ნაკადი
 
-### 5.1. Vercel Serverless Pipeline (api/search.js)
+### 5.1. Vercel → Railway (პირდაპირი გადამისამართება)
 
 ```
-მოთხოვნა → CORS → Rate Limit → ვალიდაცია → ქეში
-    │                                           │
-    │  ქეშის hit ──────────────────────────────►│──► პასუხი
-    │                                            │
-    │  ქეშის miss ──► n8n Workflow ──────────────┤
-    │                     │ წარუმატებელი         │
-    │                     ▼                      │
-    │              Railway FastAPI ───────────────┤
-    │              (აგენტ-ორკესტრატორი)           │
-    │                     │ წარუმატებელი         │
-    │                     ▼                      │
-    │              Perplexity API (sonar)         │
-    │                     │                      │
-    │                     ▼                      │
-    │              Claude (sonnet-4.5) ──────────►│──► პასუხი + ქეში
-    │                     │ წარუმატებელი         │
-    │                     ▼                      │
-    │              Raw Perplexity results ───────►│──► პასუხი
-    │                     │ წარუმატებელი         │
-    │                     ▼                      │
-    │              Demo მონაცემები ──────────────►│──► პასუხი
+product.html ──► Vercel Rewrite ──► Railway FastAPI Backend
+  /api/search      vercel.json        medgzuri-production.up.railway.app
+                                              │
+                                              ├─► research  → Pipeline A (A1-A5)
+                                              ├─► symptoms  → Pipeline B (B1-B4)
+                                              ├─► clinics   → Pipeline C (C1-C5)
+                                              └─► report    → Claude Sonnet → JSON
 ```
 
-> **შენიშვნა:** Railway proxy ჩართულია `RAILWAY_BACKEND_URL` env variable-ით.
-> n8n და Railway proxy-ს შორის, n8n-ს აქვს პრიორიტეტი.
-> Report ტიპი (`type: 'report'`) მხოლოდ ლოკალურად მუშავდება (Perplexity + Claude).
+> **vercel.json** გადამისამართებს `/api/search`-ს პირდაპირ Railway-ზე.
+> `api/search.js` შენარჩუნებულია როგორც fallback (ჩართვა: `RAILWAY_BACKEND_URL` env variable).
+> `/api/auth`, `/api/leads`, `/api/qa` რჩება Vercel-ზე.
 
 ### 5.2. FastAPI Backend Pipeline (v2)
 
