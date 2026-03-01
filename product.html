@@ -2547,20 +2547,26 @@
 
     function buildLocalReport(type, result) {
         var typeNames = { research: 'კვლევების', symptoms: 'სიმპტომების', clinics: 'კლინიკების' };
+        var typeName = typeNames[type] || 'სამედიცინო';
+        var query = result.meta || 'სამედიცინო მოთხოვნა';
         var sections = [];
 
         sections.push({
             heading: 'შესავალი',
-            content: 'წინამდებარე ანგარიში მომზადებულია MED&გზურის საძიებო სისტემის მიერ მოპოვებული მონაცემების საფუძველზე.'
+            content: 'წინამდებარე ანგარიში მომზადებულია MED&გზურის სამედიცინო საძიებო სისტემის მიერ, თქვენი მოთხოვნის საფუძველზე: "' + query + '".\n\nანგარიშის მიზანია მოგაწოდოთ სისტემატიზებული ინფორმაცია თანამედროვე სამედიცინო კვლევებისა და კლინიკური პრაქტიკის შესახებ. ინფორმაცია მოძიებულია საერთაშორისო სამედიცინო მონაცემთა ბაზებიდან.\n\nგთხოვთ გაითვალისწინოთ, რომ ეს ანგარიში არ ჩაანაცვლებს კვალიფიციური ექიმის კონსულტაციას.'
         });
 
-        // Extract content from new sections format (n8n enhanced response)
+        // Extract content from sections format
         if (result.sections && result.sections.length > 0) {
             result.sections.forEach(function(section) {
                 var content = '';
                 if (section.items && section.items.length > 0) {
-                    section.items.forEach(function(item) {
-                        content += (item.title || '') + '\n' + (item.body || '') + '\n\n';
+                    section.items.forEach(function(item, idx) {
+                        content += (idx + 1) + '. ' + (item.title || 'მიგნება') + '\n';
+                        content += (item.body || '') + '\n';
+                        if (item.source) content += 'წყარო: ' + item.source + '\n';
+                        if (item.tags && item.tags.length) content += 'თეგები: ' + item.tags.join(', ') + '\n';
+                        content += '\n';
                     });
                 }
                 if (content.trim()) {
@@ -2571,15 +2577,18 @@
                 }
             });
         }
-        // Fallback to old items format
+        // Fallback to items format
         else if (result.items && result.items.length > 0) {
-            var content = '';
-            result.items.forEach(function(item) {
-                content += (item.title || '') + '\n' + (item.body || '') + '\n\n';
-            });
-            sections.push({
-                heading: 'ძირითადი მიგნებები',
-                content: content.trim()
+            result.items.forEach(function(item, idx) {
+                var itemContent = (item.body || '');
+                if (item.source) itemContent += '\n\nწყარო: ' + item.source;
+                if (item.tags && item.tags.length) itemContent += '\nთეგები: ' + item.tags.join(', ');
+                if (item.price) itemContent += '\nსავარაუდო ღირებულება: ' + item.price;
+
+                sections.push({
+                    heading: item.title || ('მიგნება #' + (idx + 1)),
+                    content: itemContent
+                });
             });
         }
 
@@ -2587,15 +2596,40 @@
             sections.push({ heading: 'მიმოხილვა', content: result.summary });
         }
 
+        // Add comparison if available
+        if (result.comparison && result.comparison.headers && result.comparison.rows) {
+            var compContent = result.comparison.headers.join(' | ') + '\n';
+            compContent += result.comparison.rows.map(function(row) {
+                return row.join(' | ');
+            }).join('\n');
+            sections.push({ heading: 'შედარებითი ანალიზი', content: compContent });
+        }
+
+        // Add next steps if available
+        if (result.nextSteps && result.nextSteps.length > 0) {
+            var stepsContent = result.nextSteps.map(function(step, i) {
+                return (i + 1) + '. ' + step.text;
+            }).join('\n');
+            sections.push({ heading: 'რეკომენდებული შემდეგი ნაბიჯები', content: stepsContent });
+        }
+
+        // Add tips if available
+        if (result.tips && result.tips.length > 0) {
+            var tipsContent = result.tips.map(function(tip) {
+                return '• ' + tip.text;
+            }).join('\n');
+            sections.push({ heading: 'პრაქტიკული რჩევები', content: tipsContent });
+        }
+
         sections.push({
             heading: 'დასკვნა',
-            content: 'დამატებითი ინფორმაციისთვის მიმართეთ კვალიფიციურ სამედიცინო სპეციალისტს.'
+            content: 'ამ ანგარიშში წარმოდგენილი ინფორმაცია ეფუძნება საერთაშორისო სამედიცინო მონაცემთა ბაზებში არსებულ კვლევებსა და პუბლიკაციებს.\n\nმნიშვნელოვანია, რომ ყველა სამედიცინო გადაწყვეტილება მიღებული იყოს კვალიფიციურ სპეციალისტთან კონსულტაციის შემდეგ. ანგარიშში წარმოდგენილი ინფორმაცია დაგეხმარებათ ექიმთან უფრო ინფორმირებული საუბრის წარმართვაში.\n\nMED&გზური მზადაა გაგიწიოთ შემდგომი დახმარება — დამატებითი კვლევების მოძიება, კლინიკებთან კომუნიკაცია ან სამედიცინო დოკუმენტაციის თარგმანი.'
         });
 
         return {
-            title: (typeNames[type] || 'სამედიცინო') + ' ანგარიში',
+            title: typeName + ' ანგარიში — ' + query,
             sections: sections,
-            disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად.'
+            disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად. MED&გზური არ არის სამედიცინო დაწესებულება და არ ახორციელებს დიაგნოსტიკურ ან სამკურნალო საქმიანობას.'
         };
     }
 
