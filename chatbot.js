@@ -138,7 +138,7 @@ const ChatBot = {
                 `📞 **ჩვენი კონტაქტები:**\n\n` +
                 `📱 WhatsApp: **+995 555 145 719**\n` +
                 `💬 Facebook: **MED&გზური**\n` +
-                `📧 Email: info@medgzuri.ge\n\n` +
+                `📧 Email: info@medgzuri.com\n\n` +
                 `⏰ **სამუშაო საათები:**\n` +
                 `ორშაბათი-პარასკევი: 10:00 - 18:00\n\n` +
                 `პასუხი 24 საათში! 🚀`

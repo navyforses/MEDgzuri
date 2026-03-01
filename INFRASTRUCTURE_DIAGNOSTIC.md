@@ -137,7 +137,7 @@ keyword-matching სისტემა 12+ კატეგორიით. ყ�
 | პარამეტრი | მნიშვნელობა |
 |----------|------------|
 | **ტიპი** | Static site + Serverless Functions |
-| **დომენი** | `medgzuri.ge`, `www.medgzuri.ge` |
+| **დომენი** | `medgzuri.com`, `www.medgzuri.com` |
 | **Serverless Functions** | `api/auth.js` (30s), `api/leads.js` (30s), `api/qa.js` (120s) |
 | **Rewrite Proxy** | `/api/search` → Railway FastAPI (`medgzuri-production.up.railway.app`) |
 | **Framework** | არცერთი (vanilla HTML/CSS/JS) |
@@ -306,7 +306,7 @@ product.html ──► Vercel Rewrite ──► Railway FastAPI Backend
 | ზომა | კომპონენტი | აღწერა |
 |------|-----------|--------|
 | **Rate Limiting** | ყველა API | IP-ზე დაფუძნებული (20 req/min search, 5 req/min auth, 10 req/min leads) |
-| **CORS** | ყველა API | Origin whitelist (medgzuri.ge, localhost) |
+| **CORS** | ყველა API | Origin whitelist (medgzuri.com, localhost) |
 | **Input Validation** | ყველა API | ტექსტის სიგრძე ≤ 2000, ასაკი 0-150, control chars strip |
 | **XSS Prevention** | Frontend | `escapeHtml()` ფუნქცია |
 | **Security Headers** | lib/security.js | X-Content-Type-Options, X-Frame-Options, CSP |
