@@ -484,7 +484,7 @@ async function generateReport(reportType, searchResult) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-5-20250514',
+                model: 'claude-sonnet-4-6-20250210',
                 max_tokens: 4000,
                 system: reportPrompt,
                 messages: [{ role: 'user', content: userMessage }]
@@ -730,7 +730,7 @@ ${grammarRules}
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-5-20250514',
+                model: 'claude-sonnet-4-6-20250210',
                 max_tokens: 3000,
                 system: systemPrompts[role] || systemPrompts.research,
                 messages: [{ role: 'user', content: userMessage }]
@@ -776,7 +776,7 @@ ${grammarRules}
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            model: 'claude-sonnet-4-5-20250514',
+                            model: 'claude-sonnet-4-6-20250210',
                             max_tokens: 3000,
                             messages: [{
                                 role: 'user',
