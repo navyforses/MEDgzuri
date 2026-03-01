@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "",
+  "framework": null,
   "alias": ["medgzuri.com", "www.medgzuri.com"],
   "functions": {
     "api/search.js": {
