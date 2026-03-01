@@ -3,12 +3,13 @@
 Provides /api/search endpoint compatible with the existing frontend.
 """
 
+import hashlib
 import logging
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -54,7 +55,21 @@ orchestrator = OrchestratorRouter()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("MedGzuri backend starting | demo_mode=%s", settings.is_demo_mode)
+
+    # Initialize database (graceful degradation if unavailable)
+    from app.database import close_db, init_db
+    db_ok = await init_db()
+    logger.info("Database: %s", "connected" if db_ok else "unavailable (continuing without)")
+
+    # Initialize Redis cache (graceful degradation if unavailable)
+    from app.services.cache import cache_service
+    redis_ok = await cache_service.connect()
+    logger.info("Redis: %s", "connected" if redis_ok else "unavailable (using in-memory fallback)")
+
     yield
+
+    await cache_service.disconnect()
+    await close_db()
     logger.info("MedGzuri backend shutting down")
 
 
@@ -86,13 +101,43 @@ async def health():
     }
 
 
+async def _log_search_history(
+    pipeline_type: str,
+    input_data: dict,
+    response_data: dict,
+    execution_time_ms: int,
+    client_ip_hash: str,
+    source: str = "direct",
+):
+    """Fire-and-forget background task to log search history to DB."""
+    try:
+        from app.database import async_session_factory
+        from app.models.search_history import SearchHistory
+
+        async with async_session_factory() as session:
+            record = SearchHistory(
+                pipeline_type=pipeline_type,
+                input_data=input_data,
+                response_data=response_data,
+                execution_time_ms=execution_time_ms,
+                client_ip_hash=client_ip_hash,
+                source=source,
+            )
+            session.add(record)
+            await session.commit()
+    except Exception as e:
+        logger.debug("Search history logging skipped: %s", str(e)[:100])
+
+
 @app.post("/api/search")
-async def search(request: Request):
+async def search(request: Request, background_tasks: BackgroundTasks):
     """Main search endpoint — compatible with existing frontend."""
     # Rate limiting
     client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
     if not client_ip:
         client_ip = request.client.host if request.client else "unknown"
+
+    ip_hash = hashlib.sha256(client_ip.encode()).hexdigest()
 
     if rate_limiter.is_limited(client_ip):
         return JSONResponse(
@@ -110,6 +155,7 @@ async def search(request: Request):
         )
 
     search_req = SearchRequest(**body)
+    pipeline_type = search_req.get_pipeline_type()
 
     # Execute pipeline via orchestrator
     start = time.monotonic()
@@ -118,10 +164,21 @@ async def search(request: Request):
         elapsed_ms = int((time.monotonic() - start) * 1000)
         logger.info(
             "Search completed | type=%s | items=%d | %dms | ip=%s",
-            search_req.get_pipeline_type(), len(result.items), elapsed_ms, client_ip,
+            pipeline_type, len(result.items), elapsed_ms, client_ip,
         )
         response_data = result.model_dump(exclude_none=True)
         response_data["_pipeline"] = {"ms": elapsed_ms, "source": "agent-orchestra"}
+
+        # Log to DB in background (fire-and-forget)
+        background_tasks.add_task(
+            _log_search_history,
+            pipeline_type=pipeline_type,
+            input_data=body,
+            response_data=response_data,
+            execution_time_ms=elapsed_ms,
+            client_ip_hash=ip_hash,
+        )
+
         return JSONResponse(content=response_data)
 
     except Exception as e:

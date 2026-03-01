@@ -3,7 +3,9 @@
 Responsibilities:
   - Validate input (empty fields, format)
   - Classify request type (research / symptoms / clinics)
+  - Check cache before running pipeline
   - Dispatch to the appropriate pipeline
+  - Cache results after pipeline execution
   - Return demo data when in demo mode
 """
 
@@ -21,6 +23,7 @@ from app.orchestrator.schemas import (
     SymptomsInput,
     TipItem,
 )
+from app.services.cache import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +46,34 @@ class OrchestratorRouter:
             logger.info("Demo mode active — returning mock data")
             return _demo_response(pipeline_type, data)
 
+        # Check cache (skip for reports — they're generated from existing results)
+        if pipeline_type != "report_generation":
+            cache_key = cache_service.make_key(pipeline_type, data)
+            cached = await cache_service.get(cache_key)
+            if cached:
+                logger.info("Cache hit | pipeline=%s", pipeline_type)
+                response = SearchResponse(**cached)
+                return response
+
         # Route to pipeline
         if pipeline_type == "research_search":
-            return await self._run_research(data)
+            result = await self._run_research(data)
         elif pipeline_type == "symptom_navigation":
-            return await self._run_symptoms(data)
+            result = await self._run_symptoms(data)
         elif pipeline_type == "clinic_search":
-            return await self._run_clinics(data)
+            result = await self._run_clinics(data)
         elif pipeline_type == "report_generation":
             return await self._run_report(data)
         else:
             return _error_response("უცნობი ძიების ტიპი.")
+
+        # Cache the result
+        if result.items:
+            ttl = cache_service.get_ttl(pipeline_type)
+            result_data = result.model_dump(exclude_none=True)
+            await cache_service.set(cache_key, result_data, ttl)
+
+        return result
 
     async def _run_research(self, data: dict[str, Any]) -> SearchResponse:
         """Pipeline A — Research Search."""

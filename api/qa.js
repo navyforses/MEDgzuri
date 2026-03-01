@@ -271,10 +271,10 @@ async function runHealthCheck(req) {
 
         if (response._pipeline) {
             checks.pipeline = {
-                perplexity: response._pipeline.perplexity || 'unknown',
-                anthropic: response._pipeline.claude || 'unknown',
-                n8n: response._pipeline.n8n || 'unknown',
-                source: response._pipeline.source || 'unknown'
+                responseTimeMs: response._pipeline.ms || 0,
+                n8n: response._pipeline.n8n || 'skipped',
+                railway: response._pipeline.railway || 'skipped',
+                source: response._pipeline.source || (response._pipeline.n8n === 'success' ? 'n8n' : response._pipeline.railway === 'success' ? 'railway' : 'direct')
             };
         }
         checks.isDemo = !!response.isDemo;

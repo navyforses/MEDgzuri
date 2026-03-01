@@ -928,7 +928,7 @@ async function proxyToRailway(type, data) {
     if (!PROXY_TYPES.has(type)) return null;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
         const response = await fetch(`${RAILWAY_BACKEND_URL}/api/search`, {
@@ -949,7 +949,7 @@ async function proxyToRailway(type, data) {
     } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-            console.error('[MedGzuri] Railway proxy timed out (90s)');
+            console.error('[MedGzuri] Railway proxy timed out (30s)');
         } else {
             console.error('[MedGzuri] Railway proxy failed:', err.message);
         }
