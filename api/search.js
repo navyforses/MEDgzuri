@@ -472,7 +472,9 @@ async function generateReport(reportType, searchResult) {
   "disclaimer": "სამედიცინო პასუხისმგებლობის უარყოფა"
 }`;
 
+    const originalQuery = searchResult?.originalQuery || searchResult?.meta || '';
     const userMessage = `ანგარიშის ტიპი: ${reportType || 'research'}
+მომხმარებლის მოთხოვნა: ${originalQuery}
 ძიების შედეგები: ${JSON.stringify(searchResult)}`;
 
     try {
@@ -487,7 +489,7 @@ async function generateReport(reportType, searchResult) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-6-20250210',
+                model: 'claude-sonnet-4-6',
                 max_tokens: 8000,
                 system: reportPrompt,
                 messages: [{ role: 'user', content: userMessage }]
@@ -522,7 +524,7 @@ async function generateReport(reportType, searchResult) {
 }
 
 function getDemoReport(reportType, searchResult) {
-    const query = searchResult?.meta || 'სამედიცინო მოთხოვნა';
+    const query = searchResult?.originalQuery || searchResult?.meta || 'სამედიცინო მოთხოვნა';
 
     // Extract item details from search results for enriched demo
     const items = searchResult?.items || searchResult?.sections?.flatMap(s => s.items || []) || [];
@@ -752,7 +754,7 @@ ${grammarRules}
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-6-20250210',
+                model: 'claude-sonnet-4-6',
                 max_tokens: 3000,
                 system: systemPrompts[role] || systemPrompts.research,
                 messages: [{ role: 'user', content: userMessage }]
@@ -798,7 +800,7 @@ ${grammarRules}
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            model: 'claude-sonnet-4-6-20250210',
+                            model: 'claude-sonnet-4-6',
                             max_tokens: 3000,
                             messages: [{
                                 role: 'user',

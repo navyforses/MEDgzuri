@@ -1847,6 +1847,8 @@
     let lastSearchResult = null;
     /** @type {string|null} Last search type (research|symptoms|clinics) */
     let lastSearchType = null;
+    /** @type {string|null} Last search query (original user input) */
+    let lastSearchQuery = null;
 
     // ═══════════════ TAB SWITCHING ═══════════════
     /**
@@ -1901,6 +1903,9 @@
         // Collect form data
         const data = collectFormData(type);
         if (!data) return;
+
+        // Save original query for report generation
+        lastSearchQuery = data.diagnosis || data.symptoms || data.treatment || '';
 
         isSearching = true;
         const btn = document.querySelector(`#panel-${type} .btn-search`);
@@ -2207,6 +2212,7 @@
 
         // Save result for report generation
         lastSearchResult = result;
+        lastSearchResult.originalQuery = lastSearchQuery;
         lastSearchType = type;
 
         // Show download button
@@ -2548,7 +2554,7 @@
     function buildLocalReport(type, result) {
         var typeNames = { research: 'კვლევების', symptoms: 'სიმპტომების', clinics: 'კლინიკების' };
         var typeName = typeNames[type] || 'სამედიცინო';
-        var query = result.meta || 'სამედიცინო მოთხოვნა';
+        var query = result.originalQuery || lastSearchQuery || 'სამედიცინო მოთხოვნა';
         var sections = [];
 
         sections.push({
