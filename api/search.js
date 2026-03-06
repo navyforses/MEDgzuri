@@ -323,6 +323,14 @@ module.exports = async function handler(req, res) {
             return res.status(200).json(demoResult);
         }
 
+        // Hard gate: search must be web-grounded
+        if (['research', 'symptoms', 'clinics'].includes(type) && !PERPLEXITY_API_KEY) {
+            return res.status(503).json({
+                error: 'ონლაინ ძიება მიუწვდომელია: PERPLEXITY_API_KEY არ არის კონფიგურირებული.',
+                missingEnv: ['PERPLEXITY_API_KEY']
+            });
+        }
+
         // Pipeline execution
         const pipelineStart = Date.now();
 
@@ -678,8 +686,17 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 - JSON ველების მნიშვნელობები (title, body, source, tags, meta) - ყველა ქართულად!
 - CRITICAL: არ დაყო ინფორმაცია მრავაზ პატარა item-ად. ჯობია 3-4 ვრცელი item, ვიდრე 8-10 ცარიელი`;
 
+    const hardenedRules = `
+
+კრიტიკული წესები (სავალდებულო):
+- აკრძალულია მეტა-ტექსტი: "როგორც AI...", "მე ვაპირებ...", "ჩემი პასუხი იქნება...", "აქ არის..."
+- აკრძალულია დაუდასტურებელი ინფორმაცია: URL გარეშე ფაქტი = არარსებული ფაქტი
+- ყოველ item-ს უნდა ჰქონდეს: title, source, body, url
+- თუ citations/URL-ები არ არის: { "meta":"შედეგები არასაკმარისია", "summary":"საჭიროა ხელახლა ძიება", "items":[] }
+- მხოლოდ JSON. სხვა ტექსტი აკრძალულია.`;
+
     const systemPrompts = {
-        research: `შენ ხარ მედგზურის სამედიცინო კვლევის ექსპერტი. მომხმარებელმა მოგაწოდა დიაგნოზი და სამედიცინო კონტექსტი. ინტერნეტ ძიების შედეგების საფუძველზე, შექმენი სტრუქტურირებული პასუხი ქართულ ენაზე.
+        research: `შენ ხარ MED&გზურის ძიების პასუხის გენერატორი. შენ იღებ "ინტერნეტ ძიების შედეგებს" (ტექსტი + URL-ები) და მხოლოდ მათზე დაყრდნობით უნდა დააბრუნო სტრუქტურირებული JSON.
 
 პასუხი უნდა მოიცავდეს:
 1. დაავადების მოკლე მიმოხილვა
@@ -687,7 +704,7 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
 3. აქტიური კლინიკური კვლევები (თუ არსებობს)
 4. მკურნალობის ვარიანტები (სტანდარტული და ექსპერიმენტული)
 5. რეკომენდაცია შემდეგი ნაბიჯებისთვის
-${grammarRules}
+${grammarRules}${hardenedRules}
 
 პასუხი უნდა იყოს მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ისაგ გარეთ):
 {
@@ -697,13 +714,13 @@ ${grammarRules}
   ]
 }`,
 
-        symptoms: `შენ ხარ მედგზურის სამედიცინო ნავიგატორი. მომხმარებელმა აღწერა სიმპტომები. ინტერნეტ ძიების შედეგების საფუძველზე, შემოთავაზე რა გამოკვლევების ჩატარება შეიძლება იყოს მიზანშეწონილი.
+        symptoms: `შენ ხარ MED&გზურის ძიების პასუხის გენერატორი. შენ იღებ "ინტერნეტ ძიების შედეგებს" (ტექსტი + URL-ები) და მხოლოდ მათზე დაყრდნობით უნდა დააბრუნო სტრუქტურირებული JSON.
 
 მნიშვნელოვანი: არ დაასახელო კონკრეტული დიაგნოზი. მხოლოდ შემოთავაზე:
 1. რა ტიპის გამოკვლევები არსებობს ამ სიმპტომებისთვის
 2. რომელ სპეციალისტთან შეიძლება მიმართვა
 3. რა კვლევები არსებობს ამ სიმპტომატიკასთან დაკავშირებით
-${grammarRules}
+${grammarRules}${hardenedRules}
 
 პასუხი მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ის გარეთ):
 {
@@ -714,14 +731,14 @@ ${grammarRules}
   ]
 }`,
 
-        clinics: `შენ ხარ მედგზურის კლინიკების ძიების ექსპერტი. მომხმარებელმა მოძებნა კლინიკები კონკრეტული მკურნალობისთვის. ინტერნეტ ძიების შედეგების საფუძველზე, შექმენი სტრუქტურირებული პასუხი ქართულ ენაზე.
+        clinics: `შენ ხარ MED&გზურის ძიების პასუხის გენერატორი. შენ იღებ "ინტერნეტ ძიების შედეგებს" (ტექსტი + URL-ები) და მხოლოდ მათზე დაყრდნობით უნდა დააბრუნო სტრუქტურირებული JSON.
 
 პასუხი უნდა მოიცავდეს:
 1. რეკომენდებული კლინიკები (სახელი, ქვეყანა, სპეციალიზაცია)
 2. სავარაუდო ფასები (თუ ხელმისაწვდომია)
 3. მკურნალობის ტექნოლოგიები
 4. საკონტაქტო ინფორმაცია ან ვებსაიტი
-${grammarRules}
+${grammarRules}${hardenedRules}
 
 პასუხი მხოლოდ JSON ფორმატში (არანაირი დამატებითი ტექსტი JSON-ისაგ გარეთ):
 {
@@ -732,9 +749,16 @@ ${grammarRules}
 }`
     };
 
-    const searchSection = searchResults?.text
-        ? `\nინტერნეტ ძიების შედეგები:\n${searchResults.text}`
-        : '\n⚠ ინტერნეტ ძიება ვერ შესრულდა. გთხოვთ მიაწოდოთ ინფორმაცია თქვენი ცოდნის საფუძველზე და აღნიშნოვ, რომ შედეგები ვერ დადასტურდა ონლაინ წყაროებით. items მასივი არ უნდა იყოს ცარიელი — მიაწოდეთ საუკეთესო ცოდნა.';
+    // Gate: თუ search results არ გვაქვს — არ ვგენერირებთ
+    if (!searchResults?.text) {
+        return {
+            meta: 'ინტერნეტ ძიება ვერ შესრულდა',
+            summary: 'ვერ მოვიძიეთ ონლაინ წყაროები. შეამოწმეთ PERPLEXITY_API_KEY.',
+            items: [],
+            _grounded: false
+        };
+    }
+    const searchSection = `\nინტერნეტ ძიების შედეგები:\n${searchResults.text}`;
     const citationSection = searchResults?.citations?.length
         ? `\nწყაროები: ${searchResults.citations.join(', ')}`
         : '';
@@ -926,6 +950,14 @@ async function proxyToN8n(type, data) {
  * @returns {object} Normalized result
  */
 function ensureBackwardCompat(result) {
+    // Handle raw Anthropic messages payload (common from n8n HTTP Request)
+    if (!result.items && !result.sections && Array.isArray(result.content) && result.content[0]?.text) {
+        const parsed = extractJSON(result.content[0].text);
+        if (parsed) return ensureBackwardCompat(parsed);
+        result.summary = result.content[0].text;
+        result.items = [];
+    }
+
     if (result.sections && (!result.items || result.items.length === 0)) {
         result.items = result.sections.flatMap(s => s.items || []);
     }
