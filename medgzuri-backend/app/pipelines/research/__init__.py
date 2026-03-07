@@ -94,6 +94,14 @@ class ResearchPipeline:
         if isinstance(results[1], Exception):
             logger.warning("Pipeline A | A3 failed | %s", str(results[1])[:200])
 
+        # Diagnostic logging — track trial/article counts through pipeline
+        articles_count = len(literature.get("articles", []))
+        logger.info(
+            "Pipeline A | A2 trials=%d | A3 articles=%d | A2 type=%s | A3 type=%s",
+            len(trials), articles_count,
+            type(results[0]).__name__, type(results[1]).__name__,
+        )
+
         if not trials and not literature.get("articles"):
             logger.warning("Pipeline A | no results from A2 or A3")
             return SearchResponse(
@@ -112,6 +120,13 @@ class ResearchPipeline:
             logger.error("Pipeline A | A4 failed | %s", str(e)[:200])
             scored = []
 
+        scored_trials = sum(1 for r in scored if r.get("type") == "trial")
+        scored_articles = sum(1 for r in scored if r.get("type") == "article")
+        logger.info(
+            "Pipeline A | A4 scored=%d | trials=%d | articles=%d",
+            len(scored), scored_trials, scored_articles,
+        )
+
         # A5: LLM report generation (Opus → Sonnet) — returns Georgian directly
         report = None
         try:
@@ -127,7 +142,11 @@ class ResearchPipeline:
             # Apply tag translations to LLM output (may still have English tags)
             for item in report.items:
                 item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
-            logger.info("Pipeline A complete (A5 LLM) | items=%d", len(report.items))
+            trial_items = sum(1 for i in report.items if "ClinicalTrials" in (i.source or ""))
+            logger.info(
+                "Pipeline A complete (A5 LLM) | items=%d | trial_items=%d",
+                len(report.items), trial_items,
+            )
             return report
 
         # Fallback: build directly from scored results + batch translate
@@ -138,12 +157,23 @@ class ResearchPipeline:
 
     async def _build_response(self, scored: list[dict], query: str) -> SearchResponse:
         """Build SearchResponse directly from scored results with full formatting."""
+        trial_count = sum(1 for r in scored if r.get("type") == "trial")
+        article_count = sum(1 for r in scored if r.get("type") == "article")
+        logger.info(
+            "_build_response | scored=%d | trials=%d | articles=%d",
+            len(scored), trial_count, article_count,
+        )
+
         items = []
         trial_meta = []  # metadata per trial for body building
 
         for r in scored[:10]:
             data = r.get("data", {})
             if r.get("type") == "trial":
+                logger.info(
+                    "Building trial item | nct=%s | title=%s",
+                    data.get("nct_id", "?"), data.get("title", "")[:50],
+                )
                 nct_id = data.get("nct_id", "")
                 phase = data.get("phase", "")
                 status = data.get("status", "")
