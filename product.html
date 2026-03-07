@@ -1897,7 +1897,7 @@
     /**
      * Execute a search: validate input → show progress → call API → display results.
      *
-     * Uses an AbortController with a 180-second timeout. Progress is visualized
+     * Uses an AbortController with a 600-second timeout. Progress is visualized
      * through a multi-step animation. On failure, shows a Georgian error message.
      *
      * @param {string} type - Search type (research|symptoms|clinics)
@@ -1927,14 +1927,14 @@
         resetAISteps();
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000);
+        const timeoutId = setTimeout(() => controller.abort(), 600000);
 
         try {
             const steps = getTeamSteps(type);
 
             // Step 1
             updateAIStep(steps[0].key, 'active');
-            updateAIStatus(steps[0].label + '...', 'მიმდინარეობს კვლევების მოძიება და ანალიზი... ეს შეიძლება 1-2 წუთი გასტანოს.');
+            updateAIStatus(steps[0].label + '...', 'მიმდინარეობს კვლევების მოძიება და ანალიზი... ეს შეიძლება რამდენიმე წუთი გასტანოს.');
 
             const response = await fetch(API_BASE + '/api/search', {
                 method: 'POST',
