@@ -22,7 +22,6 @@ class TermNormalizer:
         user_message = (
             f"Query: {inp.diagnosis}\n"
             f"Age group: {inp.age_group}\n"
-            f"Study type: {inp.study_type}\n"
             f"Context: {inp.additional_context}\n"
             f"Geography: {inp.geography}"
         )
