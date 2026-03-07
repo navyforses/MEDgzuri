@@ -187,11 +187,11 @@ class ResearchPipeline:
 
         # Fallback: build directly from scored results + batch translate
         logger.info("Pipeline A | A5 returned no items, using fallback with batch translation")
-        report = await self._build_response(scored, inp.diagnosis)
+        report = await self._build_response(scored, inp.diagnosis, research_type)
         logger.info("Pipeline A complete (fallback) | items=%d", len(report.items))
         return report
 
-    async def _build_response(self, scored: list[dict], query: str) -> SearchResponse:
+    async def _build_response(self, scored: list[dict], query: str, research_type: str = "clinical_trial") -> SearchResponse:
         """Build SearchResponse directly from scored results with full formatting."""
         trial_count = sum(1 for r in scored if r.get("type") == "trial")
         article_count = sum(1 for r in scored if r.get("type") == "article")
@@ -294,14 +294,15 @@ class ResearchPipeline:
         for item in items:
             item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
 
-        # Single LLM call: translate titles + explain trials + translate article bodies
+        # Single LLM call: translate titles + generate rich body
         try:
-            await self._batch_translate_and_explain(items, trial_meta)
+            await self._batch_translate_and_explain(items, trial_meta, research_type)
             logger.info("Batch translate+explain complete | items=%d", len(items))
         except Exception as e:
             logger.warning("Batch translate/explain failed, using raw data | %s", str(e)[:200])
-            # Fallback: build trial bodies from metadata without LLM explanation
+            # Fallback: build trial bodies from metadata without LLM
             for meta in trial_meta:
+                url = f"https://clinicaltrials.gov/study/{meta['nct_id']}"
                 items[meta["item_index"]].body = (
                     f"📋 ფაზა: {meta['phase_ka']} | სტატუსი: {meta['status_ka']}\n"
                     f"💊 ინტერვენცია: {meta['intervention']}\n"
@@ -309,7 +310,8 @@ class ResearchPipeline:
                     f"📍 ლოკაცია: {meta['location']}\n"
                     f"🏢 სპონსორი: {meta['sponsor']}\n"
                     f"💰 ღირებულება: {meta['cost']}\n"
-                    f"📧 კონტაქტი: {meta['contact']}"
+                    f"📧 კონტაქტი: {meta['contact']}\n"
+                    f"📎 ლინკი: {url}"
                 )
 
         return SearchResponse(
@@ -320,8 +322,9 @@ class ResearchPipeline:
 
     async def _batch_translate_and_explain(
         self, items: list[ResultItem], trial_meta: list[dict],
+        research_type: str = "clinical_trial",
     ) -> None:
-        """Single LLM call: translate all titles, explain trials, translate article bodies."""
+        """Single LLM call: translate titles and generate rich Georgian body for all items."""
         import json as _json
         from app.services.llm_client import call_sonnet_json
 
@@ -330,7 +333,6 @@ class ResearchPipeline:
         task_map = []  # (item_index, type, meta_or_none)
 
         for i, item in enumerate(items):
-            # Find if this is a trial with metadata
             meta = next((m for m in trial_meta if m["item_index"] == i), None)
             if meta:
                 llm_items.append({
@@ -338,6 +340,15 @@ class ResearchPipeline:
                     "type": "trial",
                     "title": meta["title_en"],
                     "intervention": meta["intervention"],
+                    "phase": meta["phase_ka"],
+                    "status": meta["status_ka"],
+                    "nct_id": meta["nct_id"],
+                    "age": meta["age"],
+                    "sex": meta["sex_ka"],
+                    "location": meta["location"],
+                    "sponsor": meta["sponsor"],
+                    "cost": meta["cost"],
+                    "contact": meta["contact"],
                 })
                 task_map.append((i, "trial", meta))
             else:
@@ -346,35 +357,59 @@ class ResearchPipeline:
                     "type": "article",
                     "title": item.title,
                     "body": item.body,
+                    "url": item.url or "",
                 })
                 task_map.append((i, "article", None))
 
         if not llm_items:
             return
 
+        if research_type == "research_results":
+            trial_instructions = (
+                "   დასრულებული კვლევისთვის დაწერე 4-6 აბზაცი:\n"
+                "   • რა იკვლიეს — კვლევის მიზანი მარტივი ენით\n"
+                "   • როგორ იკვლიეს — მეთოდი, პაციენტების რაოდენობა\n"
+                "   • რა გამოვიდა — შედეგები, ციფრებით თუ შესაძლებელია\n"
+                "   • დასკვნა — რა ნიშნავს ეს პაციენტისთვის\n"
+                "   • 📎 ლინკი: https://clinicaltrials.gov/study/{nct_id}\n"
+            )
+        else:
+            trial_instructions = (
+                "   მიმდინარე კვლევისთვის დაწერე 4-6 აბზაცი:\n"
+                "   • 🔬 კვლევის მიზანი — რას ამოწმებენ, გასაგებ ენაზე\n"
+                "   • 📋 ფაზა, სტატუსი, NCT ნომერი\n"
+                "   • 💊 რას იკვლევენ — ინტერვენცია, წამალი, მეთოდი\n"
+                "   • 👤 ვინ შეიძლება მონაწილეობდეს — ასაკი, სქესი, კრიტერიუმები\n"
+                "   • 📍 სად მიმდინარეობს — ქვეყანა, კლინიკა, კონტაქტი\n"
+                "   • 💰 ღირებულება, სპონსორი\n"
+                "   • 📎 ლინკი: https://clinicaltrials.gov/study/{nct_id}\n"
+            )
+
         system = (
-            "შენ ხარ სამედიცინო მთარგმნელი. დააბრუნე JSON.\n\n"
+            "შენ ხარ სამედიცინო მთარგმნელი. დააბრუნე JSON.\n"
+            "ყველა ტექსტი: გასაგებ, ადამიანურ ქართულ ენაზე. "
+            "არა სამედიცინო ჟარგონით. მარტივი სიტყვები.\n\n"
             "თითოეული item-ისთვის:\n"
-            "1. თარგმნე სათაური (title) ქართულად\n"
+            "1. თარგმნე სათაური (title_ka) ქართულად\n"
             "2. თუ type არის \"trial\":\n"
-            "   დაწერე 1-2 წინადადებით რა არის კვლევის მიზანი, ისე რომ "
-            "სამედიცინო განათლების არმქონე ადამიანმა გაიგოს.\n"
-            "   გამოიყენე მარტივი სიტყვები, არა სამედიცინო ტერმინები.\n"
-            "   მაგალითად: 'ეს კვლევა ამოწმებს ახალ წამალს, რომელიც ეხმარება "
-            "ორგანიზმს სიმსივნის უჯრედების წინააღმდეგ ბრძოლაში.'\n"
-            "3. თუ type არის \"article\": თარგმნე body ქართულად. "
-            "რელევანტურობის აღწერა მარტივი ენით.\n\n"
+            f"{trial_instructions}"
+            "3. თუ type არის \"article\":\n"
+            "   დაწერე 4-6 აბზაცი ქართულად:\n"
+            "   • რა იკვლიეს — მიზანი მარტივი ენით\n"
+            "   • როგორ იკვლიეს — მეთოდი, პაციენტების რაოდენობა\n"
+            "   • რა გამოვიდა — შედეგები, ციფრებით\n"
+            "   • დასკვნა — რა ნიშნავს ეს პაციენტისთვის\n"
+            "   • 📎 ლინკი: {url}\n\n"
             "პასუხის ფორმატი (მხოლოდ JSON):\n"
             '{"results": [\n'
-            '  {"id": 1, "title_ka": "...", "explain_ka": "..."},\n'
+            '  {"id": 1, "title_ka": "...", "body_ka": "..."},\n'
             '  {"id": 2, "title_ka": "...", "body_ka": "..."}\n'
             "]}\n"
-            "explain_ka — მხოლოდ trial-ებისთვის.\n"
-            "body_ka — მხოლოდ article-ებისთვის."
+            "body_ka — ვრცელი აღწერა ყველა ტიპისთვის (trial და article)."
         )
 
         user_msg = _json.dumps({"items": llm_items}, ensure_ascii=False, indent=2)
-        result = await call_sonnet_json(system, user_msg, max_tokens=4096)
+        result = await call_sonnet_json(system, user_msg, max_tokens=8192)
 
         if not result or "results" not in result:
             raise ValueError("LLM returned no results for batch translate")
@@ -384,23 +419,21 @@ class ResearchPipeline:
         for task_idx, (item_idx, item_type, meta) in enumerate(task_map):
             r = results_by_id.get(task_idx + 1, {})
 
-            # Translated title
             if r.get("title_ka"):
                 items[item_idx].title = r["title_ka"]
 
-            if item_type == "trial" and meta:
-                explain = r.get("explain_ka", "")
-                explain_line = f"🔬 {explain}\n" if explain else ""
+            if r.get("body_ka"):
+                items[item_idx].body = r["body_ka"]
+            elif item_type == "trial" and meta:
+                # Fallback if LLM didn't return body for this trial
+                url = f"https://clinicaltrials.gov/study/{meta['nct_id']}"
                 items[item_idx].body = (
-                    f"{explain_line}"
                     f"📋 ფაზა: {meta['phase_ka']} | სტატუსი: {meta['status_ka']}\n"
                     f"💊 ინტერვენცია: {meta['intervention']}\n"
                     f"👤 ასაკი: {meta['age']}, {meta['sex_ka']}\n"
                     f"📍 ლოკაცია: {meta['location']}\n"
                     f"🏢 სპონსორი: {meta['sponsor']}\n"
                     f"💰 ღირებულება: {meta['cost']}\n"
-                    f"📧 კონტაქტი: {meta['contact']}"
+                    f"📧 კონტაქტი: {meta['contact']}\n"
+                    f"📎 ლინკი: {url}"
                 )
-            elif item_type == "article":
-                if r.get("body_ka"):
-                    items[item_idx].body = r["body_ka"]
