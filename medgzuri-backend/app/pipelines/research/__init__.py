@@ -10,6 +10,7 @@ from app.orchestrator.schemas import ResearchInput, ResultItem, SearchResponse
 from app.pipelines.research.aggregator import ResearchAggregator
 from app.pipelines.research.clinical_trials import ClinicalTrialsAgent
 from app.pipelines.research.literature_search import LiteratureSearchAgent
+from app.pipelines.research.report_generator import ResearchReportGenerator
 from app.pipelines.research.term_normalizer import TermNormalizer
 from app.services.translation import translation_service
 
@@ -57,6 +58,7 @@ class ResearchPipeline:
         self.trials_agent = ClinicalTrialsAgent()
         self.literature_agent = LiteratureSearchAgent()
         self.aggregator = ResearchAggregator()
+        self.report_generator = ResearchReportGenerator()
 
     async def execute(self, inp: ResearchInput) -> SearchResponse:
         logger.info("Pipeline A | diagnosis=%s | geo=%s", inp.diagnosis, inp.geography)
@@ -111,10 +113,28 @@ class ResearchPipeline:
             logger.error("Pipeline A | A4 failed | %s", str(e)[:200])
             scored = []
 
-        # A5: Skip LLM report generation (causes timeouts).
-        # Build response directly from scored results, then translate to Georgian.
+        # A5: LLM report generation (Opus → Sonnet) — returns Georgian directly
+        report = None
+        try:
+            report = await self.report_generator.generate(
+                scored_results=scored,
+                literature=literature,
+                original_query=inp.diagnosis,
+            )
+        except Exception as e:
+            logger.warning("Pipeline A | A5 failed | %s", str(e)[:200])
+
+        if report and report.items:
+            # Apply tag translations to LLM output (may still have English tags)
+            for item in report.items:
+                item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
+            logger.info("Pipeline A complete (A5 LLM) | items=%d", len(report.items))
+            return report
+
+        # Fallback: build directly from scored results + batch translate
+        logger.info("Pipeline A | A5 returned no items, using fallback with batch translation")
         report = await self._build_response(scored, inp.diagnosis)
-        logger.info("Pipeline A complete | items=%d", len(report.items))
+        logger.info("Pipeline A complete (fallback) | items=%d", len(report.items))
         return report
 
     async def _build_response(self, scored: list[dict], query: str) -> SearchResponse:

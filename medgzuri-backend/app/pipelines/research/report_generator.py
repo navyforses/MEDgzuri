@@ -53,8 +53,8 @@ class ResearchReportGenerator:
         except Exception as e:
             logger.warning("A5 Sonnet also failed | %s", str(e)[:200])
 
-        # Final fallback — build from raw data
-        return self._build_fallback(scored_results, original_query)
+        # Return None — caller handles fallback with batch translation
+        return None
 
     def _prepare_results(self, results: list[dict]) -> list[dict]:
         """Prepare results for LLM — trim large fields."""

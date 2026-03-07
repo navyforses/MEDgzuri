@@ -163,7 +163,7 @@ async def search(request: Request, background_tasks: BackgroundTasks):
     try:
         result = await asyncio.wait_for(
             orchestrator.route(search_req),
-            timeout=settings.pipeline_timeout_seconds + 10,
+            timeout=settings.pipeline_timeout_seconds + 30,
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
         logger.info(
