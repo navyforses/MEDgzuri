@@ -128,21 +128,28 @@ class TranslationService:
                 f"{src_name} to {tgt_name}. სამედიცინო ტერმინები თარგმნე ქართულ სამედიცინო ენაზე. "
                 f"კვლევის სათაურები შეინარჩუნე პროფესიონალური ტონით. "
                 f"Return ONLY numbered translations, one per line. "
+                f"Keep the same numbering. Do NOT skip any item. "
                 f"Example output format:\n1. translation1\n2. translation2"
             )
-            result = await call_sonnet(system, numbered, max_tokens=1000)
+            result = await call_sonnet(system, numbered, max_tokens=4096)
 
             # Parse numbered results
+            import re
             translations = []
             for line in result.strip().split("\n"):
                 line = line.strip()
-                if line and line[0].isdigit():
-                    # Remove number prefix like "1. " or "1) "
-                    parts = line.split(".", 1) if "." in line[:4] else line.split(")", 1)
-                    if len(parts) > 1:
-                        translations.append(parts[1].strip())
-                    else:
-                        translations.append(line)
+                if not line:
+                    continue
+                # Match "1. text", "1) text", "1: text" patterns
+                m = re.match(r"^\d+[\.\)\:]\s*(.+)$", line)
+                if m:
+                    translations.append(m.group(1).strip())
+
+            if len(translations) != len(terms):
+                logger.warning(
+                    "Batch translate count mismatch | expected=%d got=%d",
+                    len(terms), len(translations),
+                )
 
             # Pad with originals if parsing didn't get all
             while len(translations) < len(terms):
