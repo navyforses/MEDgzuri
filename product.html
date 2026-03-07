@@ -1838,6 +1838,11 @@
     </div>
 
     <script>
+    // ═══════════════ CONFIG ═══════════════
+    const API_BASE = window.location.hostname === 'localhost'
+        ? ''
+        : 'https://medgzuri-production.up.railway.app';
+
     // ═══════════════ STATE ═══════════════
     /** @type {string} Currently active search tab */
     let currentTab = 'research';
@@ -1931,7 +1936,7 @@
             updateAIStep(steps[0].key, 'active');
             updateAIStatus(steps[0].label + '...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
 
-            const response = await fetch('/api/search', {
+            const response = await fetch(API_BASE + '/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type, data }),
@@ -2424,7 +2429,7 @@
             // Request report from API
             var report;
             try {
-                var response = await fetch('/api/search', {
+                var response = await fetch(API_BASE + '/api/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
