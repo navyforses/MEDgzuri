@@ -129,6 +129,15 @@
     },
     {
       "parameters": {
+        "jsCode": "const items = $input.all();\nconst parts = [];\n\nfor (const item of items) {\n  // Perplexity results\n  const content = item.json?.choices?.[0]?.message?.content;\n  if (content) parts.push(content);\n  // Anthropic results (Specialist Advisor)\n  const anthropicContent = item.json?.content?.[0]?.text;\n  if (anthropicContent) parts.push(anthropicContent);\n}\n\nconst firstItem = $input.first().json;\nconst symptoms = firstItem.symptoms || firstItem.body?.data?.symptoms || 'N/A';\nconst age = firstItem.age || firstItem.body?.data?.age || '';\nconst sex = firstItem.sex || firstItem.body?.data?.sex || '';\n\nconst userMessage = `სიმპტომები: ${symptoms}\\nასაკი: ${age}\\nსქესი: ${sex}\\n\\nინტერნეტ ძიების შედეგები:\\n${parts.join('\\n\\n---\\n\\n')}`;\n\nreturn { json: { userMessage } };"
+      },
+      "id": "build-user-message",
+      "name": "Build userMessage",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
         "sendHeaders": true,
@@ -140,13 +149,22 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის სიმპტომების ანგარიშის დიზაინერი. სამედიცინო ტერმინოლოგია მხოლოდ ქართულად. გამოიყენე ლიტერატურული ქართული, სწორი ბრუნვები და გრამატიკულად გამართული წინადადებები. მნიშვნელოვანი: ❌ არასოდეს დააყენო დიაგნოზი ❌ არასოდეს თქვა \"თქვენ გაქვთ...\" ✅ შემოგთავაზე გამოკვლევები ✅ შემოგთავაზე სპეციალისტები. პრიორიტეტი: 🔴 მაღალი, 🟡 საშუალო, 🟢 დაბალი. პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [{ \"id\": \"...\", \"title\": \"...\", \"icon\": \"...\", \"type\": \"cards|text\", \"items\": [{ \"title\": \"...\", \"body\": \"...\", \"tags\": [], \"priority\": \"high|medium|low\" }] }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ეს არ არის სამედიცინო დიაგნოზი.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის სიმპტომების ანგარიშის დიზაინერი. სამედიცინო ტერმინოლოგია მხოლოდ ქართულად. გამოიყენე ლიტერატურული ქართული, სწორი ბრუნვები და გრამატიკულად გამართული წინადადებები. მნიშვნელოვანი: ❌ არასოდეს დააყენო დიაგნოზი ❌ არასოდეს თქვა \"თქვენ გაქვთ...\" ✅ შემოგთავაზე გამოკვლევები ✅ შემოგთავაზე სპეციალისტები. აკრძალულია მეტა-ტექსტი. მხოლოდ JSON. პრიორიტეტი: 🔴 მაღალი, 🟡 საშუალო, 🟢 დაბალი. პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [{ \"id\": \"...\", \"title\": \"...\", \"icon\": \"...\", \"type\": \"cards|text\", \"items\": [{ \"title\": \"...\", \"body\": \"...\", \"tags\": [], \"priority\": \"high|medium|low\" }] }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ეს არ არის სამედიცინო დიაგნოზი.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
         "options": { "timeout": 45000 }
       },
       "id": "symptom-report-designer",
       "name": "Symptom Report Designer",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1350, 300]
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.content?.[0]?.text || '';\n\nlet parsed = null;\n\n// Try code fence\nconst fenceMatch = text.match(/```(?:json)?\\s*(\\{[\\s\\S]*?\\})\\s*```/);\nif (fenceMatch) {\n  try { parsed = JSON.parse(fenceMatch[1]); } catch(e) {}\n}\n\n// Try full text\nif (!parsed) {\n  try { parsed = JSON.parse(text.trim()); } catch(e) {}\n}\n\nif (parsed && (parsed.meta || parsed.items || parsed.sections)) {\n  return { json: parsed };\n}\n\n// Fallback: return text as summary\nreturn { json: { meta: 'სიმპტომების ანალიზი', items: [], summary: text } };"
+      },
+      "id": "extract-json",
+      "name": "Extract JSON from Claude",
+      "type": "n8n-nodes-base.code",
+      "position": [1650, 300]
     },
     {
       "parameters": {
@@ -156,7 +174,7 @@
       "id": "respond-webhook",
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
-      "position": [1550, 300]
+      "position": [1850, 300]
     }
   ],
   "connections": {
@@ -185,9 +203,15 @@
       "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
     },
     "Merge Results": {
+      "main": [[{ "node": "Build userMessage", "type": "main", "index": 0 }]]
+    },
+    "Build userMessage": {
       "main": [[{ "node": "Symptom Report Designer", "type": "main", "index": 0 }]]
     },
     "Symptom Report Designer": {
+      "main": [[{ "node": "Extract JSON from Claude", "type": "main", "index": 0 }]]
+    },
+    "Extract JSON from Claude": {
       "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   },

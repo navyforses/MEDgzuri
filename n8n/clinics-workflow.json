@@ -137,6 +137,15 @@
     },
     {
       "parameters": {
+        "jsCode": "const items = $input.all();\nconst parts = [];\n\nfor (const item of items) {\n  const content = item.json?.choices?.[0]?.message?.content;\n  if (content) parts.push(content);\n}\n\nconst firstItem = $input.first().json;\nconst diagnosis = firstItem.diagnosis || firstItem.body?.data?.diagnosis || 'N/A';\nconst countries = firstItem.countries || firstItem.body?.data?.countries || [];\nconst budget = firstItem.budget || firstItem.body?.data?.budget || '';\n\nconst userMessage = `დიაგნოზი: ${diagnosis}\\nქვეყნები: ${Array.isArray(countries) ? countries.join(', ') : countries}\\nბიუჯეტი: ${budget}\\n\\nინტერნეტ ძიების შედეგები:\\n${parts.join('\\n\\n---\\n\\n')}`;\n\nreturn { json: { userMessage } };"
+      },
+      "id": "build-user-message",
+      "name": "Build userMessage",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
         "sendHeaders": true,
@@ -148,13 +157,22 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კლინიკების ანგარიშის დიზაინერი. სამედიცინო ტერმინოლოგია მხოლოდ ქართულად. გამოიყენე ლიტერატურული ქართული, სწორი ბრუნვები და გრამატიკულად გამართული წინადადებები. შექმენი შედარებითი ანგარიში ქართულ ენაზე. ფასები EUR-ში და GEL-ში (1 EUR ≈ 2.85 GEL). პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [...], \"comparison\": { \"headers\": [...], \"rows\": [[...]] }, \"tips\": [{ \"icon\": \"...\", \"text\": \"...\" }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ფასები ინფორმაციული ხასიათისაა.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 4000, system: 'შენ ხარ MED&გზურის კლინიკების ანგარიშის დიზაინერი. სამედიცინო ტერმინოლოგია მხოლოდ ქართულად. გამოიყენე ლიტერატურული ქართული, სწორი ბრუნვები და გრამატიკულად გამართული წინადადებები. შექმენი შედარებითი ანგარიში ქართულ ენაზე. ფასები EUR-ში და GEL-ში (1 EUR ≈ 2.85 GEL). აკრძალულია მეტა-ტექსტი. მხოლოდ JSON. პასუხი მკაცრად JSON: { \"meta\": \"...\", \"sections\": [...], \"comparison\": { \"headers\": [...], \"rows\": [[...]] }, \"tips\": [{ \"icon\": \"...\", \"text\": \"...\" }], \"nextSteps\": [...], \"disclaimer\": \"⚕️ ფასები ინფორმაციული ხასიათისაა.\" }', messages: [{ role: 'user', content: $json.userMessage }] }) }}",
         "options": { "timeout": 45000 }
       },
       "id": "clinic-report-designer",
       "name": "Clinic Report Designer",
       "type": "n8n-nodes-base.httpRequest",
-      "position": [1350, 300]
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst text = raw.content?.[0]?.text || '';\n\nlet parsed = null;\n\n// Try code fence\nconst fenceMatch = text.match(/```(?:json)?\\s*(\\{[\\s\\S]*?\\})\\s*```/);\nif (fenceMatch) {\n  try { parsed = JSON.parse(fenceMatch[1]); } catch(e) {}\n}\n\n// Try full text\nif (!parsed) {\n  try { parsed = JSON.parse(text.trim()); } catch(e) {}\n}\n\nif (parsed && (parsed.meta || parsed.items || parsed.sections)) {\n  return { json: parsed };\n}\n\n// Fallback: return text as summary\nreturn { json: { meta: 'კლინიკების ძიების შედეგები', items: [], summary: text } };"
+      },
+      "id": "extract-json",
+      "name": "Extract JSON from Claude",
+      "type": "n8n-nodes-base.code",
+      "position": [1650, 300]
     },
     {
       "parameters": {
@@ -164,7 +182,7 @@
       "id": "respond-webhook",
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
-      "position": [1550, 300]
+      "position": [1850, 300]
     }
   ],
   "connections": {
@@ -193,9 +211,15 @@
       "main": [[{ "node": "Merge Results", "type": "main", "index": 2 }]]
     },
     "Merge Results": {
+      "main": [[{ "node": "Build userMessage", "type": "main", "index": 0 }]]
+    },
+    "Build userMessage": {
       "main": [[{ "node": "Clinic Report Designer", "type": "main", "index": 0 }]]
     },
     "Clinic Report Designer": {
+      "main": [[{ "node": "Extract JSON from Claude", "type": "main", "index": 0 }]]
+    },
+    "Extract JSON from Claude": {
       "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   },
