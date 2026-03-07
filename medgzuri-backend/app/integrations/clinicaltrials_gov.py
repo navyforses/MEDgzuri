@@ -105,17 +105,18 @@ class ClinicalTrialsClient:
         if location_filter:
             params["query.locn"] = location_filter
 
-        # Age group filter
+        # Age group filter — v2 API has no filter.ageRange,
+        # use query.term with age-related keywords instead
         if age_group and age_group != "any":
-            age_map = {
-                "infant": "child",
-                "child": "child",
+            age_query_map = {
+                "infant": "pediatric OR infant OR neonatal",
+                "child": "pediatric OR child OR infant",
                 "adult": "adult",
-                "elderly": "older_adult",
+                "elderly": "elderly OR older adult OR geriatric",
             }
-            api_age = age_map.get(age_group)
-            if api_age:
-                params["filter.ageRange"] = api_age
+            age_terms = age_query_map.get(age_group)
+            if age_terms:
+                params["query.term"] = age_terms
 
         # Study type filter
         if study_type and study_type != "all":
