@@ -47,10 +47,11 @@ class ClinicalTrialsClient:
         geography: str = "worldwide",
         study_type: str = "all",
         status: str = "recruiting",
+        results_posted: bool = False,
         max_results: int = 20,
     ) -> list[dict[str, Any]]:
         """Search for clinical trials and return structured results."""
-        params = self._build_params(query, age_group, geography, study_type, status, max_results)
+        params = self._build_params(query, age_group, geography, study_type, status, results_posted, max_results)
 
         start = time.monotonic()
         try:
@@ -84,10 +85,23 @@ class ClinicalTrialsClient:
 
     def _build_params(
         self, query: str, age_group: str, geography: str,
-        study_type: str, status: str, max_results: int,
+        study_type: str, status: str, results_posted: bool,
+        max_results: int,
     ) -> dict[str, str]:
+        # Age group — append keywords to condition query
+        cond_query = query
+        if age_group and age_group != "any":
+            age_suffix = {
+                "infant": " AND (pediatric OR infant OR neonatal)",
+                "child": " AND (pediatric OR child OR infant)",
+                "elderly": " AND (elderly OR geriatric)",
+            }
+            suffix = age_suffix.get(age_group)
+            if suffix:
+                cond_query = query + suffix
+
         params: dict[str, str] = {
-            "query.cond": query,
+            "query.cond": cond_query,
             "pageSize": str(min(max_results, 50)),
             "format": "json",
         }
@@ -100,23 +114,14 @@ class ClinicalTrialsClient:
         }
         params["filter.overallStatus"] = status_map.get(status, status_map["recruiting"])
 
+        # Results posted filter (for research_results mode)
+        if results_posted:
+            params["filter.advanced"] = "AREA[HasResults]true"
+
         # Geography filter
         location_filter = self._build_location_filter(geography)
         if location_filter:
             params["query.locn"] = location_filter
-
-        # Age group filter — v2 API has no filter.ageRange,
-        # use query.term with age-related keywords instead
-        if age_group and age_group != "any":
-            age_query_map = {
-                "infant": "pediatric OR infant OR neonatal",
-                "child": "pediatric OR child OR infant",
-                "adult": "adult",
-                "elderly": "elderly OR older adult OR geriatric",
-            }
-            age_terms = age_query_map.get(age_group)
-            if age_terms:
-                params["query.term"] = age_terms
 
         # Study type filter
         if study_type and study_type != "all":

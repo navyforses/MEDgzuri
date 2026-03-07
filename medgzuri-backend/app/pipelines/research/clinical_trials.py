@@ -29,6 +29,8 @@ class ClinicalTrialsAgent:
         age_group: str = "any",
         geography: str = "worldwide",
         study_type: str = "all",
+        status: str = "recruiting",
+        results_posted: bool = False,
         max_results: int = 20,
     ) -> list[dict]:
         """Search all registries in parallel and merge results."""
@@ -40,6 +42,8 @@ class ClinicalTrialsAgent:
             age_group=age_group,
             geography=geography,
             study_type=study_type,
+            status=status,
+            results_posted=results_posted,
             max_results=max_results,
         )
         eu_ctr_task = self.eu_ctr.search(query=terms.english_primary, max_results=10)
