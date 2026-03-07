@@ -90,15 +90,6 @@ class ClinicalTrialsClient:
             "query.cond": query,
             "pageSize": str(min(max_results, 50)),
             "format": "json",
-            "fields": (
-                "NCTId,BriefTitle,OfficialTitle,OverallStatus,Phase,"
-                "Condition,InterventionName,InterventionType,"
-                "LocationCountry,LocationCity,LocationFacility,"
-                "LocationContactName,LocationContactEMail,"
-                "EligibilityCriteria,MinimumAge,MaximumAge,Gender,"
-                "StartDate,CompletionDate,LeadSponsorName,"
-                "EnrollmentCount,StudyType"
-            ),
         }
 
         # Status filter
