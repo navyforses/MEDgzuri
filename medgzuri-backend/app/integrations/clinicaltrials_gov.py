@@ -114,6 +114,18 @@ class ClinicalTrialsClient:
         if location_filter:
             params["query.locn"] = location_filter
 
+        # Age group filter
+        if age_group and age_group != "any":
+            age_map = {
+                "infant": "child",
+                "child": "child",
+                "adult": "adult",
+                "elderly": "older_adult",
+            }
+            api_age = age_map.get(age_group)
+            if api_age:
+                params["filter.ageRange"] = api_age
+
         # Study type filter
         if study_type and study_type != "all":
             type_map = {
