@@ -3,6 +3,7 @@
 Provides /api/search endpoint compatible with the existing frontend.
 """
 
+import asyncio
 import hashlib
 import logging
 import time
@@ -157,10 +158,13 @@ async def search(request: Request, background_tasks: BackgroundTasks):
     search_req = SearchRequest(**body)
     pipeline_type = search_req.get_pipeline_type()
 
-    # Execute pipeline via orchestrator
+    # Execute pipeline via orchestrator (with safety-net timeout)
     start = time.monotonic()
     try:
-        result = await orchestrator.route(search_req)
+        result = await asyncio.wait_for(
+            orchestrator.route(search_req),
+            timeout=settings.pipeline_timeout_seconds + 10,
+        )
         elapsed_ms = int((time.monotonic() - start) * 1000)
         logger.info(
             "Search completed | type=%s | items=%d | %dms | ip=%s",
@@ -181,6 +185,13 @@ async def search(request: Request, background_tasks: BackgroundTasks):
 
         return JSONResponse(content=response_data)
 
+    except asyncio.TimeoutError:
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        logger.error("Search timed out | %dms | type=%s", elapsed_ms, pipeline_type)
+        return JSONResponse(
+            status_code=504,
+            content={"error": "მოთხოვნის დამუშავებას ძალიან დიდი დრო დასჭირდა. გთხოვთ სცადოთ თავიდან."},
+        )
     except Exception as e:
         elapsed_ms = int((time.monotonic() - start) * 1000)
         logger.error("Search failed | %dms | %s", elapsed_ms, str(e)[:300])
