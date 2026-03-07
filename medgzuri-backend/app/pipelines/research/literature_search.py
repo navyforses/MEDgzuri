@@ -30,7 +30,7 @@ class LiteratureSearchAgent:
     async def search(
         self,
         terms: NormalizedTerms,
-        max_results: int = 20,
+        max_results: int = 10,
         original_query: str = "",
     ) -> dict:
         """Search literature and return summarized results.
@@ -80,7 +80,7 @@ class LiteratureSearchAgent:
             unique.append(a)
 
         # Use Claude Sonnet to select top articles and generate Georgian summaries
-        return await self._summarize(unique[:20], original_query or terms.english_primary)
+        return await self._summarize(unique[:10], original_query or terms.english_primary)
 
     async def _summarize(self, articles: list[dict], query: str) -> dict:
         """Use LLM to select top articles and generate Georgian summaries."""
