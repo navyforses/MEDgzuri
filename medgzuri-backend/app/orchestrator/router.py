@@ -9,6 +9,7 @@ Responsibilities:
   - Return demo data when in demo mode
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -55,17 +56,22 @@ class OrchestratorRouter:
                 response = SearchResponse(**cached)
                 return response
 
-        # Route to pipeline
-        if pipeline_type == "research_search":
-            result = await self._run_research(data)
-        elif pipeline_type == "symptom_navigation":
-            result = await self._run_symptoms(data)
-        elif pipeline_type == "clinic_search":
-            result = await self._run_clinics(data)
-        elif pipeline_type == "report_generation":
-            return await self._run_report(data)
-        else:
-            return _error_response("უცნობი ძიების ტიპი.")
+        # Route to pipeline (with overall timeout)
+        timeout = settings.pipeline_timeout_seconds
+        try:
+            if pipeline_type == "research_search":
+                result = await asyncio.wait_for(self._run_research(data), timeout=timeout)
+            elif pipeline_type == "symptom_navigation":
+                result = await asyncio.wait_for(self._run_symptoms(data), timeout=timeout)
+            elif pipeline_type == "clinic_search":
+                result = await asyncio.wait_for(self._run_clinics(data), timeout=timeout)
+            elif pipeline_type == "report_generation":
+                return await asyncio.wait_for(self._run_report(data), timeout=timeout)
+            else:
+                return _error_response("უცნობი ძიების ტიპი.")
+        except asyncio.TimeoutError:
+            logger.error("Pipeline timed out after %ds | type=%s", timeout, pipeline_type)
+            return _error_response("მოთხოვნის დამუშავებას ძალიან დიდი დრო დასჭირდა. გთხოვთ სცადოთ თავიდან.")
 
         # Cache the result
         if result.items:
