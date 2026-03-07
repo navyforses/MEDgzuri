@@ -124,8 +124,10 @@ class TranslationService:
 
             numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(terms))
             system = (
-                f"You are a medical translator. Translate each medical term from "
-                f"{src_name} to {tgt_name}. Return ONLY numbered translations, one per line. "
+                f"You are a medical translator. Translate each medical text from "
+                f"{src_name} to {tgt_name}. სამედიცინო ტერმინები თარგმნე ქართულ სამედიცინო ენაზე. "
+                f"კვლევის სათაურები შეინარჩუნე პროფესიონალური ტონით. "
+                f"Return ONLY numbered translations, one per line. "
                 f"Example output format:\n1. translation1\n2. translation2"
             )
             result = await call_sonnet(system, numbered, max_tokens=1000)

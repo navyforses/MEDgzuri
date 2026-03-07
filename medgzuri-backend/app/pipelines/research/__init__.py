@@ -11,8 +11,40 @@ from app.pipelines.research.aggregator import ResearchAggregator
 from app.pipelines.research.clinical_trials import ClinicalTrialsAgent
 from app.pipelines.research.literature_search import LiteratureSearchAgent
 from app.pipelines.research.term_normalizer import TermNormalizer
+from app.services.translation import translation_service
 
 logger = logging.getLogger(__name__)
+
+# EN → KA static translations for trial phase/status tags
+TAG_TRANSLATIONS = {
+    "Recruiting": "მიმდინარეობს მიღება",
+    "RECRUITING": "მიმდინარეობს მიღება",
+    "Not yet recruiting": "მიღება ჯერ არ დაწყებულა",
+    "NOT_YET_RECRUITING": "მიღება ჯერ არ დაწყებულა",
+    "Active, not recruiting": "აქტიური, მიღება დასრულებულია",
+    "ACTIVE_NOT_RECRUITING": "აქტიური, მიღება დასრულებულია",
+    "Completed": "დასრულებული",
+    "COMPLETED": "დასრულებული",
+    "Terminated": "შეწყვეტილი",
+    "TERMINATED": "შეწყვეტილი",
+    "Withdrawn": "გაუქმებული",
+    "WITHDRAWN": "გაუქმებული",
+    "Suspended": "შეჩერებული",
+    "SUSPENDED": "შეჩერებული",
+    "Phase 1": "ფაზა 1",
+    "Phase 2": "ფაზა 2",
+    "Phase 3": "ფაზა 3",
+    "Phase 4": "ფაზა 4",
+    "PHASE1": "ფაზა 1",
+    "PHASE2": "ფაზა 2",
+    "PHASE3": "ფაზა 3",
+    "PHASE4": "ფაზა 4",
+    "Phase 1/Phase 2": "ფაზა 1/ფაზა 2",
+    "Phase 2/Phase 3": "ფაზა 2/ფაზა 3",
+    "Early Phase 1": "ადრეული ფაზა 1",
+    "Not Applicable": "არ ეხება",
+    "NA": "არ ეხება",
+}
 
 DISCLAIMER = "⚕️ მედგზური არ ანაცვლებს ექიმის კონსულტაციას."
 
@@ -80,12 +112,12 @@ class ResearchPipeline:
             scored = []
 
         # A5: Skip LLM report generation (causes timeouts).
-        # Build response directly from scored results.
-        report = self._build_response(scored, inp.diagnosis)
+        # Build response directly from scored results, then translate to Georgian.
+        report = await self._build_response(scored, inp.diagnosis)
         logger.info("Pipeline A complete | items=%d", len(report.items))
         return report
 
-    def _build_response(self, scored: list[dict], query: str) -> SearchResponse:
+    async def _build_response(self, scored: list[dict], query: str) -> SearchResponse:
         """Build SearchResponse directly from scored results (no LLM)."""
         items = []
         for r in scored[:10]:
@@ -113,6 +145,27 @@ class ResearchPipeline:
                     tags=["სტატია", str(data.get("year", ""))],
                     url=data.get("source_url", ""),
                 ))
+
+        # Translate tags using static dict
+        for item in items:
+            item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
+
+        # Batch translate titles and bodies EN → KA (single LLM call)
+        texts_to_translate = []
+        for item in items:
+            texts_to_translate.append(item.title)
+            texts_to_translate.append(item.body)
+
+        try:
+            translated = await translation_service.batch_translate(
+                texts_to_translate, source="en", target="ka",
+            )
+            for i, item in enumerate(items):
+                item.title = translated[i * 2] or item.title
+                item.body = translated[i * 2 + 1] or item.body
+            logger.info("Translation complete | texts=%d", len(texts_to_translate))
+        except Exception as e:
+            logger.warning("Batch translation failed, returning English | %s", str(e)[:200])
 
         return SearchResponse(
             meta=f"ნაპოვნია {len(items)} შედეგი: {query}",
