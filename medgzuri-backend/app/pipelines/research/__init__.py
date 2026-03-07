@@ -72,34 +72,70 @@ class ResearchPipeline:
                 items=[], disclaimer=DISCLAIMER,
             )
 
-        # A2 + A3: Parallel search
-        trials_task = self.trials_agent.search(
-            terms=terms,
-            age_group=inp.age_group,
-            geography=inp.geography,
-            study_type=inp.study_type,
-        )
-        literature_task = self.literature_agent.search(
-            terms=terms,
-            original_query=inp.diagnosis,
-        )
+        # A2 + A3: Route based on researchType (study_type field)
+        research_type = inp.study_type  # "clinical_trial" | "research_results" | "all"
+        logger.info("Pipeline A | research_type=%s", research_type)
 
-        results = await asyncio.gather(trials_task, literature_task, return_exceptions=True)
+        trials = []
+        literature: dict = {"articles": []}
 
-        trials = results[0] if isinstance(results[0], list) else []
-        literature = results[1] if isinstance(results[1], dict) else {"articles": []}
+        if research_type == "clinical_trial":
+            # Only ClinicalTrials.gov — active/recruiting trials
+            try:
+                trials = await self.trials_agent.search(
+                    terms=terms,
+                    age_group=inp.age_group,
+                    geography=inp.geography,
+                    status="recruiting",
+                )
+            except Exception as e:
+                logger.warning("Pipeline A | A2 failed | %s", str(e)[:200])
 
-        if isinstance(results[0], Exception):
-            logger.warning("Pipeline A | A2 failed | %s", str(results[0])[:200])
-        if isinstance(results[1], Exception):
-            logger.warning("Pipeline A | A3 failed | %s", str(results[1])[:200])
+        elif research_type == "research_results":
+            # A2: completed trials with results + A3: PubMed
+            trials_task = self.trials_agent.search(
+                terms=terms,
+                age_group=inp.age_group,
+                geography=inp.geography,
+                status="completed",
+                results_posted=True,
+            )
+            literature_task = self.literature_agent.search(
+                terms=terms,
+                original_query=inp.diagnosis,
+            )
+            results = await asyncio.gather(trials_task, literature_task, return_exceptions=True)
+            trials = results[0] if isinstance(results[0], list) else []
+            literature = results[1] if isinstance(results[1], dict) else {"articles": []}
+            if isinstance(results[0], Exception):
+                logger.warning("Pipeline A | A2 failed | %s", str(results[0])[:200])
+            if isinstance(results[1], Exception):
+                logger.warning("Pipeline A | A3 failed | %s", str(results[1])[:200])
+
+        else:
+            # Default "all" — both A2 and A3
+            trials_task = self.trials_agent.search(
+                terms=terms,
+                age_group=inp.age_group,
+                geography=inp.geography,
+            )
+            literature_task = self.literature_agent.search(
+                terms=terms,
+                original_query=inp.diagnosis,
+            )
+            results = await asyncio.gather(trials_task, literature_task, return_exceptions=True)
+            trials = results[0] if isinstance(results[0], list) else []
+            literature = results[1] if isinstance(results[1], dict) else {"articles": []}
+            if isinstance(results[0], Exception):
+                logger.warning("Pipeline A | A2 failed | %s", str(results[0])[:200])
+            if isinstance(results[1], Exception):
+                logger.warning("Pipeline A | A3 failed | %s", str(results[1])[:200])
 
         # Diagnostic logging — track trial/article counts through pipeline
         articles_count = len(literature.get("articles", []))
         logger.info(
-            "Pipeline A | A2 trials=%d | A3 articles=%d | A2 type=%s | A3 type=%s",
+            "Pipeline A | A2 trials=%d | A3 articles=%d",
             len(trials), articles_count,
-            type(results[0]).__name__, type(results[1]).__name__,
         )
 
         if not trials and not literature.get("articles"):
