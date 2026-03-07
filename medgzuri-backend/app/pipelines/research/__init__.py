@@ -163,30 +163,8 @@ class ResearchPipeline:
             len(scored), scored_trials, scored_articles,
         )
 
-        # A5: LLM report generation (Opus → Sonnet) — returns Georgian directly
-        report = None
-        try:
-            report = await self.report_generator.generate(
-                scored_results=scored,
-                literature=literature,
-                original_query=inp.diagnosis,
-            )
-        except Exception as e:
-            logger.warning("Pipeline A | A5 failed | %s", str(e)[:200])
-
-        if report and report.items:
-            # Apply tag translations to LLM output (may still have English tags)
-            for item in report.items:
-                item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
-            trial_items = sum(1 for i in report.items if "ClinicalTrials" in (i.source or ""))
-            logger.info(
-                "Pipeline A complete (A5 LLM) | items=%d | trial_items=%d",
-                len(report.items), trial_items,
-            )
-            return report
-
-        # Fallback: build directly from scored results + batch translate
-        logger.info("Pipeline A | A5 returned no items, using fallback with batch translation")
+        # A5 disabled — Opus 120s + Sonnet 91s = 211s timeout, too slow.
+        # Use _build_response + batch translate directly.
         report = await self._build_response(scored, inp.diagnosis, research_type)
         logger.info("Pipeline A complete (fallback) | items=%d", len(report.items))
         return report
@@ -203,7 +181,7 @@ class ResearchPipeline:
         items = []
         trial_meta = []  # metadata per trial for body building
 
-        for r in scored[:10]:
+        for r in scored[:3]:
             data = r.get("data", {})
             if r.get("type") == "trial":
                 logger.info(
@@ -285,7 +263,7 @@ class ResearchPipeline:
                 items.append(ResultItem(
                     title=data.get("title", ""),
                     source=data.get("journal", ""),
-                    body=data.get("abstract_summary", data.get("abstract", ""))[:500],
+                    body=data.get("abstract_summary", data.get("abstract", ""))[:200],
                     tags=["სტატია", str(data.get("year", ""))],
                     url=data.get("source_url", ""),
                 ))
@@ -409,7 +387,7 @@ class ResearchPipeline:
         )
 
         user_msg = _json.dumps({"items": llm_items}, ensure_ascii=False, indent=2)
-        result = await call_sonnet_json(system, user_msg, max_tokens=8192)
+        result = await call_sonnet_json(system, user_msg, max_tokens=4096)
 
         if not result or "results" not in result:
             raise ValueError("LLM returned no results for batch translate")
