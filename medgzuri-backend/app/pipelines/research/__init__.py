@@ -12,7 +12,6 @@ from app.pipelines.research.clinical_trials import ClinicalTrialsAgent
 from app.pipelines.research.literature_search import LiteratureSearchAgent
 from app.pipelines.research.report_generator import ResearchReportGenerator
 from app.pipelines.research.term_normalizer import TermNormalizer
-from app.services.translation import translation_service
 
 logger = logging.getLogger(__name__)
 
@@ -138,25 +137,84 @@ class ResearchPipeline:
         return report
 
     async def _build_response(self, scored: list[dict], query: str) -> SearchResponse:
-        """Build SearchResponse directly from scored results (no LLM)."""
+        """Build SearchResponse directly from scored results with full formatting."""
         items = []
+        trial_meta = []  # metadata per trial for body building
+
         for r in scored[:10]:
             data = r.get("data", {})
             if r.get("type") == "trial":
-                locations = ", ".join(
-                    f"{loc.get('country', '')} ({loc.get('facility', '')})"
-                    for loc in data.get("locations", [])[:3]
-                )
+                nct_id = data.get("nct_id", "")
+                phase = data.get("phase", "")
+                status = data.get("status", "")
+                sponsor = data.get("sponsor", "")
+
+                # Interventions
+                interventions = data.get("interventions", [])
+                intervention_names = ", ".join(
+                    i.get("name", "") for i in interventions if i.get("name")
+                ) or "მიუთითებელი"
+
+                # Eligibility
+                elig = data.get("eligibility", {})
+                min_age = elig.get("min_age", "N/A")
+                max_age = elig.get("max_age", "N/A")
+                sex = elig.get("sex", "All")
+                sex_ka = {"All": "ორივე სქესი", "Male": "მამრობითი", "Female": "მდედრობითი"}.get(sex, sex)
+                age_str = f"{min_age}–{max_age}" if min_age != "N/A" else "მიუთითებელი"
+
+                # Locations
+                loc_parts = []
+                for loc in data.get("locations", [])[:3]:
+                    parts = [p for p in [loc.get("country"), loc.get("city")] if p]
+                    facility = loc.get("facility", "")
+                    loc_parts.append(f"{', '.join(parts)} — {facility}" if facility else ", ".join(parts))
+                location_str = "; ".join(loc_parts) if loc_parts else "მიუთითებელი"
+
+                # Contact email
+                contact_email = ""
+                for loc in data.get("locations", []):
+                    email = loc.get("contact_email", "")
+                    if email:
+                        contact_email = email
+                        break
+
+                # Cost estimation based on sponsor type
+                sponsor_lower = sponsor.lower()
+                is_likely_free = any(kw in sponsor_lower for kw in [
+                    "pharma", "pfizer", "novartis", "roche", "merck", "lilly",
+                    "astrazeneca", "sanofi", "bayer", "johnson", "bristol",
+                    "abbvie", "amgen", "genentech", "gilead", "regeneron",
+                    "moderna", "biogen", "university", "université", "universität",
+                    "institute", "hospital", "nih", "national", "foundation",
+                ])
+                cost = "ჩვეულებრივ უფასო" if is_likely_free else "გასარკვევი კლინიკასთან"
+
+                phase_ka = TAG_TRANSLATIONS.get(phase, phase)
+                status_ka = TAG_TRANSLATIONS.get(status, status)
+
                 items.append(ResultItem(
                     title=data.get("title", ""),
-                    source=f"ClinicalTrials.gov | {data.get('phase', '')}",
-                    body=f"**სტატუსი:** {data.get('status', '')}\n"
-                         f"**ლოკაცია:** {locations}\n"
-                         f"**სპონსორი:** {data.get('sponsor', '')}",
-                    tags=[data.get("phase", ""), data.get("status", "")],
+                    source=f"ClinicalTrials.gov | {nct_id}",
+                    body="",  # built after LLM call
+                    tags=[phase, status],
                     url=data.get("url", ""),
-                    phase=data.get("phase", ""),
+                    phase=phase,
                 ))
+                trial_meta.append({
+                    "item_index": len(items) - 1,
+                    "title_en": data.get("title", ""),
+                    "intervention": intervention_names,
+                    "nct_id": nct_id,
+                    "phase_ka": phase_ka,
+                    "status_ka": status_ka,
+                    "age": age_str,
+                    "sex_ka": sex_ka,
+                    "location": location_str,
+                    "sponsor": sponsor,
+                    "cost": cost,
+                    "contact": contact_email or "მიუთითებელი",
+                })
             else:
                 items.append(ResultItem(
                     title=data.get("title", ""),
@@ -170,25 +228,113 @@ class ResearchPipeline:
         for item in items:
             item.tags = [TAG_TRANSLATIONS.get(t, t) for t in item.tags]
 
-        # Batch translate titles and bodies EN → KA (single LLM call)
-        texts_to_translate = []
-        for item in items:
-            texts_to_translate.append(item.title)
-            texts_to_translate.append(item.body)
-
+        # Single LLM call: translate titles + explain trials + translate article bodies
         try:
-            translated = await translation_service.batch_translate(
-                texts_to_translate, source="en", target="ka",
-            )
-            for i, item in enumerate(items):
-                item.title = translated[i * 2] or item.title
-                item.body = translated[i * 2 + 1] or item.body
-            logger.info("Translation complete | texts=%d", len(texts_to_translate))
+            await self._batch_translate_and_explain(items, trial_meta)
+            logger.info("Batch translate+explain complete | items=%d", len(items))
         except Exception as e:
-            logger.warning("Batch translation failed, returning English | %s", str(e)[:200])
+            logger.warning("Batch translate/explain failed, using raw data | %s", str(e)[:200])
+            # Fallback: build trial bodies from metadata without LLM explanation
+            for meta in trial_meta:
+                items[meta["item_index"]].body = (
+                    f"📋 ფაზა: {meta['phase_ka']} | სტატუსი: {meta['status_ka']}\n"
+                    f"💊 ინტერვენცია: {meta['intervention']}\n"
+                    f"👤 ასაკი: {meta['age']}, {meta['sex_ka']}\n"
+                    f"📍 ლოკაცია: {meta['location']}\n"
+                    f"🏢 სპონსორი: {meta['sponsor']}\n"
+                    f"💰 ღირებულება: {meta['cost']}\n"
+                    f"📧 კონტაქტი: {meta['contact']}"
+                )
 
         return SearchResponse(
             meta=f"ნაპოვნია {len(items)} შედეგი: {query}",
             items=items,
             disclaimer=DISCLAIMER,
         )
+
+    async def _batch_translate_and_explain(
+        self, items: list[ResultItem], trial_meta: list[dict],
+    ) -> None:
+        """Single LLM call: translate all titles, explain trials, translate article bodies."""
+        import json as _json
+        from app.services.llm_client import call_sonnet_json
+
+        # Build numbered task list for LLM
+        llm_items = []
+        task_map = []  # (item_index, type, meta_or_none)
+
+        for i, item in enumerate(items):
+            # Find if this is a trial with metadata
+            meta = next((m for m in trial_meta if m["item_index"] == i), None)
+            if meta:
+                llm_items.append({
+                    "id": len(llm_items) + 1,
+                    "type": "trial",
+                    "title": meta["title_en"],
+                    "intervention": meta["intervention"],
+                })
+                task_map.append((i, "trial", meta))
+            else:
+                llm_items.append({
+                    "id": len(llm_items) + 1,
+                    "type": "article",
+                    "title": item.title,
+                    "body": item.body,
+                })
+                task_map.append((i, "article", None))
+
+        if not llm_items:
+            return
+
+        system = (
+            "შენ ხარ სამედიცინო მთარგმნელი. დააბრუნე JSON.\n\n"
+            "თითოეული item-ისთვის:\n"
+            "1. თარგმნე სათაური (title) ქართულად\n"
+            "2. თუ type არის \"trial\":\n"
+            "   დაწერე 1-2 წინადადებით რა არის კვლევის მიზანი, ისე რომ "
+            "სამედიცინო განათლების არმქონე ადამიანმა გაიგოს.\n"
+            "   გამოიყენე მარტივი სიტყვები, არა სამედიცინო ტერმინები.\n"
+            "   მაგალითად: 'ეს კვლევა ამოწმებს ახალ წამალს, რომელიც ეხმარება "
+            "ორგანიზმს სიმსივნის უჯრედების წინააღმდეგ ბრძოლაში.'\n"
+            "3. თუ type არის \"article\": თარგმნე body ქართულად. "
+            "რელევანტურობის აღწერა მარტივი ენით.\n\n"
+            "პასუხის ფორმატი (მხოლოდ JSON):\n"
+            '{"results": [\n'
+            '  {"id": 1, "title_ka": "...", "explain_ka": "..."},\n'
+            '  {"id": 2, "title_ka": "...", "body_ka": "..."}\n'
+            "]}\n"
+            "explain_ka — მხოლოდ trial-ებისთვის.\n"
+            "body_ka — მხოლოდ article-ებისთვის."
+        )
+
+        user_msg = _json.dumps({"items": llm_items}, ensure_ascii=False, indent=2)
+        result = await call_sonnet_json(system, user_msg, max_tokens=4096)
+
+        if not result or "results" not in result:
+            raise ValueError("LLM returned no results for batch translate")
+
+        results_by_id = {r["id"]: r for r in result["results"]}
+
+        for task_idx, (item_idx, item_type, meta) in enumerate(task_map):
+            r = results_by_id.get(task_idx + 1, {})
+
+            # Translated title
+            if r.get("title_ka"):
+                items[item_idx].title = r["title_ka"]
+
+            if item_type == "trial" and meta:
+                explain = r.get("explain_ka", "")
+                explain_line = f"🔬 {explain}\n" if explain else ""
+                items[item_idx].body = (
+                    f"{explain_line}"
+                    f"📋 ფაზა: {meta['phase_ka']} | სტატუსი: {meta['status_ka']}\n"
+                    f"💊 ინტერვენცია: {meta['intervention']}\n"
+                    f"👤 ასაკი: {meta['age']}, {meta['sex_ka']}\n"
+                    f"📍 ლოკაცია: {meta['location']}\n"
+                    f"🏢 სპონსორი: {meta['sponsor']}\n"
+                    f"💰 ღირებულება: {meta['cost']}\n"
+                    f"📧 კონტაქტი: {meta['contact']}"
+                )
+            elif item_type == "article":
+                if r.get("body_ka"):
+                    items[item_idx].body = r["body_ka"]
