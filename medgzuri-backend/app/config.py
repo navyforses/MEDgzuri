@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # LLM defaults
     llm_max_retries: int = 1
-    llm_timeout_seconds: int = 30
+    llm_timeout_seconds: int = 45
     pipeline_timeout_seconds: int = 120
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
