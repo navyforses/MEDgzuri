@@ -249,17 +249,15 @@ async function runHealthCheck(req) {
     const checks = {
         timestamp: new Date().toISOString(),
         api: { status: 'unknown' },
-        pipeline: { perplexity: 'unknown', anthropic: 'unknown', n8n: 'unknown' },
+        pipeline: { anthropic: 'unknown', n8n: 'unknown' },
         environment: {}
     };
 
     checks.environment = {
-        PERPLEXITY_API_KEY: !!process.env.PERPLEXITY_API_KEY,
         ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
         N8N_WEBHOOK_BASE_URL: !!process.env.N8N_WEBHOOK_BASE_URL,
         N8N_WEBHOOK_SECRET: !!process.env.N8N_WEBHOOK_SECRET,
-        SUPABASE_URL: !!SUPABASE_URL,
-        OPENAI_API_KEY: !!process.env.OPENAI_API_KEY
+        SUPABASE_URL: !!SUPABASE_URL
     };
 
     try {
@@ -1039,7 +1037,6 @@ async function runIntegrationTeam() {
 
     // Check 3: Environment variables
     const envVars = {
-        PERPLEXITY_API_KEY: !!process.env.PERPLEXITY_API_KEY,
         ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
         N8N_WEBHOOK_BASE_URL: !!process.env.N8N_WEBHOOK_BASE_URL,
         SUPABASE_URL: !!SUPABASE_URL

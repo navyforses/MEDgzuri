@@ -79,7 +79,7 @@ MEDgzuri/
 ├── vercel.json           # Vercel deployment and routing
 │
 ├── api/                  # Vercel serverless functions
-│   ├── search.js         # Main search: Perplexity → Claude pipeline (1,100+ lines)
+│   ├── search.js         # Main search: Medical APIs → Claude pipeline (1,200+ lines)
 │   ├── auth.js           # Authentication: Supabase auth wrapper
 │   ├── leads.js          # Lead management: CRUD via Supabase
 │   └── qa.js             # QA audit: 9 specialized quality teams (1,390 lines)
@@ -136,7 +136,7 @@ MEDgzuri/
 2. Check LRU cache (100 entries, 30-min TTL)
 3. Try n8n webhook pipeline (if configured)
 4. Try Railway FastAPI backend (agent-based pipelines)
-5. Fallback: Perplexity API (web search) → Claude API (structure + translate to Georgian)
+5. Fallback: Direct medical APIs (PubMed, OpenAlex, ClinicalTrials.gov, Europe PMC) → Claude API (structure + translate to Georgian)
 6. Cache result + async Supabase logging
 
 Search types: `research`, `symptoms`, `clinics`, `report`
@@ -164,8 +164,8 @@ All API endpoints import and use `lib/security.js` which provides:
 ### Vercel (Node.js API)
 
 ```
-PERPLEXITY_API_KEY        # Perplexity AI — web search for medical data
 ANTHROPIC_API_KEY         # Anthropic Claude — analysis and Georgian translation
+NCBI_API_KEY              # NCBI/PubMed API key (optional, higher rate limits)
 OPENAI_API_KEY            # OpenAI (planned Phase 2 — fact-checking)
 N8N_WEBHOOK_BASE_URL      # n8n orchestration webhook URL (optional)
 N8N_WEBHOOK_SECRET        # n8n webhook authentication secret
@@ -288,8 +288,8 @@ pytest      # 129 tests (requires pytest-httpx for integration tests)
 ### Graceful Degradation
 
 The system has multiple fallback layers:
-1. n8n pipeline → Railway FastAPI → direct Perplexity+Claude → demo data
-2. If Claude fails → raw Perplexity results
+1. n8n pipeline → Railway FastAPI → direct medical APIs + Claude → demo data
+2. If Claude fails → raw API results
 3. If Supabase unavailable → features degrade without DB
 4. If Redis unavailable → in-memory caching
 5. Demo mode when API keys are not configured

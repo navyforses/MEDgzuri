@@ -181,27 +181,24 @@ testAsync('Sets CORS headers', async () => {
 
 console.log('\n\x1b[1mHard Gate & Grounding Tests\x1b[0m');
 
-testAsync('Hard gate: code blocks search when PERPLEXITY_API_KEY missing but ANTHROPIC set', async () => {
+testAsync('Demo mode: returns demo data when ANTHROPIC_API_KEY is not configured', async () => {
     const fs = require('fs');
     const searchSource = fs.readFileSync(
         path.join(__dirname, '..', 'api', 'search.js'), 'utf8'
     );
-    // Verify hard gate exists in the handler after demo mode check
+    // Verify demo mode check only requires ANTHROPIC_API_KEY
     assert.ok(
-        searchSource.includes("['research', 'symptoms', 'clinics'].includes(type) && !PERPLEXITY_API_KEY"),
-        'Hard gate check for PERPLEXITY_API_KEY should exist in handler'
+        searchSource.includes("if (!ANTHROPIC_API_KEY)"),
+        'Demo mode check should only require ANTHROPIC_API_KEY'
     );
+    // Verify no Perplexity references remain
     assert.ok(
-        searchSource.includes("missingEnv: ['PERPLEXITY_API_KEY']"),
-        'Hard gate should return missingEnv array with PERPLEXITY_API_KEY'
-    );
-    assert.ok(
-        searchSource.includes('res.status(503)'),
-        'Hard gate should return 503 status'
+        !searchSource.includes('PERPLEXITY_API_KEY'),
+        'No Perplexity API key references should remain in search.js'
     );
 });
 
-testAsync('Ungrounded fallback: Perplexity null returns items=[] with _grounded=false', async () => {
+testAsync('Ungrounded fallback: null search results returns items=[] with _grounded=false', async () => {
     // Test the claudeAnalyze function behavior via the ensureBackwardCompat path
     // When searchResults is null, claudeAnalyze should return items=[] and _grounded=false
     // We test this by loading the module and checking ensureBackwardCompat behavior
@@ -359,7 +356,6 @@ testAsync('Health check returns environment status', async () => {
     await qaHandler(mockReq('POST', { action: 'health' }, { host: 'localhost:3000' }), res);
     assert.strictEqual(res.statusCode, 200);
     assert.ok(res.body.environment);
-    assert.ok('PERPLEXITY_API_KEY' in res.body.environment);
     assert.ok('ANTHROPIC_API_KEY' in res.body.environment);
     assert.ok('N8N_WEBHOOK_BASE_URL' in res.body.environment);
 });
