@@ -16,6 +16,7 @@ from typing import Any
 from app.config import settings
 from app.orchestrator.schemas import (
     ClinicInput,
+    ComparisonTable,
     ReportSection,
     ResearchInput,
     ResultItem,
@@ -25,6 +26,7 @@ from app.orchestrator.schemas import (
     TipItem,
 )
 from app.services.cache import cache_service
+from app.services.personalization import PatientProfile
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +74,11 @@ class OrchestratorRouter:
         except asyncio.TimeoutError:
             logger.error("Pipeline timed out after %ds | type=%s", timeout, pipeline_type)
             return _error_response("მოთხოვნის დამუშავებას ძალიან დიდი დრო დასჭირდა. გთხოვთ სცადოთ თავიდან.")
+
+        # Phase 2: Post-pipeline enhancement (graceful — failures don't break results)
+        if result.items:
+            query = _extract_query(pipeline_type, data)
+            result = await _enhance_result(result, query, data)
 
         # Cache the result
         if result.items:
@@ -186,6 +193,106 @@ def _parse_geography(value: Any) -> str:
     if isinstance(value, list):
         return ",".join(value) if value else "worldwide"
     return str(value) if value else "worldwide"
+
+
+# ═══════════════ POST-PIPELINE ENHANCEMENT ═══════════════
+
+def _extract_query(pipeline_type: str, data: dict) -> str:
+    """Extract the user's original query string from request data."""
+    if pipeline_type == "research_search":
+        return data.get("diagnosis", "")
+    elif pipeline_type == "symptom_navigation":
+        return data.get("symptoms", data.get("symptoms_text", ""))
+    elif pipeline_type == "clinic_search":
+        return data.get("diagnosis", data.get("diagnosis_or_treatment", ""))
+    return ""
+
+
+async def _enhance_result(result: SearchResponse, query: str, data: dict) -> SearchResponse:
+    """Apply Phase 2 enhancements: verification, summary, comparison, personalization.
+
+    Each step is independent and wrapped in try/except — failure in one
+    does not affect the others or the original result.
+    """
+    # Convert items to dicts for processing
+    items_dicts = [item.model_dump() for item in result.items]
+
+    # 1. Fact verification
+    try:
+        from app.services.fact_verifier import batch_verify
+        verified = await batch_verify(items_dicts)
+        # Update items with verification data
+        for i, item in enumerate(result.items):
+            if i < len(verified):
+                v = verified[i]
+                item.verification_status = v.get("verification_status", "")
+                item.verification_label = v.get("verification_label", "")
+                item.verification_sources = v.get("verification_sources", 0)
+                item.recency_status = v.get("recency_status", "")
+                item.recency_label = v.get("recency_label", "")
+                item.is_retracted = v.get("is_retracted", False)
+    except Exception as e:
+        logger.warning("Fact verification failed (non-fatal): %s", str(e)[:100])
+
+    # 2. Response enhancement (summary, comparison, action steps)
+    try:
+        from app.services.response_enhancer import enhance_response
+        enhancements = await enhance_response(items_dicts, query)
+
+        if enhancements.get("executive_summary"):
+            result.executive_summary = enhancements["executive_summary"]
+
+        if enhancements.get("comparison_table"):
+            ct = enhancements["comparison_table"]
+            result.comparison_table = ComparisonTable(
+                headers=ct.get("headers", []),
+                rows=ct.get("rows", []),
+            )
+
+        if enhancements.get("action_steps"):
+            result.action_steps = enhancements["action_steps"]
+
+    except Exception as e:
+        logger.warning("Response enhancement failed (non-fatal): %s", str(e)[:100])
+
+    # 3. Personalization (if profile data provided)
+    try:
+        profile_data = _extract_profile(data)
+        if profile_data:
+            from app.services.personalization import personalize_results
+            reordered = personalize_results(items_dicts, profile_data)
+            # Rebuild ResultItem list from reordered dicts
+            result.items = [ResultItem(**d) for d in reordered]
+    except Exception as e:
+        logger.warning("Personalization failed (non-fatal): %s", str(e)[:100])
+
+    return result
+
+
+def _extract_profile(data: dict) -> PatientProfile | None:
+    """Extract patient profile from request data, if present."""
+    age = data.get("age")
+    sex = data.get("sex", "")
+    existing = data.get("existingConditions", data.get("existing_conditions", ""))
+    reading_level = data.get("readingLevel", data.get("reading_level", ""))
+
+    # Only create profile if at least one meaningful field is provided
+    if not any([age, sex, existing, reading_level]):
+        return None
+
+    conditions = []
+    if existing:
+        if isinstance(existing, list):
+            conditions = existing
+        elif isinstance(existing, str):
+            conditions = [c.strip() for c in existing.split(",") if c.strip()]
+
+    return PatientProfile(
+        age=int(age) if age else None,
+        sex=sex,
+        existing_conditions=conditions,
+        reading_level=reading_level or "patient",
+    )
 
 
 # ═══════════════ HELPERS ═══════════════

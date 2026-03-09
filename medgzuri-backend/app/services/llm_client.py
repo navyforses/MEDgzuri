@@ -33,6 +33,15 @@ def load_prompt(name: str) -> str:
     return prompt_path.read_text(encoding="utf-8")
 
 
+async def call_haiku(
+    system: str,
+    user_message: str,
+    max_tokens: int = 2000,
+) -> str:
+    """Call Claude Haiku and return raw text response (fast, cheap)."""
+    return await _call_model(settings.claude_haiku_model, system, user_message, max_tokens)
+
+
 async def call_sonnet(
     system: str,
     user_message: str,
@@ -118,6 +127,16 @@ async def _call_model(
             raise
 
     raise last_error or RuntimeError("LLM call failed after all retries")
+
+
+async def call_haiku_json(
+    system: str,
+    user_message: str,
+    max_tokens: int = 2000,
+) -> dict | None:
+    """Call Haiku and parse the response as JSON (fast, cheap)."""
+    text = await call_haiku(system, user_message, max_tokens)
+    return extract_json(text)
 
 
 async def call_sonnet_json(

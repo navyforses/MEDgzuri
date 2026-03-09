@@ -189,6 +189,13 @@ class ResultItem(BaseModel):
     phase: str = ""
     evidence_level: str = ""
     evidence_label: str = ""
+    # Phase 2: verification fields
+    verification_status: str = ""
+    verification_label: str = ""
+    verification_sources: int = 0
+    recency_status: str = ""
+    recency_label: str = ""
+    is_retracted: bool = False
 
 
 class ComparisonTable(BaseModel):
@@ -220,3 +227,7 @@ class SearchResponse(BaseModel):
     # Report-specific fields (used by type: 'report')
     title: str = ""
     sections: list[ReportSection] = Field(default_factory=list)
+    # Phase 2: response quality fields
+    executive_summary: str = ""
+    comparison_table: ComparisonTable | None = None
+    action_steps: list[str] = Field(default_factory=list)
