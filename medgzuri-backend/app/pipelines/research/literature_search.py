@@ -137,7 +137,7 @@ class LiteratureSearchAgent:
         )
 
         try:
-            result = await call_sonnet_json(system_prompt, user_message, max_tokens=3000)
+            result = await call_sonnet_json(system_prompt, user_message, max_tokens=4096)
             if result and "articles" in result:
                 logger.info("A3 summarized | articles=%d", len(result["articles"]))
                 return result

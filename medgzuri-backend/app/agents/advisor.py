@@ -67,7 +67,7 @@ class AdvisorAgent:
         system = self._build_system_prompt(audience)
 
         try:
-            parsed = await call_sonnet_json(system, context, max_tokens=3000)
+            parsed = await call_sonnet_json(system, context, max_tokens=4096)
             if parsed:
                 return Recommendations(
                     urgency=parsed.get("urgency", "normal"),

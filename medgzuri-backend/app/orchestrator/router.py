@@ -137,7 +137,7 @@ class OrchestratorRouter:
         user_message = f"ანგარიშის ტიპი: {report_type}\nძიების შედეგები: {json.dumps(search_result, ensure_ascii=False)}"
 
         try:
-            parsed = await call_sonnet_json(system_prompt, user_message, max_tokens=4000)
+            parsed = await call_sonnet_json(system_prompt, user_message, max_tokens=8000)
             if parsed and parsed.get("sections"):
                 return SearchResponse(
                     title=parsed.get("title", "სამედიცინო ანგარიში"),

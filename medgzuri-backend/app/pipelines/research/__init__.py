@@ -400,7 +400,7 @@ class ResearchPipeline:
         )
 
         user_msg = _json.dumps({"items": llm_items}, ensure_ascii=False, indent=2)
-        result = await call_sonnet_json(system, user_msg, max_tokens=4096)
+        result = await call_sonnet_json(system, user_msg, max_tokens=8000)
 
         if not result or "results" not in result:
             raise ValueError("LLM returned no results for batch translate")

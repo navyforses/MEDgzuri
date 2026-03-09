@@ -50,7 +50,7 @@ class DifferentialAnalysis:
         )
 
         try:
-            result = await call_sonnet_json(system_prompt, user_message, max_tokens=3000)
+            result = await call_sonnet_json(system_prompt, user_message, max_tokens=4096)
             if result and result.get("research_directions"):
                 logger.info("B2 analyzed | directions=%d", len(result["research_directions"]))
                 return result

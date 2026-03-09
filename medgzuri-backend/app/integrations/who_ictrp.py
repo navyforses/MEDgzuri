@@ -18,7 +18,7 @@ SEARCH_URL = "https://trialsearch.who.int/Trial2.aspx"
 class WHOICTRPClient:
     """Async client for WHO ICTRP — best effort, limited API."""
 
-    def __init__(self, timeout: int = 20):
+    def __init__(self, timeout: int = 30):
         self.timeout = timeout
 
     async def search(

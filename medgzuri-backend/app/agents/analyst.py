@@ -110,7 +110,7 @@ class AnalystAgent:
         )
 
         try:
-            parsed = await call_sonnet_json(system, combined, max_tokens=2000)
+            parsed = await call_sonnet_json(system, combined, max_tokens=4096)
             if parsed:
                 return {
                     "key_findings": parsed.get("key_findings", []),

@@ -5,7 +5,7 @@
   "alias": ["medgzuri.com", "www.medgzuri.com"],
   "functions": {
     "api/search.js": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "api/auth.js": {
       "maxDuration": 30
@@ -14,10 +14,10 @@
       "maxDuration": 30
     },
     "api/qa.js": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "api/chat.js": {
-      "maxDuration": 60
+      "maxDuration": 120
     },
     "api/profile.js": {
       "maxDuration": 30
