@@ -15,12 +15,16 @@ logger = logging.getLogger(__name__)
 # Known JCI-accredited facilities (partial list for top medical tourism destinations)
 JCI_ACCREDITED = {
     "memorial": True, "anadolu": True, "acibadem": True,
-    "medicana": True, "liv hospital": True,
-    "sheba": True, "hadassah": True, "sourasky": True,
+    "medicana": True, "liv hospital": True, "medical park": True,
+    "medipol": True, "florence nightingale": True, "koc university": True,
+    "sheba": True, "hadassah": True, "sourasky": True, "ichilov": True,
+    "rambam": True, "assuta": True,
     "charité": True, "charite": True, "university hospital heidelberg": True,
+    "heidelberg": True, "essen university": True, "lmu klinikum": True, "uke": True,
     "mayo clinic": True, "johns hopkins": True, "md anderson": True,
-    "cleveland clinic": True, "memorial sloan": True,
+    "cleveland clinic": True, "memorial sloan": True, "boston children": True,
     "bumrungrad": True, "apollo": True,
+    "todua": True, "evex": True,
 }
 
 
