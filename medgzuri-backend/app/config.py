@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
-    allowed_origins: str = "*"
+    allowed_origins: str = "https://medgzuri.com,https://www.medgzuri.com,https://medgzuri.vercel.app,http://localhost:3000,http://localhost:5173,http://localhost:8080"
     rate_limit_per_minute: int = 20
 
     # Cache TTLs (seconds)

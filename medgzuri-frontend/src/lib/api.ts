@@ -4,7 +4,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://medgzuri-production
 
 export async function search(request: SearchRequest): Promise<SearchResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
+  const timeout = setTimeout(() => controller.abort(), 600_000);
 
   try {
     const res = await fetch(`${API_BASE}/api/search`, {
