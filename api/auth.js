@@ -10,21 +10,23 @@
  */
 
 const { getServiceClient, getPublicConfig } = require('../lib/supabase');
+const {
+    setCorsHeaders, setSecurityHeaders, authRateLimiter,
+    getClientIp, validatePassword, sanitizeString, isValidEmail
+} = require('../lib/security');
 
 module.exports = async function handler(req, res) {
-    // CORS
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',')
-        : ['*'];
-    const origin = req.headers.origin || '*';
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // CORS & security headers (shared)
+    setSecurityHeaders(res);
+    if (setCorsHeaders(req, res)) return; // OPTIONS handled
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    // Rate limiting
+    const clientIp = getClientIp(req);
+    if (authRateLimiter(clientIp)) {
+        return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
+    }
 
     const { action, ...payload } = req.body || {};
 
@@ -52,8 +54,12 @@ module.exports = async function handler(req, res) {
                 if (!email || !password) {
                     return res.status(400).json({ error: 'ელ-ფოსტა და პაროლი სავალდებულოა.' });
                 }
-                if (password.length < 6) {
-                    return res.status(400).json({ error: 'პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს.' });
+                if (!isValidEmail(email)) {
+                    return res.status(400).json({ error: 'ელ-ფოსტის ფორმატი არასწორია.' });
+                }
+                const pwCheck = validatePassword(password);
+                if (!pwCheck.valid) {
+                    return res.status(400).json({ error: pwCheck.error });
                 }
 
                 const { data, error } = await supabase.auth.admin.createUser({

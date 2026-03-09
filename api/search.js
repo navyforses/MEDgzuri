@@ -47,6 +47,143 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 /** @type {string|undefined} Railway FastAPI backend URL for agent-based pipelines */
 const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL;
 
+// ═══════════════ SHARED SECURITY ═══════════════
+const { setCorsHeaders, setSecurityHeaders, sanitizeString, searchRateLimiter, getClientIp } = require('../lib/security');
+
+// ═══════════════ GEORGIAN MEDICAL TERM NORMALIZATION ═══════════════
+/**
+ * Georgian → English medical term dictionary.
+ * Used to normalize Georgian terms before building Perplexity queries.
+ * Mirrors medgzuri-backend/app/utils/medical_terms.py (KA_TO_EN).
+ */
+const MEDICAL_TERMS_KA_EN = {
+    // Neurology
+    'ჰიპოქსიურ-იშემიური ენცეფალოპათია': 'hypoxic-ischemic encephalopathy',
+    'ეპილეფსია': 'epilepsy',
+    'ინსულტი': 'stroke',
+    'მიგრენი': 'migraine',
+    'თავის ტკივილი': 'headache',
+    'პარკინსონის დაავადება': 'Parkinson\'s disease',
+    'ალცჰაიმერის დაავადება': 'Alzheimer\'s disease',
+    'გაფანტული სკლეროზი': 'multiple sclerosis',
+    'მენინგიტი': 'meningitis',
+    // Oncology
+    'ფილტვის კიბო': 'lung cancer',
+    'ძუძუს კიბო': 'breast cancer',
+    'პროსტატის კიბო': 'prostate cancer',
+    'კოლორექტალური კიბო': 'colorectal cancer',
+    'ლეიკემია': 'leukemia',
+    'ლიმფომა': 'lymphoma',
+    'მელანომა': 'melanoma',
+    'კუჭის კიბო': 'stomach cancer',
+    'ღვიძლის კიბო': 'liver cancer',
+    // Cardiology
+    'გულის უკმარისობა': 'heart failure',
+    'არითმია': 'arrhythmia',
+    'ინფარქტი': 'myocardial infarction',
+    'ჰიპერტენზია': 'hypertension',
+    'სტენოკარდია': 'angina',
+    // Endocrinology
+    'დიაბეტი': 'diabetes',
+    'ფარისებრი ჯირკვალი': 'thyroid',
+    'ჰიპოთირეოზი': 'hypothyroidism',
+    'ჰიპერთირეოზი': 'hyperthyroidism',
+    // Gastroenterology
+    'გულისრევა': 'nausea',
+    'დიარეა': 'diarrhea',
+    'გასტრიტი': 'gastritis',
+    'წყლულოვანი კოლიტი': 'ulcerative colitis',
+    'კრონის დაავადება': 'Crohn\'s disease',
+    // Pulmonology
+    'ასთმა': 'asthma',
+    'პნევმონია': 'pneumonia',
+    'ბრონქიტი': 'bronchitis',
+    'ტუბერკულოზი': 'tuberculosis',
+    // General symptoms
+    'ცხელება': 'fever',
+    'სისუსტე': 'weakness',
+    'წონის კლება': 'weight loss',
+    'ტკივილი': 'pain',
+    'შეშუპება': 'swelling',
+    'გამონაყარი': 'rash',
+    'ქოშინი': 'shortness of breath',
+    'გულძმარვა': 'heartburn',
+    // Orthopedics / Rheumatology
+    'ართრიტი': 'arthritis',
+    'ოსტეოპოროზი': 'osteoporosis',
+    // Psychiatry
+    'დეპრესია': 'depression',
+    'შფოთვა': 'anxiety',
+    // Infectious
+    'ჰეპატიტი': 'hepatitis',
+    'აივ': 'HIV',
+    // Nephrology
+    'თირკმლის უკმარისობა': 'renal failure',
+};
+
+/**
+ * Georgian age group → English mapping
+ */
+const AGE_GROUPS_KA_EN = {
+    'ახალშობილი': 'newborn',
+    'ჩვილი': 'infant',
+    'ბავშვი': 'child',
+    'მოზარდი': 'adolescent',
+    'ზრდასრული': 'adult',
+    'ხანდაზმული': 'elderly',
+    'პედიატრიული': 'pediatric',
+};
+
+/**
+ * Normalize a Georgian medical term to English.
+ * Exact dictionary match first, then substring match.
+ * Returns the English term, or the original with a transliteration hint.
+ *
+ * @param {string} term - Georgian medical term
+ * @returns {string} English-normalized term
+ */
+function normalizeMedicalTerm(term) {
+    if (!term || typeof term !== 'string') return term || '';
+    const trimmed = term.trim();
+
+    // Exact match
+    const exact = MEDICAL_TERMS_KA_EN[trimmed];
+    if (exact) return exact;
+
+    // Case-insensitive exact match
+    const lowerTrimmed = trimmed.toLowerCase();
+    for (const [ka, en] of Object.entries(MEDICAL_TERMS_KA_EN)) {
+        if (ka.toLowerCase() === lowerTrimmed) return en;
+    }
+
+    // Substring match — if the input contains a known term, replace it
+    for (const [ka, en] of Object.entries(MEDICAL_TERMS_KA_EN)) {
+        if (trimmed.includes(ka)) {
+            return trimmed.replace(ka, en);
+        }
+    }
+
+    // No dictionary match — check if it's Georgian text
+    const georgianRegex = /[\u10A0-\u10FF\u2D00-\u2D2F]/;
+    if (georgianRegex.test(trimmed)) {
+        // Return original with parenthetical hint for Perplexity
+        return `${trimmed} (Georgian medical term)`;
+    }
+    return trimmed;
+}
+
+/**
+ * Normalize a Georgian age group to English.
+ *
+ * @param {string} ageGroup - Age group (possibly Georgian)
+ * @returns {string} English-normalized age group
+ */
+function normalizeAgeGroup(ageGroup) {
+    if (!ageGroup || typeof ageGroup !== 'string') return ageGroup || '';
+    const trimmed = ageGroup.trim();
+    return AGE_GROUPS_KA_EN[trimmed] || trimmed;
+}
+
 // ═══════════════ IN-MEMORY CACHE (LRU + TTL) ═══════════════
 /**
  * LRU cache with time-based expiration.
@@ -137,47 +274,6 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-// ═══════════════ RATE LIMITER ═══════════════
-/**
- * Fixed-window rate limiter using an in-memory Map.
- *
- * Each IP gets a counter that resets after RATE_LIMIT_WINDOW_MS.
- * Stale entries are purged every 5 minutes to bound memory.
- *
- * Complexity: O(1) per request check, O(n) periodic cleanup where n = unique IPs.
- */
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1-minute window
-const RATE_LIMIT_MAX = 20;              // max requests per IP per window
-const rateLimitMap = new Map();
-
-/**
- * Check whether a client IP has exceeded the rate limit.
- *
- * @param {string} ip - Client IP address
- * @returns {boolean}   true if the IP should be throttled
- */
-function isRateLimited(ip) {
-    const now = Date.now();
-    const entry = rateLimitMap.get(ip);
-    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-        rateLimitMap.set(ip, { windowStart: now, count: 1 });
-        return false;
-    }
-    entry.count++;
-    return entry.count > RATE_LIMIT_MAX;
-}
-
-// Periodic cleanup — remove entries whose window expired > 2× ago
-setInterval(() => {
-    const now = Date.now();
-    const cutoff = RATE_LIMIT_WINDOW_MS * 2;
-    for (const [ip, entry] of rateLimitMap) {
-        if (now - entry.windowStart > cutoff) {
-            rateLimitMap.delete(ip);
-        }
-    }
-}, 5 * 60 * 1000);
-
 // ═══════════════ SEARCH LOGGING (Supabase) ═══════════════
 /**
  * Fire-and-forget search telemetry to Supabase.
@@ -249,26 +345,16 @@ const SEARCH_HANDLERS = {
  * @param {import('http').ServerResponse} res
  */
 module.exports = async function handler(req, res) {
-    // CORS — restrict to allowed origins when configured
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',')
-        : ['*'];
-    const origin = req.headers.origin || '*';
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // CORS & security headers (shared from lib/security.js)
+    setSecurityHeaders(res);
+    if (setCorsHeaders(req, res)) return; // OPTIONS handled
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        // Rate limiting — extract first IP from X-Forwarded-For chain
-        const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-            || req.socket?.remoteAddress
-            || 'unknown';
-        if (isRateLimited(clientIp)) {
+        // Rate limiting — uses shared limiter from lib/security.js
+        const clientIp = getClientIp(req);
+        if (searchRateLimiter(clientIp)) {
             return res.status(429).json({
                 error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.'
             });
@@ -387,7 +473,7 @@ module.exports = async function handler(req, res) {
  * @returns {Promise<object>} Structured result with meta + items[]
  */
 async function searchResearch(data) {
-    const { diagnosis, ageGroup, researchType, context, regions } = data;
+    const { diagnosis, ageGroup, researchType, context, regions, language } = data;
 
     const searchQuery = buildResearchQuery(diagnosis, ageGroup, researchType, context);
     const searchResults = await perplexitySearch(searchQuery);
@@ -396,7 +482,8 @@ async function searchResearch(data) {
         role: 'research',
         query: diagnosis,
         searchResults,
-        context: { ageGroup, researchType, regions, additionalContext: context }
+        context: { ageGroup, researchType, regions, additionalContext: context },
+        language
     });
 }
 
@@ -410,16 +497,19 @@ async function searchResearch(data) {
  * @returns {Promise<object>} Analysis result with meta + items[]
  */
 async function analyzeSymptoms(data) {
-    const { symptoms, age, sex, existingConditions, medications } = data;
+    const { symptoms, age, sex, existingConditions, medications, language } = data;
 
-    const searchQuery = `medical tests and examinations for symptoms: ${symptoms}. Patient age: ${age || 'not specified'}, sex: ${sex || 'not specified'}. Existing conditions: ${existingConditions || 'none'}`;
+    const normalizedSymptoms = normalizeMedicalTerm(symptoms);
+    const normalizedConditions = existingConditions ? normalizeMedicalTerm(existingConditions) : 'none';
+    const searchQuery = `medical tests and examinations for symptoms: ${normalizedSymptoms}. Patient age: ${age || 'not specified'}, sex: ${sex || 'not specified'}. Existing conditions: ${normalizedConditions}`;
     const searchResults = await perplexitySearch(searchQuery);
 
     return claudeAnalyze({
         role: 'symptoms',
         query: symptoms,
         searchResults,
-        context: { age, sex, existingConditions, medications }
+        context: { age, sex, existingConditions, medications },
+        language
     });
 }
 
@@ -435,15 +525,17 @@ async function analyzeSymptoms(data) {
 async function searchClinics(data) {
     const { diagnosis, countries, budget, language, notes } = data;
 
+    const normalizedDiagnosis = normalizeMedicalTerm(diagnosis);
     const countryStr = countries.length > 0 ? countries.join(', ') : 'worldwide';
-    const searchQuery = `best hospitals and clinics for ${diagnosis} in ${countryStr}. Treatment options, estimated costs, patient reviews. ${budget ? `Budget range: ${budget}` : ''} ${notes || ''}`;
+    const searchQuery = `best hospitals and clinics for ${normalizedDiagnosis} in ${countryStr}. Treatment options, estimated costs, patient reviews. ${budget ? `Budget range: ${budget}` : ''} ${notes || ''}`;
     const searchResults = await perplexitySearch(searchQuery);
 
     return claudeAnalyze({
         role: 'clinics',
         query: diagnosis,
         searchResults,
-        context: { countries, budget, language, notes }
+        context: { countries, budget, language, notes },
+        language
     });
 }
 
@@ -663,7 +755,8 @@ async function perplexitySearch(query) {
  * @param {object} params.context       - Additional search context
  * @returns {Promise<object>} Structured result with meta + items[]
  */
-async function claudeAnalyze({ role, query, searchResults, context }) {
+async function claudeAnalyze({ role, query, searchResults, context, language }) {
+    const isEnglish = language === 'en';
     if (!ANTHROPIC_API_KEY) {
         // Fallback: return raw search results formatted
         if (searchResults?.text) {
@@ -672,7 +765,14 @@ async function claudeAnalyze({ role, query, searchResults, context }) {
         return getDemoResult(role === 'symptoms' ? 'symptoms' : role === 'clinics' ? 'clinics' : 'research', { diagnosis: query });
     }
 
-    const grammarRules = `
+    const grammarRules = isEnglish ? `
+
+Critical language requirements (mandatory):
+- All text, titles, descriptions, and tags must be in English
+- Use professional medical register
+- Each item body: minimum 3-5 complete, substantive sentences. Use markdown formatting (bold, lists, headers)
+- body field may use: **bold** text, - bullet lists, ### subheadings, [link text](url) format
+- CRITICAL: do not split information into many small items. Prefer 3-4 detailed items over 8-10 empty ones` : `
 
 კრიტიკული ენობრივი მოთხოვნები (სავალდებულო):
 - ყველა ტექსტი, სათაური, აღწერა და ტეგი უნდა იყოს მხოლოდ ქართულ ენაზე
@@ -803,6 +903,9 @@ ${grammarRules}${hardenedRules}
         // Try to parse JSON from response
         const parsed = extractJSON(text);
         if (parsed && parsed.items && parsed.items.length > 0) {
+            // Skip Georgian validation when language is English
+            if (isEnglish) return parsed;
+
             // Validate Georgian content — check if at least 60% of items have Georgian text
             const georgianRegex = /[\u10A0-\u10FF\u2D00-\u2D2F]/;
             const georgianItems = parsed.items.filter(item =>
@@ -1109,8 +1212,10 @@ function tryParseValid(str) {
  * @returns {string} Constructed search query
  */
 function buildResearchQuery(diagnosis, ageGroup, researchType, context) {
-    let query = `Latest medical research, clinical trials, and treatment options for ${diagnosis}.`;
-    if (ageGroup) query += ` Patient age group: ${ageGroup}.`;
+    const normalizedDiagnosis = normalizeMedicalTerm(diagnosis);
+    const normalizedAgeGroup = normalizeAgeGroup(ageGroup);
+    let query = `Latest medical research, clinical trials, and treatment options for ${normalizedDiagnosis}.`;
+    if (normalizedAgeGroup) query += ` Patient age group: ${normalizedAgeGroup}.`;
     if (researchType && researchType !== 'all') {
         const types = {
             clinical_trial: 'clinical trials',

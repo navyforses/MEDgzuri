@@ -9,21 +9,23 @@
  */
 
 const { getServiceClient } = require('../lib/supabase');
+const {
+    setCorsHeaders, setSecurityHeaders, leadsRateLimiter,
+    getClientIp, sanitizeString, isValidEmail, isValidPhone
+} = require('../lib/security');
 
 module.exports = async function handler(req, res) {
-    // CORS
-    const allowedOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(',')
-        : ['*'];
-    const origin = req.headers.origin || '*';
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    // CORS & security headers (shared)
+    setSecurityHeaders(res);
+    if (setCorsHeaders(req, res)) return; // OPTIONS handled
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    // Rate limiting
+    const clientIp = getClientIp(req);
+    if (leadsRateLimiter(clientIp)) {
+        return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
+    }
 
     const { action, ...payload } = req.body || {};
     const supabase = getServiceClient();
@@ -33,6 +35,12 @@ module.exports = async function handler(req, res) {
         const { name, phone, email, message, source } = payload;
         if (!name || (!phone && !email)) {
             return res.status(400).json({ error: 'სახელი და საკონტაქტო ინფორმაცია სავალდებულოა.' });
+        }
+        if (email && !isValidEmail(email)) {
+            return res.status(400).json({ error: 'ელ-ფოსტის ფორმატი არასწორია.' });
+        }
+        if (phone && !isValidPhone(phone)) {
+            return res.status(400).json({ error: 'ტელეფონის ნომრის ფორმატი არასწორია.' });
         }
 
         if (!supabase) {
