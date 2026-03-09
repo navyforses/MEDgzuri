@@ -108,6 +108,31 @@ app.add_middleware(
 )
 
 
+# ═══════════════ HELPERS ═══════════════
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request headers."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+async def _get_user_id(request: Request) -> str | None:
+    """Extract user ID from JWT token in Authorization header.
+    Returns None if no valid token present (anonymous user)."""
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    try:
+        import jwt
+        payload = jwt.decode(token, options={"verify_signature": False})
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
 # ═══════════════ ENDPOINTS ═══════════════
 
 @app.get("/health")
@@ -410,14 +435,6 @@ async def chat_history(session_id: str):
 
 
 # ═══════════════ PHASE 5: DEPENDENCIES & PLATFORM FEATURES ═══════════════
-
-
-def _get_client_ip(request: Request) -> str:
-    """Extract client IP from request headers."""
-    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-    if not client_ip:
-        client_ip = request.client.host if request.client else "unknown"
-    return client_ip
 
 
 async def require_rate_limit(request: Request) -> str:
