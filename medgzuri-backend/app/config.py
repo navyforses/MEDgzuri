@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
-    allowed_origins: str = "*"
+    allowed_origins: str = "https://medgzuri.com,https://www.medgzuri.com,https://medgzuri.vercel.app,http://localhost:3000,http://localhost:5173,http://localhost:8080"
     rate_limit_per_minute: int = 20
 
     # Cache TTLs (seconds)
@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     cache_ttl_clinics: int = 2592000            # 30 days
 
     # LLM defaults
-    llm_max_retries: int = 1
-    llm_timeout_seconds: int = 120
-    pipeline_timeout_seconds: int = 540
+    llm_max_retries: int = 2
+    llm_timeout_seconds: int = 180
+    pipeline_timeout_seconds: int = 600
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

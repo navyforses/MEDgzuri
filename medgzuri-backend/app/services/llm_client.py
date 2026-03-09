@@ -45,7 +45,7 @@ async def call_haiku(
 async def call_sonnet(
     system: str,
     user_message: str,
-    max_tokens: int = 3000,
+    max_tokens: int = 4096,
 ) -> str:
     """Call Claude Sonnet and return raw text response."""
     return await _call_model(settings.claude_sonnet_model, system, user_message, max_tokens)
@@ -54,7 +54,7 @@ async def call_sonnet(
 async def call_opus(
     system: str,
     user_message: str,
-    max_tokens: int = 4000,
+    max_tokens: int = 8000,
 ) -> str:
     """Call Claude Opus and return raw text response."""
     return await _call_model(settings.claude_opus_model, system, user_message, max_tokens)
@@ -97,11 +97,18 @@ async def _call_model(
 
         except asyncio.TimeoutError:
             elapsed_ms = int((time.monotonic() - start) * 1000)
-            logger.warning(
-                "LLM timeout | model=%s | %dms (hard limit %ds) — no retry",
+            last_error = TimeoutError(f"LLM timeout after {elapsed_ms}ms")
+            if attempt < max_attempts:
+                logger.warning(
+                    "LLM timeout | model=%s | %dms (hard limit %ds) — retrying %d/%d",
+                    model, elapsed_ms, hard_timeout, attempt, max_attempts,
+                )
+                continue
+            logger.error(
+                "LLM timeout | model=%s | %dms (hard limit %ds) — all retries exhausted",
                 model, elapsed_ms, hard_timeout,
             )
-            raise TimeoutError(f"LLM timeout after {elapsed_ms}ms")
+            raise last_error
 
         except anthropic.APIStatusError as e:
             elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -142,7 +149,7 @@ async def call_haiku_json(
 async def call_sonnet_json(
     system: str,
     user_message: str,
-    max_tokens: int = 3000,
+    max_tokens: int = 4096,
 ) -> dict | None:
     """Call Sonnet and parse the response as JSON."""
     text = await call_sonnet(system, user_message, max_tokens)
@@ -152,7 +159,7 @@ async def call_sonnet_json(
 async def call_opus_json(
     system: str,
     user_message: str,
-    max_tokens: int = 4000,
+    max_tokens: int = 8000,
 ) -> dict | None:
     """Call Opus and parse the response as JSON."""
     text = await call_opus(system, user_message, max_tokens)

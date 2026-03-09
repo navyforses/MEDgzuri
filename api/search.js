@@ -845,7 +845,7 @@ async function generateReport(reportType, searchResult) {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -961,6 +961,9 @@ async function fetchWithTimeout(url, options = {}) {
  * Search PubMed via NCBI E-utilities.
  * esearch.fcgi → IDs, then efetch.fcgi → abstracts (XML parsed simply).
  *
+ * Returns structured search results with citations, or null on failure.
+ * Uses the "sonar" model with low temperature for factual responses.
+ * Timeout: 60 seconds.
  * @param {string} query - Search query
  * @returns {Promise<Array<{title: string, authors: string, abstract: string, url: string, source: string}>>}
  */
@@ -1029,6 +1032,8 @@ function parsePubMedXml(xml) {
  */
 async function searchOpenAlex(query) {
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
         const params = new URLSearchParams({
             search: query,
             per_page: '10',
@@ -1386,7 +1391,7 @@ ${grammarRules}${hardenedRules}
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -1397,7 +1402,7 @@ ${grammarRules}${hardenedRules}
             },
             body: JSON.stringify({
                 model: 'claude-sonnet-4-6',
-                max_tokens: 3000,
+                max_tokens: 4096,
                 system: systemPrompts[role] || systemPrompts.research,
                 messages: [{ role: 'user', content: userMessage }]
             }),
@@ -1435,7 +1440,7 @@ ${grammarRules}${hardenedRules}
                 console.warn(`[MedGzuri] Low Georgian ratio: ${(georgianRatio * 100).toFixed(0)}% — attempting translation fix`);
                 // Items are mostly English — request Georgian translation with its own timeout
                 const fixController = new AbortController();
-                const fixTimeoutId = setTimeout(() => fixController.abort(), 30000);
+                const fixTimeoutId = setTimeout(() => fixController.abort(), 60000);
                 try {
                     const fixResponse = await fetch('https://api.anthropic.com/v1/messages', {
                         method: 'POST',
@@ -1531,7 +1536,7 @@ async function proxyToN8n(type, data) {
     if (!webhookPaths[type]) return null;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const response = await fetch(`${N8N_WEBHOOK_BASE_URL}${webhookPaths[type]}`, {
@@ -1605,7 +1610,7 @@ async function proxyToRailway(type, data) {
     if (!PROXY_TYPES.has(type)) return null;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 240000);
 
     try {
         const response = await fetch(`${RAILWAY_BACKEND_URL}/api/search`, {
@@ -1626,7 +1631,7 @@ async function proxyToRailway(type, data) {
     } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-            console.error('[MedGzuri] Railway proxy timed out (30s)');
+            console.error('[MedGzuri] Railway proxy timed out (240s)');
         } else {
             console.error('[MedGzuri] Railway proxy failed:', err.message);
         }

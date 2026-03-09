@@ -93,7 +93,7 @@ class ResearchAggregator:
         )
 
         try:
-            result = await call_sonnet_json(system_prompt, user_message, max_tokens=3000)
+            result = await call_sonnet_json(system_prompt, user_message, max_tokens=4096)
             if result and "scored_results" in result:
                 # Merge scores back with full data
                 score_map = {r["id"]: r for r in result["scored_results"]}

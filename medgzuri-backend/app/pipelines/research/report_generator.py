@@ -39,7 +39,7 @@ class ResearchReportGenerator:
         user_message = json.dumps(report_data, indent=2, ensure_ascii=False)
 
         try:
-            result = await call_opus_json(system_prompt, user_message, max_tokens=4000)
+            result = await call_opus_json(system_prompt, user_message, max_tokens=8000)
             if result and result.get("items"):
                 return self._parse_response(result)
         except Exception as e:
@@ -47,7 +47,7 @@ class ResearchReportGenerator:
 
         # Fallback to Sonnet
         try:
-            result = await call_sonnet_json(system_prompt, user_message, max_tokens=3000)
+            result = await call_sonnet_json(system_prompt, user_message, max_tokens=8000)
             if result and result.get("items"):
                 return self._parse_response(result)
         except Exception as e:

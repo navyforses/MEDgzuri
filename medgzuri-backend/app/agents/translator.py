@@ -8,7 +8,6 @@ import logging
 import re
 from typing import Any
 
-from app.services.llm_client import call_sonnet_json
 from app.services.translation import translation_service
 from app.utils.medical_terms import KA_TO_EN, MEDICATIONS_KA_TO_EN
 
