@@ -30,6 +30,12 @@
     },
     "api/widget.js": {
       "maxDuration": 10
+    },
+    "api/subscription.js": {
+      "maxDuration": 30
+    },
+    "api/analytics.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
@@ -42,6 +48,8 @@
     { "source": "/api/bookmarks", "destination": "/api/bookmarks.js" },
     { "source": "/api/alerts", "destination": "/api/alerts.js" },
     { "source": "/api/widget", "destination": "/api/widget.js" },
+    { "source": "/api/subscription", "destination": "/api/subscription.js" },
+    { "source": "/api/analytics", "destination": "/api/analytics.js" },
     { "source": "/qa", "destination": "/qa.html" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },

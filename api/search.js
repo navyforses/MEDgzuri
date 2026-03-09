@@ -3,16 +3,15 @@
  *
  * Orchestrates a multi-AI search pipeline for Georgian-language medical research:
  *
- *   Request  ──►  Cache  ──►  n8n  ──►  Railway  ──►  Perplexity  ──►  Claude  ──►  Response
- *                  hit?      optional    FastAPI        web search       structure
- *                   │           │        agents            │              & translate
- *                   ▼           ▼           ▼              ▼                  │
+ *   Request  ──►  Cache  ──►  n8n  ──►  Railway  ──►  Medical APIs  ──►  Claude  ──►  Response
+ *                  hit?      optional    FastAPI       PubMed/OpenAlex    structure
+ *                   │           │        agents       ClinicalTrials      & translate
+ *                   ▼           ▼           ▼          Europe PMC             │
  *                 return     return      return         fallback ◄────────────┘
  *
  * Pipeline stages:
- *   1. Perplexity API — web search for medical research, clinical trials, clinics
+ *   1. Direct medical API searches — PubMed, OpenAlex, ClinicalTrials.gov, Europe PMC
  *   2. Anthropic Claude — analysis, structuring, and Georgian translation
- *   3. OpenAI GPT — verification and fact-checking (Phase 2, not yet active)
  *
  * Search types:
  *   - "research"  — PubMed/ClinicalTrials.gov literature search
@@ -22,8 +21,8 @@
  *
  * Graceful degradation:
  *   n8n failure    →  Railway FastAPI agents
- *   Railway failure →  direct Perplexity+Claude pipeline
- *   Claude failure  →  raw Perplexity results
+ *   Railway failure →  direct medical API + Claude pipeline
+ *   Claude failure  →  raw API results
  *   All fail       →  demo/mock data
  *
  * @module api/search
@@ -31,11 +30,9 @@
 
 // ═══════════════ CONFIG ═══════════════
 /** @type {string|undefined} */
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-/** @type {string|undefined} */
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-/** @type {string|undefined} */
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+/** @type {string|undefined} NCBI API key for higher PubMed rate limits (optional) */
+const NCBI_API_KEY = process.env.NCBI_API_KEY;
 /** @type {string|undefined} */
 const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL;
 /** @type {string|undefined} */
@@ -53,7 +50,7 @@ const { setCorsHeaders, setSecurityHeaders, sanitizeString, searchRateLimiter, g
 // ═══════════════ GEORGIAN MEDICAL TERM NORMALIZATION ═══════════════
 /**
  * Georgian → English medical term dictionary.
- * Used to normalize Georgian terms before building Perplexity queries.
+ * Used to normalize Georgian terms before building API search queries.
  * Mirrors medgzuri-backend/app/utils/medical_terms.py (KA_TO_EN).
  */
 const MEDICAL_TERMS_KA_EN = {
@@ -443,7 +440,7 @@ function normalizeMedicalTerm(term) {
     // No dictionary match — check if it's Georgian text
     const georgianRegex = /[\u10A0-\u10FF\u2D00-\u2D2F]/;
     if (georgianRegex.test(trimmed)) {
-        // Return original with parenthetical hint for Perplexity
+        // Return original with parenthetical hint for search APIs
         return `${trimmed} (Georgian medical term)`;
     }
     return trimmed;
@@ -612,10 +609,10 @@ const SEARCH_HANDLERS = {
  *   2. Rate limiting by IP
  *   3. Input validation (type, text lengths, age range)
  *   4. LRU cache check (skip for reports)
- *   5. Demo mode fallback if no API keys
+ *   5. Demo mode fallback if no ANTHROPIC_API_KEY
  *   6. n8n multi-agent pipeline attempt
  *   7. Railway FastAPI agent pipeline attempt
- *   8. Direct Perplexity → Claude pipeline fallback
+ *   8. Direct medical API + Claude pipeline fallback
  *   9. Cache result + async logging
  *
  * @param {import('http').IncomingMessage} req
@@ -677,21 +674,13 @@ module.exports = async function handler(req, res) {
         }
 
         // Demo mode — return mock data when no API keys are configured
-        if (!PERPLEXITY_API_KEY && !ANTHROPIC_API_KEY) {
-            console.log('[MedGzuri] No API keys configured, returning demo data');
+        if (!ANTHROPIC_API_KEY) {
+            console.log('[MedGzuri] ANTHROPIC_API_KEY not configured, returning demo data');
             const demoResult = type === 'report'
                 ? getDemoReport(data.reportType, data.searchResult)
                 : getDemoResult(type, data);
             demoResult.isDemo = true;
             return res.status(200).json(demoResult);
-        }
-
-        // Hard gate: search must be web-grounded
-        if (['research', 'symptoms', 'clinics'].includes(type) && !PERPLEXITY_API_KEY) {
-            return res.status(503).json({
-                error: 'ონლაინ ძიება მიუწვდომელია: PERPLEXITY_API_KEY არ არის კონფიგურირებული.',
-                missingEnv: ['PERPLEXITY_API_KEY']
-            });
         }
 
         // Pipeline execution
@@ -741,9 +730,9 @@ module.exports = async function handler(req, res) {
 
 // ═══════════════ SEARCH: RESEARCH ═══════════════
 /**
- * Research pipeline: Perplexity web search → Claude structuring.
+ * Research pipeline: Direct medical API searches → Claude structuring.
  *
- * Searches PubMed, ClinicalTrials.gov, and medical literature for the
+ * Searches PubMed, OpenAlex, ClinicalTrials.gov, and Europe PMC for the
  * given diagnosis, then structures results into Georgian-language items.
  *
  * @param {object} data - { diagnosis, ageGroup, researchType, context, regions }
@@ -753,7 +742,7 @@ async function searchResearch(data) {
     const { diagnosis, ageGroup, researchType, context, regions, language } = data;
 
     const searchQuery = buildResearchQuery(diagnosis, ageGroup, researchType, context);
-    const searchResults = await perplexitySearch(searchQuery);
+    const searchResults = await gatherMedicalEvidence(searchQuery, 'research');
 
     return claudeAnalyze({
         role: 'research',
@@ -766,7 +755,7 @@ async function searchResearch(data) {
 
 // ═══════════════ SEARCH: SYMPTOMS ═══════════════
 /**
- * Symptom analysis pipeline: Perplexity search → Claude analysis.
+ * Symptom analysis pipeline: Direct medical API searches → Claude analysis.
  *
  * Recommends tests and specialists — never provides a diagnosis.
  *
@@ -779,7 +768,7 @@ async function analyzeSymptoms(data) {
     const normalizedSymptoms = normalizeMedicalTerm(symptoms);
     const normalizedConditions = existingConditions ? normalizeMedicalTerm(existingConditions) : 'none';
     const searchQuery = `medical tests and examinations for symptoms: ${normalizedSymptoms}. Patient age: ${age || 'not specified'}, sex: ${sex || 'not specified'}. Existing conditions: ${normalizedConditions}`;
-    const searchResults = await perplexitySearch(searchQuery);
+    const searchResults = await gatherMedicalEvidence(searchQuery, 'symptoms');
 
     return claudeAnalyze({
         role: 'symptoms',
@@ -792,7 +781,7 @@ async function analyzeSymptoms(data) {
 
 // ═══════════════ SEARCH: CLINICS ═══════════════
 /**
- * Clinic search pipeline: Perplexity search → Claude structuring.
+ * Clinic search pipeline: Direct medical API searches → Claude structuring.
  *
  * Finds hospitals and clinics worldwide with pricing and treatment details.
  *
@@ -805,7 +794,7 @@ async function searchClinics(data) {
     const normalizedDiagnosis = normalizeMedicalTerm(diagnosis);
     const countryStr = countries.length > 0 ? countries.join(', ') : 'worldwide';
     const searchQuery = `best hospitals and clinics for ${normalizedDiagnosis} in ${countryStr}. Treatment options, estimated costs, patient reviews. ${budget ? `Budget range: ${budget}` : ''} ${notes || ''}`;
-    const searchResults = await perplexitySearch(searchQuery);
+    const searchResults = await gatherMedicalEvidence(searchQuery, 'clinics');
 
     return claudeAnalyze({
         role: 'clinics',
@@ -946,89 +935,312 @@ function getDemoReport(reportType, searchResult) {
     };
 }
 
-// ═══════════════ PERPLEXITY API ═══════════════
+// ═══════════════ DIRECT MEDICAL API SEARCHES ═══════════════
+
+/** Timeout for each individual API call (ms) */
+const API_TIMEOUT_MS = 8000;
+
 /**
- * Search the web for medical information using Perplexity AI.
+ * Fetch with timeout helper — aborts after API_TIMEOUT_MS.
+ * @param {string} url
+ * @param {object} [options]
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        return response;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+/**
+ * Search PubMed via NCBI E-utilities.
+ * esearch.fcgi → IDs, then efetch.fcgi → abstracts (XML parsed simply).
  *
  * Returns structured search results with citations, or null on failure.
  * Uses the "sonar" model with low temperature for factual responses.
  * Timeout: 60 seconds.
- *
- * @param {string} query - Natural language search query
- * @returns {Promise<{text: string, citations: string[]}|null>}
+ * @param {string} query - Search query
+ * @returns {Promise<Array<{title: string, authors: string, abstract: string, url: string, source: string}>>}
  */
-async function perplexitySearch(query) {
-    if (!PERPLEXITY_API_KEY) {
-        console.log('[MedGzuri] Perplexity API key not set, skipping');
-        return null;
-    }
+async function searchPubMed(query) {
+    try {
+        const apiKeyParam = NCBI_API_KEY ? `&api_key=${NCBI_API_KEY}` : '';
+        const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=10&retmode=json${apiKeyParam}`;
+        const searchResp = await fetchWithTimeout(searchUrl);
+        if (!searchResp.ok) return [];
 
+        const searchData = await searchResp.json();
+        const ids = searchData?.esearchresult?.idlist || [];
+        if (ids.length === 0) return [];
+
+        const fetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids.join(',')}&retmode=xml${apiKeyParam}`;
+        const fetchResp = await fetchWithTimeout(fetchUrl);
+        if (!fetchResp.ok) return [];
+
+        const xml = await fetchResp.text();
+        return parsePubMedXml(xml);
+    } catch (err) {
+        console.error('[MedGzuri] PubMed search failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * Simple XML parser for PubMed efetch results.
+ * Extracts article title, authors, abstract, and PMID.
+ *
+ * @param {string} xml - PubMed XML response
+ * @returns {Array<{title: string, authors: string, abstract: string, url: string, source: string}>}
+ */
+function parsePubMedXml(xml) {
+    const articles = [];
+    const articleBlocks = xml.split('<PubmedArticle>').slice(1);
+    for (const block of articleBlocks) {
+        const title = (block.match(/<ArticleTitle>([\s\S]*?)<\/ArticleTitle>/) || [])[1] || '';
+        const abstract = (block.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/) || [])[1] || '';
+        const pmid = (block.match(/<PMID[^>]*>(\d+)<\/PMID>/) || [])[1] || '';
+        const journalTitle = (block.match(/<Title>([\s\S]*?)<\/Title>/) || [])[1] || '';
+        const year = (block.match(/<Year>(\d{4})<\/Year>/) || [])[1] || '';
+
+        // Extract author last names
+        const authorMatches = [...block.matchAll(/<LastName>([\s\S]*?)<\/LastName>/g)];
+        const authors = authorMatches.slice(0, 3).map(m => m[1]).join(', ');
+
+        if (title) {
+            articles.push({
+                title: title.replace(/<[^>]+>/g, ''),
+                authors: authors + (authorMatches.length > 3 ? ' et al.' : ''),
+                abstract: abstract.replace(/<[^>]+>/g, ''),
+                url: pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : '',
+                source: `PubMed — ${journalTitle}${year ? ` (${year})` : ''}`
+            });
+        }
+    }
+    return articles;
+}
+
+/**
+ * Search OpenAlex for scholarly works.
+ *
+ * @param {string} query - Search query
+ * @returns {Promise<Array<{title: string, authors: string, abstract: string, url: string, source: string}>>}
+ */
+async function searchOpenAlex(query) {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'sonar',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a medical research assistant for MedGzuri, a Georgian healthcare platform. Search for the most recent, evidence-based medical information. Structure your response as clearly numbered points. For each finding include: the study/source name, key results, and clinical relevance. Include specific studies, clinical trials, hospital names, treatment details, and costs where available. Always cite sources with URLs. IMPORTANT: Write your response in Georgian (ქართული ენა). Use Georgian script for all text except proper nouns, journal names, and URLs. Medical terminology should be in Georgian with Latin/English terms in parentheses where helpful.'
-                    },
-                    { role: 'user', content: query }
-                ],
-                max_tokens: 2000,
-                temperature: 0.1,
-                return_citations: true
-            }),
-            signal: controller.signal
+        const params = new URLSearchParams({
+            search: query,
+            per_page: '10',
+            'sort': 'relevance_score:desc'
         });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            const errorBody = await response.text().catch(() => 'unable to read body');
-            console.error('[MedGzuri] Perplexity error:', response.status, errorBody);
-            return null;
+        const url = `https://api.openalex.org/works?${params}`;
+        const headers = { 'Accept': 'application/json' };
+        if (process.env.OPENALEX_EMAIL) {
+            headers['User-Agent'] = `MedGzuri/1.0 (mailto:${process.env.OPENALEX_EMAIL})`;
         }
+        const resp = await fetchWithTimeout(url, { headers });
+        if (!resp.ok) return [];
 
-        const result = await response.json();
-        const content = result.choices?.[0]?.message?.content || '';
-        console.log(`[MedGzuri] Perplexity success: ${content.length} chars, ${(result.citations || []).length} citations`);
-        return {
-            text: content,
-            citations: result.citations || []
-        };
+        const data = await resp.json();
+        return (data.results || []).map(work => {
+            const authorNames = (work.authorships || [])
+                .slice(0, 3)
+                .map(a => a.author?.display_name || '')
+                .filter(Boolean)
+                .join(', ');
+            const extraAuthors = (work.authorships || []).length > 3 ? ' et al.' : '';
+
+            // OpenAlex stores abstracts as inverted index — reconstruct if available
+            let abstract = '';
+            if (work.abstract_inverted_index) {
+                const entries = [];
+                for (const [word, positions] of Object.entries(work.abstract_inverted_index)) {
+                    for (const pos of positions) {
+                        entries.push({ word, pos });
+                    }
+                }
+                entries.sort((a, b) => a.pos - b.pos);
+                abstract = entries.map(e => e.word).join(' ');
+            }
+
+            return {
+                title: work.title || '',
+                authors: authorNames + extraAuthors,
+                abstract,
+                url: work.doi ? `https://doi.org/${work.doi.replace('https://doi.org/', '')}` : (work.id || ''),
+                source: `OpenAlex — ${work.primary_location?.source?.display_name || 'Scholarly Work'}${work.publication_year ? ` (${work.publication_year})` : ''}`
+            };
+        });
     } catch (err) {
-        if (err.name === 'AbortError') {
-            console.error('[MedGzuri] Perplexity request timed out (30s)');
-        } else {
-            console.error('[MedGzuri] Perplexity request failed:', err.message);
+        console.error('[MedGzuri] OpenAlex search failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * Search ClinicalTrials.gov v2 API.
+ *
+ * @param {string} query - Search query
+ * @returns {Promise<Array<{title: string, status: string, summary: string, url: string, source: string}>>}
+ */
+async function searchClinicalTrials(query) {
+    try {
+        const params = new URLSearchParams({
+            'query.term': query,
+            pageSize: '10',
+            format: 'json'
+        });
+        const url = `https://clinicaltrials.gov/api/v2/studies?${params}`;
+        const resp = await fetchWithTimeout(url);
+        if (!resp.ok) return [];
+
+        const data = await resp.json();
+        return (data.studies || []).map(study => {
+            const proto = study.protocolSection || {};
+            const id = proto.identificationModule || {};
+            const status = proto.statusModule || {};
+            const desc = proto.descriptionModule || {};
+
+            return {
+                title: id.officialTitle || id.briefTitle || '',
+                status: status.overallStatus || '',
+                summary: desc.briefSummary || '',
+                url: id.nctId ? `https://clinicaltrials.gov/study/${id.nctId}` : '',
+                source: `ClinicalTrials.gov — ${id.nctId || ''}${status.overallStatus ? ` (${status.overallStatus})` : ''}`
+            };
+        });
+    } catch (err) {
+        console.error('[MedGzuri] ClinicalTrials.gov search failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * Search Europe PMC for articles.
+ *
+ * @param {string} query - Search query
+ * @returns {Promise<Array<{title: string, authors: string, abstract: string, url: string, source: string}>>}
+ */
+async function searchEuropePMC(query) {
+    try {
+        const params = new URLSearchParams({
+            query,
+            resultType: 'core',
+            pageSize: '10',
+            format: 'json'
+        });
+        const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?${params}`;
+        const resp = await fetchWithTimeout(url);
+        if (!resp.ok) return [];
+
+        const data = await resp.json();
+        return (data.resultList?.result || []).map(article => ({
+            title: article.title || '',
+            authors: article.authorString || '',
+            abstract: article.abstractText || '',
+            url: article.doi ? `https://doi.org/${article.doi}` : (article.pmid ? `https://europepmc.org/article/MED/${article.pmid}` : ''),
+            source: `Europe PMC — ${article.journalTitle || ''}${article.pubYear ? ` (${article.pubYear})` : ''}`
+        }));
+    } catch (err) {
+        console.error('[MedGzuri] Europe PMC search failed:', err.message);
+        return [];
+    }
+}
+
+/**
+ * Gather medical evidence from all direct API sources in parallel.
+ * Merges results, deduplicates by title, and formats as context text for Claude.
+ *
+ * @param {string} query - Search query (English-normalized)
+ * @param {string} type  - Search type (research|symptoms|clinics)
+ * @returns {Promise<{text: string, citations: string[]}>} Combined evidence
+ */
+async function gatherMedicalEvidence(query, type) {
+    const [pubmed, openalex, trials, europepmc] = await Promise.all([
+        searchPubMed(query),
+        searchOpenAlex(query),
+        searchClinicalTrials(query),
+        searchEuropePMC(query)
+    ]);
+
+    console.log(`[MedGzuri] API results — PubMed: ${pubmed.length}, OpenAlex: ${openalex.length}, ClinicalTrials: ${trials.length}, EuropePMC: ${europepmc.length}`);
+
+    // Merge all results
+    const allResults = [];
+    const seenTitles = new Set();
+
+    const addResults = (results, sourceLabel) => {
+        for (const r of results) {
+            const titleKey = (r.title || '').toLowerCase().trim().slice(0, 80);
+            if (titleKey && seenTitles.has(titleKey)) continue;
+            if (titleKey) seenTitles.add(titleKey);
+            allResults.push({ ...r, _sourceApi: sourceLabel });
         }
+    };
+
+    addResults(pubmed, 'PubMed');
+    addResults(openalex, 'OpenAlex');
+    addResults(trials.map(t => ({
+        title: t.title,
+        authors: '',
+        abstract: t.summary,
+        url: t.url,
+        source: t.source,
+        status: t.status
+    })), 'ClinicalTrials.gov');
+    addResults(europepmc, 'Europe PMC');
+
+    if (allResults.length === 0) {
+        console.warn('[MedGzuri] No results from any API source');
         return null;
     }
+
+    // Format as context text for Claude
+    const citations = [];
+    const lines = [`Medical evidence gathered from ${allResults.length} sources:\n`];
+
+    allResults.forEach((r, i) => {
+        lines.push(`--- Result ${i + 1} [${r._sourceApi}] ---`);
+        lines.push(`Title: ${r.title}`);
+        if (r.authors) lines.push(`Authors: ${r.authors}`);
+        if (r.source) lines.push(`Source: ${r.source}`);
+        if (r.status) lines.push(`Status: ${r.status}`);
+        if (r.abstract) lines.push(`Abstract: ${r.abstract.slice(0, 500)}`);
+        if (r.url) {
+            lines.push(`URL: ${r.url}`);
+            citations.push(r.url);
+        }
+        lines.push('');
+    });
+
+    return {
+        text: lines.join('\n'),
+        citations
+    };
 }
 
 // ═══════════════ CLAUDE API ═══════════════
 /**
  * Analyze and structure search results using Anthropic Claude.
  *
- * Takes raw Perplexity search results and transforms them into structured,
+ * Takes raw medical API search results and transforms them into structured,
  * Georgian-language JSON with items, tags, and metadata.
  *
  * Includes a Georgian content validation step: if < 50% of items contain
  * Georgian text, a follow-up translation request is made (with its own timeout).
  *
- * Fallback chain: Claude failure → raw Perplexity results → demo data
+ * Fallback chain: Claude failure → raw API results → demo data
  *
  * @param {object} params
  * @param {string} params.role          - System prompt key (research|symptoms|clinics)
  * @param {string} params.query         - Original user query
- * @param {object|null} params.searchResults - Perplexity results { text, citations }
+ * @param {object|null} params.searchResults - Medical API results { text, citations }
  * @param {object} params.context       - Additional search context
  * @returns {Promise<object>} Structured result with meta + items[]
  */
@@ -1163,13 +1375,13 @@ ${grammarRules}${hardenedRules}
     // Gate: თუ search results არ გვაქვს — არ ვგენერირებთ
     if (!searchResults?.text) {
         return {
-            meta: 'ინტერნეტ ძიება ვერ შესრულდა',
-            summary: 'ვერ მოვიძიეთ ონლაინ წყაროები. შეამოწმეთ PERPLEXITY_API_KEY.',
+            meta: 'სამედიცინო ძიება ვერ შესრულდა',
+            summary: 'ვერ მოვიძიეთ სამედიცინო წყაროები. სცადეთ თავიდან.',
             items: [],
             _grounded: false
         };
     }
-    const searchSection = `\nინტერნეტ ძიების შედეგები:\n${searchResults.text}`;
+    const searchSection = `\nსამედიცინო წყაროებიდან მოძიებული შედეგები:\n${searchResults.text}`;
     const citationSection = searchResults?.citations?.length
         ? `\nწყაროები: ${searchResults.citations.join(', ')}`
         : '';
@@ -1306,7 +1518,7 @@ ${grammarRules}${hardenedRules}
  *
  * Returns null if n8n is not configured, if the type is unsupported,
  * or if the request fails/times out (30s). The caller falls back to
- * the direct Perplexity+Claude pipeline.
+ * the direct medical API + Claude pipeline.
  *
  * @param {string} type - Search type
  * @param {object} data - Search parameters
@@ -1514,7 +1726,7 @@ function tryParseValid(str) {
 
 // ═══════════════ HELPERS ═══════════════
 /**
- * Build a natural-language search query for the Perplexity research endpoint.
+ * Build a natural-language search query for the medical API research endpoint.
  *
  * @param {string} diagnosis    - Medical condition or diagnosis
  * @param {string} ageGroup     - Patient age group (e.g., "adult", "pediatric")
@@ -1542,12 +1754,12 @@ function buildResearchQuery(diagnosis, ageGroup, researchType, context) {
 
 // ═══════════════ FORMAT RAW RESULTS ═══════════════
 /**
- * Wrap raw Perplexity text into the standard MedGzuri response format.
+ * Wrap raw API search text into the standard MedGzuri response format.
  * Used as a fallback when Claude is unavailable.
  *
  * @param {string} role          - Search role (unused, kept for signature consistency)
  * @param {string} query         - Original search query
- * @param {object} searchResults - Raw Perplexity results { text, citations }
+ * @param {object} searchResults - Raw API results { text, citations }
  * @returns {Promise<object>} Formatted result
  */
 async function formatRawResults(role, query, searchResults) {
@@ -1557,7 +1769,7 @@ async function formatRawResults(role, query, searchResults) {
             title: query || 'სამედიცინო ინფორმაცია',
             body: searchResults.text || '',
             tags: ['ძიება'],
-            source: 'Perplexity AI'
+            source: 'PubMed / OpenAlex / ClinicalTrials.gov / Europe PMC'
         }],
         _rawFallback: true
     };

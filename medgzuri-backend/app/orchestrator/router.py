@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 class OrchestratorRouter:
     """Main dispatcher — maps request type to pipeline execution."""
 
-    async def route(self, request: SearchRequest) -> SearchResponse:
+    async def route(self, request: SearchRequest, user_id: str = "") -> SearchResponse:
         pipeline_type = request.get_pipeline_type()
 
         if not pipeline_type:
@@ -43,6 +43,21 @@ class OrchestratorRouter:
         # Extract typed input from the request
         data = request.data or {}
         logger.info("Orchestrator routing | pipeline=%s", pipeline_type)
+
+        # Phase 6: Quota enforcement (non-blocking for anonymous users)
+        effective_user_id = user_id or "anon"
+        if pipeline_type != "report_generation":
+            try:
+                from app.services.subscription import check_search_quota
+                quota = await check_search_quota(effective_user_id)
+                if not quota.allowed:
+                    return SearchResponse(
+                        meta=quota.message,
+                        items=[],
+                        disclaimer="⚕️ მედგზური არ ანაცვლებს ექიმის კონსულტაციას.",
+                    )
+            except Exception as e:
+                logger.debug("Quota check skipped (non-fatal): %s", str(e)[:100])
 
         # Demo mode
         if settings.is_demo_mode:
@@ -85,6 +100,19 @@ class OrchestratorRouter:
             ttl = cache_service.get_ttl(pipeline_type)
             result_data = result.model_dump(exclude_none=True)
             await cache_service.set(cache_key, result_data, ttl)
+
+        # Phase 6: Log search for analytics (fire-and-forget)
+        try:
+            from app.services.analytics import log_search
+            query = _extract_query(pipeline_type, data)
+            await log_search(
+                user_id=effective_user_id,
+                query=query,
+                pipeline_type=pipeline_type,
+                results_count=len(result.items),
+            )
+        except Exception as e:
+            logger.debug("Analytics logging skipped (non-fatal): %s", str(e)[:100])
 
         return result
 
