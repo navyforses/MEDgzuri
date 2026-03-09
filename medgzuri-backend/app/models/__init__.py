@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.cached_results import CachedResult
 from app.models.doctor import DoctorProfile, Referral, SharedResult
 from app.models.search_history import SearchHistory
+from app.models.subscription import ClinicListing, Subscription, UsageLog
 from app.models.user import UserBookmark, UserProfile, UserSearchHistory
 
 __all__ = [
@@ -18,4 +19,7 @@ __all__ = [
     "UserProfile",
     "UserBookmark",
     "UserSearchHistory",
+    "Subscription",
+    "UsageLog",
+    "ClinicListing",
 ]

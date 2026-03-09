@@ -180,11 +180,14 @@ async def search(request: Request, background_tasks: BackgroundTasks):
     search_req = SearchRequest(**body)
     pipeline_type = search_req.get_pipeline_type()
 
+    # Phase 6: Extract user_id for quota enforcement
+    user_id = await _get_user_id(request) or f"ip:{ip_hash[:16]}"
+
     # Execute pipeline via orchestrator (with safety-net timeout)
     start = time.monotonic()
     try:
         result = await asyncio.wait_for(
-            orchestrator.route(search_req),
+            orchestrator.route(search_req, user_id=user_id),
             timeout=settings.pipeline_timeout_seconds + 30,
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -621,3 +624,309 @@ async def create_referral_endpoint(user_id: str = Depends(require_auth), body: d
     except Exception as e:
         logger.error("Create referral failed: %s", str(e)[:200])
         return JSONResponse(status_code=500, content={"error": "რეფერალის შექმნა ვერ მოხერხდა."})
+
+
+# ═══════════════ PHASE 6: MONETIZATION ═══════════════
+
+@app.get("/api/subscription")
+async def get_subscription_endpoint(request: Request):
+    """Get current user subscription info."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        # Anonymous users get free tier info
+        from app.services.subscription import get_tier_info
+        return JSONResponse(content={"tier": "free", "tiers": get_tier_info()["tiers"]})
+
+    try:
+        from app.services.subscription import get_subscription, get_tier_info
+        sub = await get_subscription(user_id)
+        info = get_tier_info()
+        return JSONResponse(content={
+            "user_id": sub.user_id,
+            "tier": sub.tier,
+            "tier_name": sub.tier_name,
+            "price_gel": sub.price_gel,
+            "start_date": sub.start_date,
+            "end_date": sub.end_date,
+            "features": sub.features,
+            "is_active": sub.is_active,
+            "tiers": info["tiers"],
+        })
+    except Exception as e:
+        logger.error("Get subscription failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "გამოწერის ინფორმაცია ვერ ჩაიტვირთა."})
+
+
+@app.post("/api/subscription/upgrade")
+async def upgrade_subscription_endpoint(request: Request):
+    """Upgrade subscription (payment STUB — ready for Stripe/BOG)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "არასწორი მოთხოვნის ფორმატი."})
+
+    tier = body.get("tier", "")
+    payment_ref = body.get("payment_ref", "")
+
+    if tier not in ("pro", "doctor"):
+        return JSONResponse(status_code=400, content={
+            "error": "არასწორი პაკეტი. აირჩიეთ 'pro' ან 'doctor'.",
+        })
+
+    try:
+        from app.services.subscription import upgrade_subscription
+        success = await upgrade_subscription(user_id, tier, payment_ref)
+        if success:
+            return JSONResponse(content={
+                "status": "წარმატებით განახლდა",
+                "tier": tier,
+                "message": f"თქვენი პაკეტი განახლდა: {tier}. მადლობა!",
+                "payment_note": "გადახდის ინტეგრაცია მალე დაემატება (Stripe / BOG).",
+            })
+        return JSONResponse(status_code=500, content={"error": "განახლება ვერ მოხერხდა."})
+    except Exception as e:
+        logger.error("Upgrade subscription failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "განახლება ვერ მოხერხდა."})
+
+
+@app.post("/api/subscription/downgrade")
+async def downgrade_subscription_endpoint(request: Request):
+    """Downgrade subscription back to free tier."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        from app.services.subscription import downgrade_subscription
+        await downgrade_subscription(user_id)
+        return JSONResponse(content={"status": "დაქვეითდა", "tier": "free"})
+    except Exception as e:
+        logger.error("Downgrade subscription failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "დაქვეითება ვერ მოხერხდა."})
+
+
+@app.get("/api/subscription/usage")
+async def get_usage_stats_endpoint(request: Request):
+    """Get usage stats for authenticated user."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        from app.services.subscription import get_usage_stats
+        stats = await get_usage_stats(user_id)
+        return JSONResponse(content={
+            "searches_today": stats.searches_today,
+            "searches_month": stats.searches_month,
+            "tier": stats.tier,
+            "features": stats.features,
+            "daily_limit": stats.daily_limit,
+        })
+    except Exception as e:
+        logger.error("Get usage stats failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "სტატისტიკა ვერ ჩაიტვირთა."})
+
+
+@app.get("/api/analytics/dashboard")
+async def analytics_dashboard(request: Request):
+    """Full analytics dashboard (admin only)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    # TODO: Add admin role check when role system is implemented
+    try:
+        from app.services.analytics import get_usage_dashboard
+        dashboard = await get_usage_dashboard()
+        return JSONResponse(content=dashboard)
+    except Exception as e:
+        logger.error("Analytics dashboard failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ანალიტიკა ვერ ჩაიტვირთა."})
+
+
+@app.get("/api/analytics/searches")
+async def analytics_searches(request: Request):
+    """Popular searches (admin only)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        from app.services.analytics import get_popular_searches
+        searches = await get_popular_searches()
+        return JSONResponse(content={"items": searches})
+    except Exception as e:
+        logger.error("Analytics searches failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ანალიტიკა ვერ ჩაიტვირთა."})
+
+
+@app.get("/api/analytics/geographic")
+async def analytics_geographic(request: Request):
+    """Geographic distribution of searches (admin only)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        from app.services.analytics import get_geographic_stats
+        stats = await get_geographic_stats()
+        return JSONResponse(content=stats)
+    except Exception as e:
+        logger.error("Analytics geographic failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ანალიტიკა ვერ ჩაიტვირთა."})
+
+
+@app.post("/api/clinic-listings")
+async def create_clinic_listing_endpoint(request: Request):
+    """Create a new clinic listing."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "არასწორი მოთხოვნის ფორმატი."})
+
+    try:
+        from app.services.clinic_listing import create_listing
+        result = await create_listing(body)
+        if "error" in result:
+            return JSONResponse(status_code=500, content=result)
+        return JSONResponse(status_code=201, content=result)
+    except Exception as e:
+        logger.error("Create clinic listing failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ჩანაწერის შექმნა ვერ მოხერხდა."})
+
+
+@app.get("/api/clinic-listings")
+async def get_clinic_listings(request: Request):
+    """Get active clinic listings."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    tier = request.query_params.get("tier")
+    country = request.query_params.get("country")
+
+    try:
+        from app.services.clinic_listing import get_active_listings
+        listings = await get_active_listings(tier=tier, country=country)
+        return JSONResponse(content={"items": listings})
+    except Exception as e:
+        logger.error("Get clinic listings failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ჩანაწერების ჩატვირთვა ვერ მოხერხდა."})
+
+
+@app.post("/api/clinic-listings/{listing_id}/upgrade")
+async def upgrade_clinic_listing_endpoint(listing_id: str, request: Request):
+    """Upgrade a clinic listing tier (payment STUB)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "არასწორი მოთხოვნის ფორმატი."})
+
+    tier = body.get("tier", "")
+    if tier not in ("verified", "premium"):
+        return JSONResponse(status_code=400, content={
+            "error": "არასწორი პაკეტი. აირჩიეთ 'verified' ან 'premium'.",
+        })
+
+    try:
+        from app.services.clinic_listing import upgrade_listing
+        success = await upgrade_listing(listing_id, tier)
+        if success:
+            return JSONResponse(content={"status": "განახლდა", "tier": tier})
+        return JSONResponse(status_code=404, content={"error": "ჩანაწერი ვერ მოიძებნა."})
+    except Exception as e:
+        logger.error("Upgrade clinic listing failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "განახლება ვერ მოხერხდა."})
+
+
+@app.get("/api/clinic-listings/{listing_id}/analytics")
+async def clinic_listing_analytics(listing_id: str, request: Request):
+    """Get analytics for a clinic listing."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(status_code=429, content={"error": "ძალიან ბევრი მოთხოვნა."})
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(status_code=401, content={"error": "ავტორიზაცია აუცილებელია."})
+
+    try:
+        from app.services.clinic_listing import get_listing_analytics
+        analytics = await get_listing_analytics(listing_id)
+        if "error" in analytics:
+            return JSONResponse(status_code=400, content=analytics)
+        return JSONResponse(content=analytics)
+    except Exception as e:
+        logger.error("Clinic listing analytics failed: %s", str(e)[:200])
+        return JSONResponse(status_code=500, content={"error": "ანალიტიკა ვერ ჩაიტვირთა."})
+
