@@ -14,68 +14,21 @@ const {
     setCorsHeaders, setSecurityHeaders, createRateLimiter,
     getClientIp, sanitizeString
 } = require('../lib/security');
-
-const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL;
+const { authenticateUser } = require('../lib/auth');
+const { tryRailway: tryRailwayProxy } = require('../lib/railway');
 
 const bookmarksRateLimiter = createRateLimiter(10, 60 * 1000); // 10 req/min
 
-// ═══════════════ AUTH HELPER ═══════════════
+// ═══════════════ RAILWAY ACTION MAP ═══════════════
 
-async function authenticateUser(req, supabase) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return { user: null, token: null, error: 'ავტორიზაცია საჭიროა.' };
-    }
-    const token = authHeader.split(' ')[1];
+const BOOKMARKS_ACTIONS = {
+    add:    { method: 'POST', buildUrl: (base) => base },
+    list:   { method: 'GET',  buildUrl: (base) => base, hasBody: false },
+    delete: { method: 'DELETE', buildUrl: (base, p) => `${base}/${p.id}`, hasBody: false },
+};
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-        return { user: null, token: null, error: 'არასწორი ან ვადაგასული ტოკენი.' };
-    }
-    return { user, token, error: null };
-}
-
-// ═══════════════ RAILWAY PROXY ═══════════════
-
-async function tryRailway(action, token, payload) {
-    if (!RAILWAY_BACKEND_URL) return null;
-
-    try {
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-
-        let url, method, body;
-
-        if (action === 'add') {
-            url = `${RAILWAY_BACKEND_URL}/api/bookmarks`;
-            method = 'POST';
-            body = JSON.stringify(payload);
-        } else if (action === 'list') {
-            url = `${RAILWAY_BACKEND_URL}/api/bookmarks`;
-            method = 'GET';
-        } else if (action === 'delete') {
-            url = `${RAILWAY_BACKEND_URL}/api/bookmarks/${payload.id}`;
-            method = 'DELETE';
-        }
-
-        const resp = await fetch(url, {
-            method,
-            headers,
-            body,
-            signal: AbortSignal.timeout(10000)
-        });
-
-        if (!resp.ok) return null;
-
-        // DELETE may return 204 No Content
-        if (resp.status === 204) return { success: true };
-        return await resp.json();
-    } catch (err) {
-        console.warn('[MedGzuri] Railway bookmarks proxy failed:', err.message);
-        return null;
-    }
+function tryRailway(action, token, payload) {
+    return tryRailwayProxy('/api/bookmarks', BOOKMARKS_ACTIONS, action, token, payload, 'bookmarks');
 }
 
 // ═══════════════ HANDLER ═══════════════

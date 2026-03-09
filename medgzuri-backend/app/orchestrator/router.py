@@ -217,11 +217,33 @@ async def _enhance_result(result: SearchResponse, query: str, data: dict) -> Sea
     # Convert items to dicts for processing
     items_dicts = [item.model_dump() for item in result.items]
 
-    # 1. Fact verification
-    try:
+    # 1 & 2: Run verification and enhancement in parallel (independent operations)
+    async def _do_verify():
         from app.services.fact_verifier import batch_verify
-        verified = await batch_verify(items_dicts)
-        # Update items with verification data
+        return await batch_verify(items_dicts)
+
+    async def _do_enhance():
+        from app.services.response_enhancer import enhance_response
+        return await enhance_response(items_dicts, query)
+
+    verified, enhancements = None, None
+    try:
+        results = await asyncio.gather(
+            _do_verify(), _do_enhance(), return_exceptions=True,
+        )
+        if not isinstance(results[0], BaseException):
+            verified = results[0]
+        else:
+            logger.warning("Fact verification failed (non-fatal): %s", str(results[0])[:100])
+        if not isinstance(results[1], BaseException):
+            enhancements = results[1]
+        else:
+            logger.warning("Response enhancement failed (non-fatal): %s", str(results[1])[:100])
+    except Exception as e:
+        logger.warning("Enhancement pipeline failed (non-fatal): %s", str(e)[:100])
+
+    # Apply verification data
+    if verified:
         for i, item in enumerate(result.items):
             if i < len(verified):
                 v = verified[i]
@@ -231,29 +253,19 @@ async def _enhance_result(result: SearchResponse, query: str, data: dict) -> Sea
                 item.recency_status = v.get("recency_status", "")
                 item.recency_label = v.get("recency_label", "")
                 item.is_retracted = v.get("is_retracted", False)
-    except Exception as e:
-        logger.warning("Fact verification failed (non-fatal): %s", str(e)[:100])
 
-    # 2. Response enhancement (summary, comparison, action steps)
-    try:
-        from app.services.response_enhancer import enhance_response
-        enhancements = await enhance_response(items_dicts, query)
-
+    # Apply response enhancements
+    if enhancements:
         if enhancements.get("executive_summary"):
             result.executive_summary = enhancements["executive_summary"]
-
         if enhancements.get("comparison_table"):
             ct = enhancements["comparison_table"]
             result.comparison_table = ComparisonTable(
                 headers=ct.get("headers", []),
                 rows=ct.get("rows", []),
             )
-
         if enhancements.get("action_steps"):
             result.action_steps = enhancements["action_steps"]
-
-    except Exception as e:
-        logger.warning("Response enhancement failed (non-fatal): %s", str(e)[:100])
 
     # 3. Personalization (if profile data provided)
     try:
