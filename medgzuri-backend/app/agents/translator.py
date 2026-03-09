@@ -5,9 +5,10 @@ Maintains translation consistency within a session via a session cache.
 """
 
 import logging
+import re
 from typing import Any
 
-from app.services.llm_client import call_sonnet, call_sonnet_json
+from app.services.llm_client import call_sonnet_json
 from app.services.translation import translation_service
 from app.utils.medical_terms import KA_TO_EN, MEDICATIONS_KA_TO_EN
 
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 # Reverse lookup: EN → KA
 _EN_TO_KA = {v.lower(): k for k, v in KA_TO_EN.items()}
 _EN_TO_KA.update({v.lower(): k for k, v in MEDICATIONS_KA_TO_EN.items()})
+
+# Lazily-compiled regex patterns for terminology consistency
+_TERMINOLOGY_PATTERNS: dict[str, re.Pattern] = {}
 
 
 class TranslatorAgent:
@@ -115,9 +119,10 @@ class TranslatorAgent:
 
         for en_term, ka_term in _EN_TO_KA.items():
             if en_term in result.lower() and len(en_term) > 3:
-                # Case-insensitive replacement of English terms with Georgian
-                import re
-                pattern = re.compile(re.escape(en_term), re.IGNORECASE)
+                pattern = _TERMINOLOGY_PATTERNS.get(en_term)
+                if not pattern:
+                    pattern = re.compile(re.escape(en_term), re.IGNORECASE)
+                    _TERMINOLOGY_PATTERNS[en_term] = pattern
                 new_result = pattern.sub(ka_term, result)
                 if new_result != result:
                     result = new_result

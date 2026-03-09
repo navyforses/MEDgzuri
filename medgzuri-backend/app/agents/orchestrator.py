@@ -10,7 +10,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agents.advisor import AdvisorAgent, PatientProfile, Recommendations
+from app.agents.advisor import AdvisorAgent, Recommendations
+from app.services.personalization import PatientProfile
 from app.agents.analyst import AnalystAgent, AnalyzedResults
 from app.agents.researcher import RawResults, ResearcherAgent
 from app.agents.translator import TranslatorAgent
@@ -144,9 +145,15 @@ class OrchestratorAgent:
         # ═══════════════ STEP 5: Translate results (EN → KA) ═══════════════
         step_start = time.monotonic()
         try:
-            analyzed.graded_items = await self.translator.translate_results(analyzed.graded_items)
+            import asyncio as _asyncio
+            tasks = [self.translator.translate_results(analyzed.graded_items)]
             if analyzed.key_findings:
-                analyzed.key_findings = await self.translator.translate_findings(analyzed.key_findings)
+                tasks.append(self.translator.translate_findings(analyzed.key_findings))
+            results = await _asyncio.gather(*tasks, return_exceptions=True)
+            if not isinstance(results[0], BaseException):
+                analyzed.graded_items = results[0]
+            if len(results) > 1 and not isinstance(results[1], BaseException):
+                analyzed.key_findings = results[1]
         except Exception as e:
             errors.append(f"Translator(results): {str(e)[:100]}")
             logger.warning("Translator failed on results: %s", str(e)[:100])

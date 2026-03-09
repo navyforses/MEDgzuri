@@ -13,16 +13,9 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.services.llm_client import call_sonnet_json
+from app.services.personalization import PatientProfile
 
 logger = logging.getLogger(__name__)
-
-
-class PatientProfile(BaseModel):
-    """Patient context for personalized advice."""
-    age: int | None = None
-    sex: str = ""
-    existing_conditions: list[str] = Field(default_factory=list)
-    reading_level: str = "patient"  # "patient" | "professional"
 
 
 class Recommendations(BaseModel):

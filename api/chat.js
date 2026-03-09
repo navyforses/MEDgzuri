@@ -183,7 +183,9 @@ async function generateChatResponse(session, message) {
     const conversationText = buildConversation(session);
 
     try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const ANTHROPIC_API_URL = process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com/v1/messages';
+        const CLAUDE_CHAT_MODEL = process.env.CLAUDE_CHAT_MODEL || 'claude-sonnet-4-6';
+        const response = await fetch(ANTHROPIC_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -191,7 +193,7 @@ async function generateChatResponse(session, message) {
                 'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-6',
+                model: CLAUDE_CHAT_MODEL,
                 max_tokens: 1500,
                 system: systemPrompt,
                 messages: [{ role: 'user', content: conversationText }],

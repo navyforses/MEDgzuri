@@ -268,7 +268,8 @@ function doSearch(){
   else if(currentType==='symptoms')payload.data.symptoms=q;
   else if(currentType==='clinics')payload.data.condition=q;
 
-  fetch('https://medgzuri.com/api/search',{
+  var apiBase=document.currentScript?document.currentScript.src.replace(/\\/api\\/widget.*$/,''):'https://medgzuri.com';
+  fetch(apiBase+'/api/search',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload)

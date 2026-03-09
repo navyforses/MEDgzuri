@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     deepl_api_key: str = ""
     openalex_email: str = ""  # Polite pool (10 req/sec vs 1 req/sec without)
 
+    # Supabase JWT (for token verification)
+    supabase_jwt_secret: str = ""
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

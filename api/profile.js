@@ -13,62 +13,20 @@ const {
     setCorsHeaders, setSecurityHeaders, createRateLimiter,
     getClientIp, sanitizeString
 } = require('../lib/security');
-
-const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL;
+const { authenticateUser } = require('../lib/auth');
+const { tryRailway: tryRailwayProxy } = require('../lib/railway');
 
 const profileRateLimiter = createRateLimiter(10, 60 * 1000); // 10 req/min
 
-// ═══════════════ AUTH HELPER ═══════════════
+// ═══════════════ RAILWAY ACTION MAP ═══════════════
 
-async function authenticateUser(req, supabase) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return { user: null, token: null, error: 'ავტორიზაცია საჭიროა.' };
-    }
-    const token = authHeader.split(' ')[1];
+const PROFILE_ACTIONS = {
+    get:    { method: 'GET', buildUrl: (base) => base, hasBody: false },
+    update: { method: 'PUT', buildUrl: (base) => base },
+};
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) {
-        return { user: null, token: null, error: 'არასწორი ან ვადაგასული ტოკენი.' };
-    }
-    return { user, token, error: null };
-}
-
-// ═══════════════ RAILWAY PROXY ═══════════════
-
-async function tryRailway(action, token, payload) {
-    if (!RAILWAY_BACKEND_URL) return null;
-
-    try {
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-
-        let url, method, body;
-
-        if (action === 'get') {
-            url = `${RAILWAY_BACKEND_URL}/api/profile`;
-            method = 'GET';
-        } else if (action === 'update') {
-            url = `${RAILWAY_BACKEND_URL}/api/profile`;
-            method = 'PUT';
-            body = JSON.stringify(payload);
-        }
-
-        const resp = await fetch(url, {
-            method,
-            headers,
-            body,
-            signal: AbortSignal.timeout(10000)
-        });
-
-        if (!resp.ok) return null;
-        return await resp.json();
-    } catch (err) {
-        console.warn('[MedGzuri] Railway profile proxy failed:', err.message);
-        return null;
-    }
+function tryRailway(action, token, payload) {
+    return tryRailwayProxy('/api/profile', PROFILE_ACTIONS, action, token, payload, 'profile');
 }
 
 // ═══════════════ HANDLER ═══════════════

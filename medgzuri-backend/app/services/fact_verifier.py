@@ -224,37 +224,28 @@ async def batch_verify(
     if raw_sources:
         all_sources.extend(raw_sources)
 
+    import asyncio
+
+    # Phase 1: Cross-reference and recency (synchronous, fast)
     verified_results = []
-    for result in results:
+    pmid_checks: list[tuple[int, str]] = []  # (index, pmid)
+    for idx, result in enumerate(results):
         try:
-            # Cross-reference
             title = result.get("title", "")
             verification = verify_claim(title, all_sources)
-
             result["verification_status"] = verification.status.value
             result["verification_label"] = verification.status_label
             result["verification_sources"] = verification.matching_sources
 
-            # Recency
             year = result.get("year")
             recency = check_recency(year)
             result["recency_status"] = recency.value
             result["recency_label"] = RECENCY_LABELS[recency]
+            result["is_retracted"] = False
 
-            # Retraction check (only for items with PMID — don't block on failure)
             pmid = result.get("pmid", "")
             if pmid:
-                try:
-                    is_retracted = await check_retraction(str(pmid))
-                    result["is_retracted"] = is_retracted
-                    if is_retracted:
-                        result["retraction_label"] = RETRACTION_LABEL
-                        result["verification_status"] = "retracted"
-                        result["verification_label"] = RETRACTION_LABEL
-                except Exception:
-                    result["is_retracted"] = False
-            else:
-                result["is_retracted"] = False
+                pmid_checks.append((idx, str(pmid)))
 
         except Exception as e:
             logger.warning("Verification failed for '%s': %s", result.get("title", "")[:50], str(e)[:100])
@@ -265,6 +256,19 @@ async def batch_verify(
             result["is_retracted"] = False
 
         verified_results.append(result)
+
+    # Phase 2: Retraction checks in parallel (independent HTTP calls)
+    if pmid_checks:
+        retraction_results = await asyncio.gather(
+            *(check_retraction(pmid) for _, pmid in pmid_checks),
+            return_exceptions=True,
+        )
+        for (idx, _pmid), is_retracted in zip(pmid_checks, retraction_results):
+            if isinstance(is_retracted, bool) and is_retracted:
+                verified_results[idx]["is_retracted"] = True
+                verified_results[idx]["retraction_label"] = RETRACTION_LABEL
+                verified_results[idx]["verification_status"] = "retracted"
+                verified_results[idx]["verification_label"] = RETRACTION_LABEL
 
     # Log summary
     status_counts: dict[str, int] = {}
