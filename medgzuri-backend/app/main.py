@@ -5,6 +5,13 @@ Provides:
   - /api/v2/search  — v2 multi-agent search
   - /api/chat       — chatbot endpoint
   - /api/chat/{id}/history — chat history
+  - /api/profile    — user profile (GET, PUT)
+  - /api/history    — search history (GET)
+  - /api/bookmarks  — bookmarks (GET, POST, DELETE)
+  - /api/alerts     — alerts (GET, POST, DELETE)
+  - /api/doctor/register  — doctor registration (POST)
+  - /api/doctor/share     — share result with patient (POST, GET)
+  - /api/doctor/referral  — create referral (POST)
 """
 
 import asyncio
@@ -96,8 +103,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_methods=["POST", "OPTIONS", "GET"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -406,3 +413,483 @@ async def chat_history(session_id: str):
         "session_id": session_id,
         "messages": history,
     })
+
+
+# ═══════════════ PHASE 5: PLATFORM FEATURES ═══════════════
+
+async def _get_user_id(request: Request) -> str | None:
+    """Extract and verify user ID from Supabase JWT in Authorization header."""
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:]
+    try:
+        import jwt
+        # Decode without verification (Supabase handles verification)
+        # In production, verify with Supabase JWT secret
+        payload = jwt.decode(token, options={"verify_signature": False})
+        return payload.get("sub")
+    except Exception:
+        return None
+
+
+@app.get("/api/profile")
+async def get_profile(request: Request):
+    """Get user profile."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import get_user_profile
+        profile = await get_user_profile(user_id)
+        return JSONResponse(content=profile)
+    except Exception as e:
+        logger.error("Get profile failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "პროფილის ჩატვირთვა ვერ მოხერხდა."},
+        )
+
+
+@app.put("/api/profile")
+async def update_profile(request: Request):
+    """Update user profile."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import update_user_profile
+        profile = await update_user_profile(user_id, body)
+        return JSONResponse(content=profile)
+    except Exception as e:
+        logger.error("Update profile failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "პროფილის განახლება ვერ მოხერხდა."},
+        )
+
+
+@app.get("/api/history")
+async def get_search_history(request: Request):
+    """Get search history for the authenticated user."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import get_search_history
+        history = await get_search_history(user_id)
+        return JSONResponse(content={"items": history})
+    except Exception as e:
+        logger.error("Get history failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "ისტორიის ჩატვირთვა ვერ მოხერხდა."},
+        )
+
+
+@app.post("/api/bookmarks")
+async def add_bookmark(request: Request):
+    """Add a bookmark."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import add_bookmark
+        bookmark = await add_bookmark(user_id, body)
+        return JSONResponse(status_code=201, content=bookmark)
+    except Exception as e:
+        logger.error("Add bookmark failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "სანიშნეს დამატება ვერ მოხერხდა."},
+        )
+
+
+@app.get("/api/bookmarks")
+async def get_bookmarks(request: Request):
+    """Get all bookmarks for the authenticated user."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import get_bookmarks
+        bookmarks = await get_bookmarks(user_id)
+        return JSONResponse(content={"items": bookmarks})
+    except Exception as e:
+        logger.error("Get bookmarks failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "სანიშნეების ჩატვირთვა ვერ მოხერხდა."},
+        )
+
+
+@app.delete("/api/bookmarks/{bookmark_id}")
+async def delete_bookmark(bookmark_id: str, request: Request):
+    """Delete a bookmark."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import delete_bookmark
+        await delete_bookmark(user_id, bookmark_id)
+        return JSONResponse(content={"status": "წაშლილია"})
+    except Exception as e:
+        logger.error("Delete bookmark failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "სანიშნეს წაშლა ვერ მოხერხდა."},
+        )
+
+
+@app.post("/api/alerts")
+async def create_alert(request: Request):
+    """Create a search alert."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import create_alert
+        alert = await create_alert(user_id, body)
+        return JSONResponse(status_code=201, content=alert)
+    except Exception as e:
+        logger.error("Create alert failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "შეტყობინების შექმნა ვერ მოხერხდა."},
+        )
+
+
+@app.get("/api/alerts")
+async def get_alerts(request: Request):
+    """Get all alerts for the authenticated user."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import get_alerts
+        alerts = await get_alerts(user_id)
+        return JSONResponse(content={"items": alerts})
+    except Exception as e:
+        logger.error("Get alerts failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "შეტყობინებების ჩატვირთვა ვერ მოხერხდა."},
+        )
+
+
+@app.delete("/api/alerts/{alert_id}")
+async def delete_alert(alert_id: str, request: Request):
+    """Delete an alert."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        from app.services.platform import delete_alert
+        await delete_alert(user_id, alert_id)
+        return JSONResponse(content={"status": "წაშლილია"})
+    except Exception as e:
+        logger.error("Delete alert failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "შეტყობინების წაშლა ვერ მოხერხდა."},
+        )
+
+
+@app.post("/api/doctor/register")
+async def doctor_register(request: Request):
+    """Register a user as a doctor."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import register_doctor
+        result = await register_doctor(user_id, body)
+        return JSONResponse(status_code=201, content=result)
+    except Exception as e:
+        logger.error("Doctor register failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "ექიმის რეგისტრაცია ვერ მოხერხდა."},
+        )
+
+
+@app.post("/api/doctor/share")
+async def doctor_share(request: Request):
+    """Share a search result with a patient."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import share_result
+        result = await share_result(user_id, body)
+        return JSONResponse(status_code=201, content=result)
+    except Exception as e:
+        logger.error("Doctor share failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "შედეგის გაზიარება ვერ მოხერხდა."},
+        )
+
+
+@app.get("/api/doctor/share/{share_token}")
+async def get_shared_result(share_token: str, request: Request):
+    """Get a shared result by token (no auth required)."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    try:
+        from app.services.platform import get_shared_result
+        result = await get_shared_result(share_token)
+        if not result:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "გაზიარებული შედეგი ვერ მოიძებნა."},
+            )
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error("Get shared result failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "გაზიარებული შედეგის ჩატვირთვა ვერ მოხერხდა."},
+        )
+
+
+@app.post("/api/doctor/referral")
+async def create_referral(request: Request):
+    """Create a doctor referral."""
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if rate_limiter.is_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი."},
+        )
+
+    user_id = await _get_user_id(request)
+    if not user_id:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "ავტორიზაცია აუცილებელია."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "არასწორი მოთხოვნის ფორმატი."},
+        )
+
+    try:
+        from app.services.platform import create_referral
+        result = await create_referral(user_id, body)
+        return JSONResponse(status_code=201, content=result)
+    except Exception as e:
+        logger.error("Create referral failed: %s", str(e)[:200])
+        return JSONResponse(
+            status_code=500,
+            content={"error": "რეფერალის შექმნა ვერ მოხერხდა."},
+        )

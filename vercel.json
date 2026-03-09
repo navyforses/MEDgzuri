@@ -18,6 +18,18 @@
     },
     "api/chat.js": {
       "maxDuration": 60
+    },
+    "api/profile.js": {
+      "maxDuration": 30
+    },
+    "api/bookmarks.js": {
+      "maxDuration": 30
+    },
+    "api/alerts.js": {
+      "maxDuration": 30
+    },
+    "api/widget.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
@@ -26,6 +38,10 @@
     { "source": "/api/auth", "destination": "/api/auth.js" },
     { "source": "/api/leads", "destination": "/api/leads.js" },
     { "source": "/api/qa", "destination": "/api/qa.js" },
+    { "source": "/api/profile", "destination": "/api/profile.js" },
+    { "source": "/api/bookmarks", "destination": "/api/bookmarks.js" },
+    { "source": "/api/alerts", "destination": "/api/alerts.js" },
+    { "source": "/api/widget", "destination": "/api/widget.js" },
     { "source": "/qa", "destination": "/qa.html" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },
