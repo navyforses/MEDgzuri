@@ -10,6 +10,7 @@ import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -95,10 +96,20 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
+    # OpenAlex ხელმისაწვდომობის შემოწმება (არასავალდებულო)
+    openalex_ok = False
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get("https://api.openalex.org/works?per_page=1")
+            openalex_ok = resp.status_code == 200
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "demo_mode": settings.is_demo_mode,
         "has_anthropic": settings.has_anthropic_key,
+        "openalex": "ok" if openalex_ok else "unavailable",
     }
 
 

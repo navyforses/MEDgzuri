@@ -9,6 +9,7 @@ import json
 import logging
 
 from app.integrations.europe_pmc import EuropePMCClient
+from app.integrations.openalex import OpenAlexClient
 from app.integrations.pubmed import PubMedClient
 from app.orchestrator.schemas import NormalizedTerms
 from app.services.llm_client import call_sonnet_json, load_prompt
@@ -26,6 +27,7 @@ class LiteratureSearchAgent:
     def __init__(self):
         self.pubmed = PubMedClient()
         self.europe_pmc = EuropePMCClient()
+        self.openalex = OpenAlexClient()
 
     async def search(
         self,
@@ -39,7 +41,7 @@ class LiteratureSearchAgent:
         """
         query = terms.search_queries.get("pubmed", terms.english_primary)
 
-        # Parallel search
+        # Parallel search — PubMed, Europe PMC, OpenAlex
         pubmed_task = self.pubmed.search(
             query=query,
             max_results=max_results,
@@ -50,13 +52,19 @@ class LiteratureSearchAgent:
             query=terms.english_primary,
             max_results=10,
         )
+        openalex_task = self.openalex.search_works(
+            query=terms.english_primary,
+            per_page=10,
+        )
 
-        results = await asyncio.gather(pubmed_task, epmc_task, return_exceptions=True)
+        results = await asyncio.gather(
+            pubmed_task, epmc_task, openalex_task, return_exceptions=True,
+        )
 
         # Collect articles
         all_articles = []
         for i, result in enumerate(results):
-            source = ["PubMed", "Europe PMC"][i]
+            source = ["PubMed", "Europe PMC", "OpenAlex"][i]
             if isinstance(result, Exception):
                 logger.warning("A3 %s failed | %s", source, str(result)[:100])
                 continue
@@ -68,15 +76,21 @@ class LiteratureSearchAgent:
             logger.warning("A3 no articles found")
             return {"articles": [], "field_summary": ""}
 
-        # Deduplicate by PMID
-        seen_pmids = set()
+        # Deduplicate by PMID and DOI
+        seen_pmids: set[str] = set()
+        seen_dois: set[str] = set()
         unique = []
         for a in all_articles:
             pmid = a.get("pmid", "")
+            doi = a.get("doi", "")
             if pmid and pmid in seen_pmids:
+                continue
+            if doi and doi in seen_dois:
                 continue
             if pmid:
                 seen_pmids.add(pmid)
+            if doi:
+                seen_dois.add(doi)
             unique.append(a)
 
         # Use Claude Sonnet to select top articles and generate Georgian summaries

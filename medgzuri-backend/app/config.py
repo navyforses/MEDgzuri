@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # Optional
     deepl_api_key: str = ""
+    openalex_email: str = ""  # Polite pool (10 req/sec vs 1 req/sec without)
 
     # Server
     host: str = "0.0.0.0"

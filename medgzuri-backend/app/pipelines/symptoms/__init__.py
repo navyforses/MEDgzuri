@@ -1,12 +1,13 @@
 """Pipeline B — Symptom Navigation.
 
-Flow: B1 (Symptom Parser) → B2 (Differential Analysis) → B3 (Research Matcher) → B4 (Report)
+Flow: B1 (Symptom Parser) → B2 (Differential Analysis) → B2.5 (Drug Safety) → B3 (Research Matcher) → B4 (Report)
 """
 
 import logging
 
 from app.orchestrator.schemas import SearchResponse, SymptomsInput
 from app.pipelines.symptoms.differential import DifferentialAnalysis
+from app.pipelines.symptoms.drug_safety import DrugSafetyEnricher
 from app.pipelines.symptoms.navigator_report import NavigatorReportGenerator
 from app.pipelines.symptoms.research_matcher import ResearchMatcher
 from app.pipelines.symptoms.symptom_parser import SymptomParser
@@ -22,6 +23,7 @@ class SymptomPipeline:
     def __init__(self):
         self.parser = SymptomParser()
         self.differential = DifferentialAnalysis()
+        self.drug_safety = DrugSafetyEnricher()
         self.matcher = ResearchMatcher()
         self.report_gen = NavigatorReportGenerator()
 
@@ -47,6 +49,26 @@ class SymptomPipeline:
         except Exception as e:
             logger.error("Pipeline B | B2 failed | %s", str(e)[:200])
             diff_result = {"research_directions": [], "disclaimer": "ანალიზი ვერ მოხერხდა."}
+
+        # B2.5: Drug safety enrichment (non-blocking — failures don't stop pipeline)
+        drug_safety_data: dict = {}
+        try:
+            medications = parsed.patient_context.get("medications", [])
+            if isinstance(medications, str):
+                medications = [m.strip() for m in medications.split(",") if m.strip()]
+            drug_safety_data = await self.drug_safety.enrich(
+                medications=medications,
+                side_effects=parsed.possible_medication_side_effects,
+            )
+            if drug_safety_data.get("interaction_warnings"):
+                diff_result["drug_safety"] = drug_safety_data
+                existing_note = diff_result.get("medication_interaction_note", "")
+                fda_note = "; ".join(drug_safety_data["interaction_warnings"])
+                diff_result["medication_interaction_note"] = (
+                    f"{existing_note} | FDA: {fda_note}" if existing_note else f"FDA: {fda_note}"
+                )
+        except Exception as e:
+            logger.warning("Pipeline B | B2.5 drug safety failed | %s", str(e)[:200])
 
         # B3: Research matcher (uses B2's research directions)
         try:
