@@ -1,6 +1,7 @@
 """Pipeline A — Research Search.
 
-Flow: A1 (Term Normalizer) → [A2 (Clinical Trials) || A3 (Literature)] → A4 (Aggregator) → A5 (Report)
+Flow: A1 (Term Normalizer) → [A2 (Clinical Trials) || A3 (Literature+Cochrane)] → A4 (Aggregator)
+      → Evidence Grading → Optional Multi-hop → A5 (Report)
 """
 
 import asyncio
@@ -12,6 +13,7 @@ from app.pipelines.research.clinical_trials import ClinicalTrialsAgent
 from app.pipelines.research.literature_search import LiteratureSearchAgent
 from app.pipelines.research.report_generator import ResearchReportGenerator
 from app.pipelines.research.term_normalizer import TermNormalizer
+from app.services.evidence_grader import grade_evidence, EVIDENCE_MARKERS, EVIDENCE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -260,12 +262,23 @@ class ResearchPipeline:
                     "contact": contact_email or "მიუთითებელი",
                 })
             else:
+                # Add evidence level tag if available
+                evidence_level = data.get("evidence_level", "")
+                evidence_marker = data.get("evidence_marker", "") or EVIDENCE_MARKERS.get(evidence_level, "")
+                evidence_label = data.get("evidence_label", "") or EVIDENCE_LABELS.get(evidence_level, "")
+
+                article_tags = ["სტატია", str(data.get("year", ""))]
+                if evidence_level:
+                    article_tags.insert(0, f"{evidence_marker} დონე {evidence_level}")
+
                 items.append(ResultItem(
                     title=data.get("title", ""),
                     source=data.get("journal", ""),
                     body=data.get("abstract_summary", data.get("abstract", ""))[:200],
-                    tags=["სტატია", str(data.get("year", ""))],
+                    tags=article_tags,
                     url=data.get("source_url", ""),
+                    evidence_level=evidence_level,
+                    evidence_label=evidence_label,
                 ))
 
         # Translate tags using static dict

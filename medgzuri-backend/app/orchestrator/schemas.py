@@ -187,6 +187,8 @@ class ResultItem(BaseModel):
     rating: float | None = None
     price: str = ""
     phase: str = ""
+    evidence_level: str = ""
+    evidence_label: str = ""
 
 
 class ComparisonTable(BaseModel):

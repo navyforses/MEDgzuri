@@ -1,17 +1,20 @@
 """A3 — Literature Search Agent.
 
-Searches PubMed + Europe PMC, then uses Claude Sonnet to select
-the most relevant articles and generate Georgian summaries.
+Searches PubMed + Europe PMC + OpenAlex + Cochrane, then uses Claude Sonnet
+to select the most relevant articles and generate Georgian summaries.
+Evidence grading is applied to all results.
 """
 
 import asyncio
 import json
 import logging
 
+from app.integrations.cochrane import CochraneSearchClient
 from app.integrations.europe_pmc import EuropePMCClient
 from app.integrations.openalex import OpenAlexClient
 from app.integrations.pubmed import PubMedClient
 from app.orchestrator.schemas import NormalizedTerms
+from app.services.evidence_grader import grade_and_sort
 from app.services.llm_client import call_sonnet_json, load_prompt
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,7 @@ class LiteratureSearchAgent:
         self.pubmed = PubMedClient()
         self.europe_pmc = EuropePMCClient()
         self.openalex = OpenAlexClient()
+        self.cochrane = CochraneSearchClient()
 
     async def search(
         self,
@@ -41,7 +45,7 @@ class LiteratureSearchAgent:
         """
         query = terms.search_queries.get("pubmed", terms.english_primary)
 
-        # Parallel search — PubMed, Europe PMC, OpenAlex
+        # Parallel search — PubMed, Europe PMC, OpenAlex, Cochrane
         pubmed_task = self.pubmed.search(
             query=query,
             max_results=max_results,
@@ -56,15 +60,20 @@ class LiteratureSearchAgent:
             query=terms.english_primary,
             per_page=10,
         )
+        cochrane_task = self.cochrane.search_reviews(
+            query=terms.english_primary,
+            max_results=5,
+        )
 
         results = await asyncio.gather(
-            pubmed_task, epmc_task, openalex_task, return_exceptions=True,
+            pubmed_task, epmc_task, openalex_task, cochrane_task,
+            return_exceptions=True,
         )
 
         # Collect articles
         all_articles = []
         for i, result in enumerate(results):
-            source = ["PubMed", "Europe PMC", "OpenAlex"][i]
+            source = ["PubMed", "Europe PMC", "OpenAlex", "Cochrane"][i]
             if isinstance(result, Exception):
                 logger.warning("A3 %s failed | %s", source, str(result)[:100])
                 continue
@@ -93,8 +102,11 @@ class LiteratureSearchAgent:
                 seen_dois.add(doi)
             unique.append(a)
 
+        # Grade evidence and sort by quality (best evidence first)
+        graded = grade_and_sort(unique)
+
         # Use Claude Sonnet to select top articles and generate Georgian summaries
-        return await self._summarize(unique[:10], original_query or terms.english_primary)
+        return await self._summarize(graded[:10], original_query or terms.english_primary)
 
     async def _summarize(self, articles: list[dict], query: str) -> dict:
         """Use LLM to select top articles and generate Georgian summaries."""
@@ -113,6 +125,9 @@ class LiteratureSearchAgent:
                 "journal": a.get("journal", ""),
                 "year": a.get("year"),
                 "doi": a.get("doi", ""),
+                "evidence_level": a.get("evidence_level", ""),
+                "evidence_label": a.get("evidence_label", ""),
+                "evidence_marker": a.get("evidence_marker", ""),
             })
 
         user_message = (
@@ -140,6 +155,9 @@ class LiteratureSearchAgent:
                     "year": a.get("year"),
                     "doi": a.get("doi", ""),
                     "relevance_note": "",
+                    "evidence_level": a.get("evidence_level", ""),
+                    "evidence_label": a.get("evidence_label", ""),
+                    "evidence_marker": a.get("evidence_marker", ""),
                 }
                 for a in articles[:7]
             ],
