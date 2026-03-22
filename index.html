@@ -15,24 +15,30 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600;700;800&family=Noto+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            --color-primary: #5FA8D3;
-            --color-primary-hover: #4A8FB8;
-            --color-primary-light: rgba(95, 168, 211, 0.08);
-            --color-primary-pale: rgba(95, 168, 211, 0.15);
-            --color-text: #0A1628;
-            --color-text-secondary: rgba(10, 22, 40, 0.6);
-            --color-text-muted: rgba(10, 22, 40, 0.55);
-            --color-bg: #FAFBFC;
-            --color-bg-alt: #F7FAFB;
+        /* ═══════════════ DEFAULT / GEORGIAN THEME ═══════════════ */
+        :root, [data-lang="ka"] {
+            --color-primary: #8B1A1A;
+            --color-primary-hover: #6B1414;
+            --color-primary-light: rgba(139, 26, 26, 0.08);
+            --color-primary-pale: rgba(139, 26, 26, 0.15);
+            --color-accent: #D4A843;
+            --color-accent-hover: #B8922E;
+            --color-text: #2C1810;
+            --color-text-secondary: rgba(44, 24, 16, 0.6);
+            --color-text-muted: #6B5D52;
+            --color-bg: #FFFDF7;
+            --color-bg-alt: #F5F0E8;
             --color-bg-white: #FFFFFF;
-            --color-border: #E2E8EA;
-            --color-border-light: #F0F2F4;
-            --color-dark: #0A1628;
+            --color-border: #D9CFC2;
+            --color-border-light: #EDE7DD;
+            --color-dark: #2C1810;
             --color-success: #10B981;
+            --font-heading: 'Noto Sans Georgian', sans-serif;
+            --font-body: 'Noto Sans Georgian', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #8B1A1A 0%, #5C1010 50%, #2C1810 100%);
             --spacing-xs: 0.5rem;
             --spacing-sm: 1rem;
             --spacing-md: 1.5rem;
@@ -44,9 +50,59 @@
             --radius-lg: 16px;
             --radius-xl: 20px;
             --radius-full: 9999px;
-            --shadow-sm: 0 1px 3px rgba(10, 22, 40, 0.06);
-            --shadow-md: 0 4px 12px rgba(10, 22, 40, 0.08);
-            --shadow-lg: 0 8px 30px rgba(10, 22, 40, 0.12);
+            --shadow-sm: 0 1px 3px rgba(44, 24, 16, 0.06);
+            --shadow-md: 0 4px 12px rgba(44, 24, 16, 0.08);
+            --shadow-lg: 0 8px 30px rgba(44, 24, 16, 0.12);
+        }
+
+        /* ═══════════════ ENGLISH THEME ═══════════════ */
+        [data-lang="en"] {
+            --color-primary: #1B4F72;
+            --color-primary-hover: #134074;
+            --color-primary-light: rgba(27, 79, 114, 0.08);
+            --color-primary-pale: rgba(27, 79, 114, 0.15);
+            --color-accent: #2ECC71;
+            --color-accent-hover: #27AE60;
+            --color-text: #1A202C;
+            --color-text-secondary: rgba(26, 32, 44, 0.6);
+            --color-text-muted: #718096;
+            --color-bg: #FFFFFF;
+            --color-bg-alt: #F8FAFC;
+            --color-bg-white: #FFFFFF;
+            --color-border: #E2E8F0;
+            --color-border-light: #EDF2F7;
+            --color-dark: #1A202C;
+            --font-heading: 'Source Sans 3', 'Inter', sans-serif;
+            --font-body: 'Noto Sans', 'Inter', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #1B4F72 0%, #2C3E50 50%, #1A202C 100%);
+            --shadow-sm: 0 1px 3px rgba(26, 32, 44, 0.06);
+            --shadow-md: 0 4px 12px rgba(26, 32, 44, 0.08);
+            --shadow-lg: 0 8px 30px rgba(26, 32, 44, 0.12);
+        }
+
+        /* ═══════════════ RUSSIAN THEME ═══════════════ */
+        [data-lang="ru"] {
+            --color-primary: #134074;
+            --color-primary-hover: #0B2545;
+            --color-primary-light: rgba(19, 64, 116, 0.08);
+            --color-primary-pale: rgba(19, 64, 116, 0.15);
+            --color-accent: #48C7B0;
+            --color-accent-hover: #1D9E75;
+            --color-text: #0B2545;
+            --color-text-secondary: rgba(11, 37, 69, 0.6);
+            --color-text-muted: #4A6D8C;
+            --color-bg: #FAFCFD;
+            --color-bg-alt: #EDF5FA;
+            --color-bg-white: #FFFFFF;
+            --color-border: #D6EBF5;
+            --color-border-light: #E8F4FB;
+            --color-dark: #0B2545;
+            --font-heading: 'Source Sans 3', 'Noto Sans', sans-serif;
+            --font-body: 'Noto Sans', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #0B2545 0%, #134074 40%, #1B6B93 100%);
+            --shadow-sm: 0 1px 3px rgba(11, 37, 69, 0.06);
+            --shadow-md: 0 4px 12px rgba(11, 37, 69, 0.08);
+            --shadow-lg: 0 8px 30px rgba(11, 37, 69, 0.12);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -54,9 +110,10 @@
         html, body {
             height: 100%;
             overflow: hidden;
-            font-family: 'Noto Sans Georgian', sans-serif;
+            font-family: var(--font-body);
             color: var(--color-text);
             background: var(--color-bg);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Horizontal scroll container */
@@ -116,6 +173,7 @@
             background: rgba(255, 255, 255, 0.97);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--color-border);
+            transition: border-color 0.3s ease;
         }
 
         .navbar .container {
@@ -168,7 +226,7 @@
 
         .nav-search-teaser:hover {
             border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px rgba(95, 168, 211, 0.12), var(--shadow-md);
+            box-shadow: 0 0 0 3px var(--color-primary-light), var(--shadow-md);
             background: white;
         }
 
@@ -252,6 +310,7 @@
         .btn-primary {
             background: var(--color-primary);
             color: white;
+            transition: all 0.3s ease;
         }
 
         .btn-primary:hover {
@@ -481,7 +540,7 @@
             stroke-width: 3;
             stroke-linecap: round;
             stroke-linejoin: round;
-            filter: drop-shadow(0 0 8px rgba(95, 168, 211, 0.5));
+            filter: drop-shadow(0 0 8px var(--color-primary-pale));
             stroke-dasharray: 350;
             stroke-dashoffset: 350;
             animation: ecgDraw 2.5s ease-in-out infinite;
@@ -705,7 +764,7 @@
             padding: 1.125rem 1.375rem;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(95, 168, 211, 0.2);
+            border: 1px solid var(--color-primary-pale);
             border-radius: var(--radius-lg);
             box-shadow: 0 2px 12px rgba(10, 22, 40, 0.08);
             opacity: 0;
@@ -736,7 +795,7 @@
             width: 46px;
             height: 46px;
             border-radius: var(--radius-md);
-            background: linear-gradient(135deg, var(--color-primary-light), rgba(95, 168, 211, 0.18));
+            background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-pale));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1337,7 +1396,7 @@
             bottom: 0;
             right: 0;
             z-index: 9999;
-            font-family: 'Noto Sans Georgian', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         .chatbot-toggle {
@@ -1347,21 +1406,21 @@
             width: 56px;
             height: 56px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #5FA8D3, #4A8FB8);
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
             color: white;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 20px rgba(95, 168, 211, 0.4);
+            box-shadow: 0 4px 20px var(--color-primary-pale);
             transition: all 0.3s;
             z-index: 10000;
         }
 
         .chatbot-toggle:hover {
             transform: scale(1.08);
-            box-shadow: 0 6px 28px rgba(95, 168, 211, 0.5);
+            box-shadow: 0 6px 28px var(--color-primary-pale);
         }
 
         .chatbot-toggle.hidden { display: none; }
@@ -1375,7 +1434,7 @@
             position: absolute;
             inset: -4px;
             border-radius: 50%;
-            background: rgba(95, 168, 211, 0.3);
+            background: var(--color-primary-pale);
             animation: chatPulse 2s ease-in-out infinite;
             z-index: -1;
         }
@@ -1433,14 +1492,14 @@
             align-items: center;
             gap: 0.75rem;
             padding: 1rem 1.25rem;
-            background: #0A1628;
+            background: var(--color-dark);
             color: white;
         }
 
         .chatbot-avatar {
             width: 36px;
             height: 36px;
-            background: rgba(95, 168, 211, 0.2);
+            background: var(--color-primary-light);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -1451,7 +1510,7 @@
         .chatbot-avatar svg {
             width: 20px;
             height: 20px;
-            color: #5FA8D3;
+            color: var(--color-primary);
         }
 
         .chatbot-info { flex: 1; }
@@ -1515,7 +1574,7 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            background: rgba(95, 168, 211, 0.08);
+            background: var(--color-primary-light);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1525,7 +1584,7 @@
         .message-avatar svg {
             width: 14px;
             height: 14px;
-            color: #5FA8D3;
+            color: var(--color-primary);
         }
 
         .message-content {
@@ -1537,15 +1596,15 @@
         }
 
         .message-user .message-content {
-            background: #5FA8D3;
+            background: var(--color-primary);
             color: white;
             border-bottom-right-radius: 4px;
         }
 
         .message-bot .message-content {
-            background: #FFFFFF;
-            color: #0A1628;
-            border: 1px solid #E2E8EA;
+            background: var(--color-bg-white);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
             border-bottom-left-radius: 4px;
         }
 
@@ -1577,12 +1636,12 @@
         .action-whatsapp:hover { background: #1eb954; }
 
         .action-form {
-            background: #FFFFFF;
-            color: #5FA8D3;
-            border-color: rgba(95, 168, 211, 0.15);
+            background: var(--color-bg-white);
+            color: var(--color-primary);
+            border-color: var(--color-primary-light);
         }
 
-        .action-form:hover { background: rgba(95, 168, 211, 0.08); }
+        .action-form:hover { background: var(--color-primary-light); }
 
         .typing-dots {
             display: flex;
@@ -1625,16 +1684,16 @@
             font-size: 0.6875rem;
             font-weight: 600;
             font-family: inherit;
-            color: #5FA8D3;
-            background: rgba(95, 168, 211, 0.08);
-            border: 1px solid rgba(95, 168, 211, 0.15);
+            color: var(--color-primary);
+            background: var(--color-primary-light);
+            border: 1px solid var(--color-primary-pale);
             border-radius: 999px;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .quick-reply:hover {
-            background: #5FA8D3;
+            background: var(--color-primary);
             color: white;
         }
 
@@ -1652,15 +1711,15 @@
             padding: 0.625rem 0.875rem;
             font-size: 0.8125rem;
             font-family: inherit;
-            color: #0A1628;
-            background: #FAFBFC;
-            border: 1.5px solid #E2E8EA;
+            color: var(--color-text);
+            background: var(--color-bg);
+            border: 1.5px solid var(--color-border);
             border-radius: 12px;
             outline: none;
             transition: border-color 0.2s;
         }
 
-        .chatbot-input:focus { border-color: #5FA8D3; }
+        .chatbot-input:focus { border-color: var(--color-primary); }
 
         .chatbot-input::placeholder { color: rgba(10, 22, 40, 0.4); }
 
@@ -1668,7 +1727,7 @@
             width: 36px;
             height: 36px;
             border-radius: 50%;
-            background: #5FA8D3;
+            background: var(--color-primary);
             color: white;
             border: none;
             cursor: pointer;
@@ -1680,7 +1739,7 @@
         }
 
         .chatbot-send:hover {
-            background: #4A8FB8;
+            background: var(--color-primary-hover);
             transform: scale(1.05);
         }
 
