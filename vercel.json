@@ -50,6 +50,7 @@
     { "source": "/api/widget", "destination": "/api/widget.js" },
     { "source": "/api/subscription", "destination": "/api/subscription.js" },
     { "source": "/api/analytics", "destination": "/api/analytics.js" },
+    { "source": "/intake", "destination": "/intake.html" },
     { "source": "/qa", "destination": "/qa.html" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },
