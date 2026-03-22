@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS leads (
     email TEXT,
     message TEXT,
     source TEXT DEFAULT 'website',
+    documents_url TEXT,
     status TEXT DEFAULT 'new' CHECK (status IN ('new', 'contacted', 'qualified', 'in_progress', 'closed_won', 'closed_lost')),
     assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     notes TEXT,
