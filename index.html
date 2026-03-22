@@ -981,6 +981,58 @@
             color: var(--color-primary);
         }
 
+        /* ═══════════════ LANGUAGE SWITCHER ═══════════════ */
+        .lang-switcher, .mobile-lang-switcher {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-full);
+            padding: 3px;
+            border: 1px solid var(--color-border);
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+        }
+
+        .lang-btn {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            font-family: var(--font-body);
+            color: var(--color-text-muted);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .lang-btn:hover {
+            color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+
+        .lang-btn.active {
+            color: white;
+            background: var(--color-primary);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+
+        .mobile-lang-switcher {
+            padding: 0.75rem 1.5rem;
+            justify-content: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            border-top: 1px solid var(--color-border);
+        }
+
+        .mobile-lang-switcher .lang-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
         /* Chat Widgets */
         .chat-widget {
             position: fixed;
@@ -1783,8 +1835,13 @@
                 </a>
             </div>
             <div class="nav-right">
-                <a class="nav-link" onclick="goToSection(1)">სერვისები</a>
-                <a class="nav-link" onclick="goToSection(3)">კონტაქტი</a>
+                <a class="nav-link" data-i18n-nav="services" onclick="goToSection(1)">სერვისები</a>
+                <a class="nav-link" data-i18n-nav="contact" onclick="goToSection(3)">კონტაქტი</a>
+                <div class="lang-switcher" id="langSwitcher">
+                    <button class="lang-btn active" data-lang-btn="ka">ქარ</button>
+                    <button class="lang-btn" data-lang-btn="en">EN</button>
+                    <button class="lang-btn" data-lang-btn="ru">РУ</button>
+                </div>
             </div>
             <button class="hamburger-menu" id="hamburgerMenu" aria-label="Navigation menu">
                 <span></span>
@@ -1792,10 +1849,15 @@
                 <span></span>
             </button>
             <div class="mobile-menu" id="mobileMenu">
-                <a class="mobile-nav-link" href="/product" style="color: var(--color-primary); font-weight: 700;">🔍 ძიება</a>
-                <a class="mobile-nav-link" onclick="goToSection(1);closeMobileMenu()">სერვისები</a>
-                <a class="mobile-nav-link" onclick="goToSection(2);closeMobileMenu()">პროცესი</a>
-                <a class="mobile-nav-link" onclick="goToSection(3);closeMobileMenu()">კონტაქტი</a>
+                <a class="mobile-nav-link" href="/product" style="color: var(--color-primary); font-weight: 700;">🔍 <span data-i18n-nav="search">ძიება</span></a>
+                <a class="mobile-nav-link" data-i18n-nav="services" onclick="goToSection(1);closeMobileMenu()">სერვისები</a>
+                <a class="mobile-nav-link" data-i18n-nav="process" onclick="goToSection(2);closeMobileMenu()">პროცესი</a>
+                <a class="mobile-nav-link" data-i18n-nav="contact" onclick="goToSection(3);closeMobileMenu()">კონტაქტი</a>
+                <div class="mobile-lang-switcher">
+                    <button class="lang-btn active" data-lang-btn="ka" onclick="closeMobileMenu()">ქარ</button>
+                    <button class="lang-btn" data-lang-btn="en" onclick="closeMobileMenu()">EN</button>
+                    <button class="lang-btn" data-lang-btn="ru" onclick="closeMobileMenu()">РУ</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -2009,11 +2071,94 @@
 
     <!-- Admin: /login -->
 
-
+    <script src="brand-config.js"></script>
     <script>
+        // ═══════════════ LANGUAGE SYSTEM ═══════════════
+        let currentLang = 'ka';
+
+        // Detect language from URL, localStorage, or browser
+        function detectLang() {
+            // 1. URL query param: ?lang=en
+            const params = new URLSearchParams(window.location.search);
+            const urlLang = params.get('lang');
+            if (urlLang && brandConfig[urlLang]) return urlLang;
+
+            // 2. URL path: /en/, /ru/, /ka/
+            const path = window.location.pathname;
+            if (path.startsWith('/ru')) return 'ru';
+            if (path.startsWith('/en')) return 'en';
+            if (path.startsWith('/ka')) return 'ka';
+
+            // 3. Saved preference
+            const saved = localStorage.getItem('medGzuriLang');
+            if (saved && brandConfig[saved]) return saved;
+
+            // 4. Browser language (kk, uz, uk → ru)
+            const bl = (navigator.language || '').toLowerCase();
+            if (bl.startsWith('ka')) return 'ka';
+            if (bl.startsWith('ru') || bl.startsWith('kk') || bl.startsWith('uk') || bl.startsWith('uz')) return 'ru';
+
+            // 5. Default: en for international visitors
+            return 'en';
+        }
+
+        // Set language and apply theme
+        function setLang(lang) {
+            if (!brandConfig[lang]) return;
+            currentLang = lang;
+
+            // Set data-lang on <html> for CSS theming
+            const root = document.documentElement;
+            root.setAttribute('data-lang', lang);
+            root.setAttribute('lang', lang === 'ka' ? 'ka' : lang === 'ru' ? 'ru' : 'en');
+
+            // Persist
+            localStorage.setItem('medGzuriLang', lang);
+
+            // Update URL without reload
+            const url = new URL(window.location);
+            url.searchParams.set('lang', lang);
+            history.replaceState(null, '', url);
+
+            // Update active button state (all switchers)
+            document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-lang-btn') === lang);
+            });
+
+            // Update page title and meta
+            const cfg = brandConfig[lang];
+            document.title = cfg.name + ' — ' + cfg.tagline;
+
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) metaDesc.setAttribute('content', cfg.taglineSub);
+
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute('content', cfg.name + ' — ' + cfg.tagline);
+
+            const ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute('content', cfg.taglineSub);
+
+            const ogLocale = document.querySelector('meta[property="og:locale"]');
+            if (ogLocale) ogLocale.setAttribute('content', cfg.locale.replace('-', '_'));
+        }
+
+        // Initialize language switcher click handlers
+        function initLangSwitcher() {
+            document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setLang(btn.getAttribute('data-lang-btn'));
+                });
+            });
+        }
+
+        // Boot: detect + apply
+        currentLang = detectLang();
+        setLang(currentLang);
+        initLangSwitcher();
+
         // ═══════ SEARCH TEASER TYPING ANIMATION ═══════
         (function() {
-            const queries = [
+            let queries = brandConfig[currentLang].searchQueries || [
                 'ფილტვის კიბოს მკურნალობა',
                 'ტიპი 2 დიაბეტის კვლევები',
                 'ჰიპერტენზიის თანამედროვე მიდგომები',
