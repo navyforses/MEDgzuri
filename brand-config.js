@@ -31,11 +31,11 @@ const brandConfig = {
     hero: {
       badge: "სამედიცინო ნავიგაცია",
       headline: "ექიმი ამბობს \u201Eვერაფერს ვიზამთ\u201C?\nჩვენ ვიცით სად მივმართოთ.",
-      sub: "50+ მოთხოვნა. 12+ პროგრამა. 3 კონტინენტი. რეალური გამოცდილება.",
+      sub: "50+ მიმართვა. 12+ პროგრამა. 3 კონტინენტი. რეალური გამოცდილება.",
       btnPrimary: "დაიწყე ახლა",
       btnSecondary: "გაიგე მეტი",
       stats: [
-        { number: "50+", label: "მოთხოვნა" },
+        { number: "50+", label: "მიმართვა" },
         { number: "12+", label: "პროგრამა" },
         { number: "3", label: "კონტინენტი" },
       ],
@@ -43,16 +43,16 @@ const brandConfig = {
     values: [
       { icon: "🌍", title: "ენის ბარიერი აღარ არსებობს", desc: "38 მილიონი სამედიცინო კვლევა ახლა ქართულად ხელმისაწვდომია" },
       { icon: "🔍", title: "იპოვე ის, რაც Google-ში ვერ იპოვე", desc: "PubMed, კლინიკური კვლევები, ევროპული კლინიკები — ერთი ძიებით" },
-      { icon: "💰", title: "₾149-დან — არა ათასობით", desc: "საერთაშორისო დონის ინფორმაცია, ქართული ფასით" },
+      { icon: "💰", title: "₾149-დან — არა ათასობით ლარი", desc: "საერთაშორისო დონის ინფორმაცია, ქართული ფასით" },
     ],
     services: {
       label: "სერვისები",
       title: "რას გთავაზობთ",
       subtitle: "აირჩიეთ თქვენზე მორგებული სერვისი — ძიებიდან სრულ კოორდინაციამდე",
       items: [
-        { icon: "📦", title: "ტულკითი", price: "₾149", desc: "ელ-ფოსტის შაბლონები, trial ძიების ინსტრუქცია, კონტაქტების ტრეკერი" },
-        { icon: "🤖", title: "AI ნავიგატორი", price: "₾497/თვე", desc: "AI-ით clinical trials მოძიება, eligibility შემოწმება, ელ-ფოსტის გენერაცია" },
-        { icon: "🌐", title: "პირადი ნავიგაცია", price: "₾5,000+", desc: "სრული concierge სერვისი — ძიება, კომუნიკაცია, ლოჯისტიკა" },
+        { icon: "📦", title: "ტულკითი", price: "₾149", desc: "ელ-ფოსტის შაბლონები, კვლევების ძიების ინსტრუქცია, კონტაქტების ტრეკერი" },
+        { icon: "🤖", title: "AI ნავიგატორი", price: "₾497/თვე", desc: "კლინიკური კვლევების მოძიება, შესაბამისობის შემოწმება, ელ-ფოსტის გენერაცია" },
+        { icon: "🌐", title: "პირადი ნავიგაცია", price: "₾5,000+", desc: "სრული პერსონალური მომსახურება — ძიება, კომუნიკაცია, ლოჯისტიკა" },
       ],
     },
     steps: {
@@ -61,15 +61,15 @@ const brandConfig = {
       subtitle: "დაიწყეთ დღეს და 24 საათში მიიღეთ პირველი შედეგები",
       items: [
         { title: "მოგვიყევით", desc: "შეავსეთ მოკლე ანკეტა — დიაგნოზი, ასაკი, რა სცადეთ" },
-        { title: "ჩვენ ვეძებთ", desc: "AI + ადამიანი ეძებს trials, პროგრამებს, კლინიკებს 3 კონტინენტზე" },
+        { title: "ჩვენ ვეძებთ", desc: "AI + ექსპერტი ეძებს კვლევებს, პროგრამებს, კლინიკებს 3 კონტინენტზე" },
         { title: "მიიღეთ გეგმა", desc: "პერსონალიზებული ანგარიში: ვარიანტები, ფასები, შემდეგი ნაბიჯები" },
       ],
     },
-    trust: "95-დღიანი კამპანია • 50+ მოთხოვნა • 24% წარმატების მაჩვენებელი",
+    trust: "95-დღიანი კამპანია • 50+ მიმართვა • 24% წარმატების მაჩვენებელი",
     contact: {
       label: "კონტაქტი",
       title: "დაიწყეთ ძიება დღეს",
-      description: "გვწერეთ და დაგეხმარებით თქვენთვის სწორი სერვისის შერჩევაში",
+      description: "მოგვწერეთ და დაგეხმარებით თქვენთვის სწორი სერვისის შერჩევაში",
       btnWhatsapp: "WhatsApp",
       btnFacebook: "Messenger",
       linkWhatsapp: "995555145719",
@@ -79,7 +79,7 @@ const brandConfig = {
         namePlaceholder: "თქვენი სახელი",
         phone: "ტელეფონი *",
         phonePlaceholder: "+995 5XX XXX XXX",
-        email: "Email",
+        email: "ელ-ფოსტა",
         emailPlaceholder: "your@email.com",
         message: "შეტყობინება *",
         messagePlaceholder: "მოგვიყევით თქვენი კითხვა...",
@@ -97,15 +97,15 @@ const brandConfig = {
     },
     searchQueries: [
       "ფილტვის კიბოს მკურნალობა",
-      "ტიპი 2 დიაბეტის კვლევები",
+      "II ტიპის დიაბეტის კვლევები",
       "ჰიპერტენზიის თანამედროვე მიდგომები",
       "ონკოლოგიური კლინიკები ევროპაში",
-      "ეპილეფსიის ახალი წამლები",
+      "ეპილეფსიის ახალი პრეპარატები",
       "კარდიოლოგიური რეაბილიტაცია",
     ],
     footer: {
       copyright: "© 2026 Med&გზური",
-      disclaimer: "ეს არის საინფორმაციო სერვისი, არა სამედიცინო კონსულტაცია.",
+      disclaimer: "ეს არის საინფორმაციო სერვისი და არ წარმოადგენს სამედიცინო კონსულტაციას. ყველა გადაწყვეტილება მიიღეთ მკურნალ ექიმთან ერთად.",
     },
     social: {
       telegram: "https://t.me/medgzuri",
@@ -118,7 +118,7 @@ const brandConfig = {
   en: {
     name: "MedPath",
     tagline: "We find the path to your child's treatment",
-    taglineSub: "Medical navigation for families with rare & severe diagnoses",
+    taglineSub: "Medical navigation for families facing rare and severe diagnoses",
     colors: {
       primary: "#1B4F72",
       primaryHover: "#134074",
@@ -143,7 +143,7 @@ const brandConfig = {
     hero: {
       badge: "Medical Navigation",
       headline: "Your doctor said \"nothing can be done\"?\nWe know where to look.",
-      sub: "50+ outreach attempts. 12+ programs. 3 continents. Real experience, not theory.",
+      sub: "50+ outreach attempts. 12+ programs found. 3 continents. Real experience, not theory.",
       btnPrimary: "Get started",
       btnSecondary: "Learn more",
       stats: [
@@ -153,35 +153,35 @@ const brandConfig = {
       ],
     },
     values: [
-      { icon: "🎯", title: "Clinical Trials", desc: "We find trials on ClinicalTrials.gov and EU CTR that match your child" },
-      { icon: "📧", title: "Direct doctor outreach", desc: "We draft emails to leading researchers using proven methodology" },
-      { icon: "💰", title: "Financial navigation", desc: "Grants, foundations, charity care — we find ways to cover costs" },
+      { icon: "🎯", title: "Clinical trial matching", desc: "We find trials on ClinicalTrials.gov and EU CTR that match your child's condition" },
+      { icon: "📧", title: "Direct physician outreach", desc: "We draft emails to leading researchers and clinicians using proven methodology" },
+      { icon: "💰", title: "Financial navigation", desc: "Grants, foundations, charitable programs — we find ways to cover treatment costs" },
     ],
     services: {
       label: "Services",
       title: "What we offer",
-      subtitle: "Choose the level of support that fits your family — from DIY to full concierge",
+      subtitle: "Choose the level of support that fits your family — from self-guided to full concierge",
       items: [
         { icon: "📦", title: "Advocacy Toolkit", price: "$97", desc: "Email templates, trial search guide, contact tracker, financial aid directory" },
-        { icon: "🤖", title: "AI Navigator", price: "$197/mo", desc: "AI-powered trial matching, eligibility check, personalized outreach emails" },
-        { icon: "🌐", title: "Concierge Navigation", price: "$2,000+", desc: "Full-service: search, communication, logistics, follow-up" },
+        { icon: "🤖", title: "AI Navigator", price: "$197/mo", desc: "AI-powered trial matching, eligibility screening, personalized outreach emails" },
+        { icon: "🌐", title: "Concierge Navigation", price: "$2,000+", desc: "Full-service: research, clinic communication, logistics, and follow-up" },
       ],
     },
     steps: {
       label: "Process",
       title: "Three simple steps",
-      subtitle: "Start today and get your first results within 24 hours",
+      subtitle: "Start today and receive your first results within 24 hours",
       items: [
-        { title: "Tell us your story", desc: "Fill out a brief form — diagnosis, age, what you've tried" },
-        { title: "We search", desc: "AI + human experts search trials, programs, clinics across 3 continents" },
-        { title: "Get your plan", desc: "Personalized report: options, costs, next steps" },
+        { title: "Tell us your story", desc: "Complete a brief intake form — diagnosis, age, treatments tried" },
+        { title: "We search", desc: "AI + human experts search trials, programs, and clinics across 3 continents" },
+        { title: "Get your plan", desc: "Personalized report with options, estimated costs, and next steps" },
       ],
     },
-    trust: "95-day campaign • 50+ requests • 24% success rate • 12+ programs secured",
+    trust: "95-day campaign • 50+ outreach attempts • 24% success rate • 12+ programs secured",
     contact: {
       label: "Contact",
       title: "Start your search today",
-      description: "Write to us and we'll help you choose the right service",
+      description: "Write to us and we'll help you choose the right service for your family",
       btnWhatsapp: "WhatsApp",
       btnFacebook: "Messenger",
       linkWhatsapp: "995555145719",
@@ -197,7 +197,7 @@ const brandConfig = {
         messagePlaceholder: "Tell us about your situation...",
         submit: "📨 Send",
         successTitle: "Thank you!",
-        successText: "Your message has been received.",
+        successText: "Your message has been received. We'll respond within 24 hours.",
       },
     },
     nav: {
@@ -209,15 +209,15 @@ const brandConfig = {
     },
     searchQueries: [
       "lung cancer treatment trials",
-      "type 2 diabetes research",
-      "pediatric epilepsy programs",
+      "type 2 diabetes clinical research",
+      "pediatric epilepsy treatment programs",
       "oncology clinics in Europe",
       "rare disease clinical trials",
       "cardiac rehabilitation options",
     ],
     footer: {
       copyright: "© 2026 MedPath by Med&გზური",
-      disclaimer: "This is an informational service, not medical advice. All decisions should be made with your healthcare team.",
+      disclaimer: "This is an informational service, not medical advice. All decisions should be made in consultation with your healthcare provider.",
     },
     social: {
       telegram: "https://t.me/medpath_nav",
@@ -230,7 +230,7 @@ const brandConfig = {
   ru: {
     name: "МедПуть",
     tagline: "Находим путь к лечению вашего ребёнка",
-    taglineSub: "Медицинская навигация для семей с тяжёлыми диагнозами",
+    taglineSub: "Медицинская навигация для семей с тяжёлыми и редкими диагнозами",
     colors: {
       primary: "#134074",
       primaryHover: "#0B2545",
@@ -265,17 +265,17 @@ const brandConfig = {
       ],
     },
     values: [
-      { icon: "🎯", title: "Клинические исследования", desc: "Находим trials на ClinicalTrials.gov и EU CTR, которые подходят вашему ребёнку" },
+      { icon: "🎯", title: "Клинические исследования", desc: "Находим исследования на ClinicalTrials.gov и EU CTR, подходящие вашему ребёнку" },
       { icon: "📧", title: "Прямая связь с врачами", desc: "Составляем письма ведущим исследователям по проверенной методологии" },
-      { icon: "💰", title: "Финансовая навигация", desc: "Гранты, фонды, charity care — находим способы покрыть расходы" },
+      { icon: "💰", title: "Финансовая навигация", desc: "Гранты, фонды, благотворительные программы — находим способы покрыть расходы на лечение" },
     ],
     services: {
       label: "Услуги",
       title: "Что мы предлагаем",
       subtitle: "Выберите уровень поддержки — от набора инструментов до полного сопровождения",
       items: [
-        { icon: "📦", title: "Набор инструментов", price: "$97", desc: "Шаблоны писем, инструкция поиска исследований, трекер контактов, каталог финпомощи" },
-        { icon: "🤖", title: "AI-Навигатор", price: "$197/мес", desc: "ИИ-подбор клинических исследований, проверка критериев, генерация писем врачам" },
+        { icon: "📦", title: "Набор инструментов", price: "$97", desc: "Шаблоны писем, инструкция по поиску исследований, трекер контактов, каталог финансовой помощи" },
+        { icon: "🤖", title: "AI-Навигатор", price: "$197/мес", desc: "ИИ-подбор клинических исследований, проверка критериев участия, генерация писем врачам" },
         { icon: "🌐", title: "Персональная навигация", price: "$2 000+", desc: "Полный сервис: поиск, коммуникация с клиниками, логистика, сопровождение" },
       ],
     },
@@ -285,7 +285,7 @@ const brandConfig = {
       subtitle: "Начните сегодня и получите первые результаты в течение 24 часов",
       items: [
         { title: "Расскажите о себе", desc: "Заполните краткую анкету — диагноз, возраст, что пробовали" },
-        { title: "Мы ищем", desc: "ИИ + эксперт ищут trials, программы, клиники на 3 континентах" },
+        { title: "Мы ищем", desc: "ИИ + эксперт ищут исследования, программы и клиники на 3 континентах" },
         { title: "Получите план", desc: "Персонализированный отчёт: варианты, стоимость, следующие шаги" },
       ],
     },
@@ -293,7 +293,7 @@ const brandConfig = {
     contact: {
       label: "Контакт",
       title: "Начните поиск сегодня",
-      description: "Напишите нам, и мы поможем выбрать подходящую услугу",
+      description: "Напишите нам, и мы поможем подобрать подходящую услугу для вашей семьи",
       btnWhatsapp: "WhatsApp",
       btnFacebook: "Telegram",
       linkWhatsapp: "995555145719",
@@ -304,13 +304,13 @@ const brandConfig = {
         namePlaceholder: "Ваше имя",
         phone: "Телефон *",
         phonePlaceholder: "+7 (XXX) XXX-XX-XX",
-        email: "Email",
+        email: "Эл. почта",
         emailPlaceholder: "your@email.com",
         message: "Сообщение *",
         messagePlaceholder: "Расскажите о вашей ситуации...",
         submit: "📨 Отправить",
         successTitle: "Спасибо!",
-        successText: "Ваше сообщение получено.",
+        successText: "Ваше сообщение получено. Мы ответим в течение 24 часов.",
       },
     },
     nav: {
@@ -322,11 +322,11 @@ const brandConfig = {
     },
     searchQueries: [
       "лечение рака лёгких",
-      "исследования диабета 2 типа",
-      "детская эпилепсия программы",
+      "клинические исследования диабета 2 типа",
+      "программы лечения детской эпилепсии",
       "онкологические клиники в Европе",
-      "редкие заболевания клинические исследования",
-      "кардиореабилитация варианты",
+      "клинические исследования редких заболеваний",
+      "варианты кардиореабилитации",
     ],
     footer: {
       copyright: "© 2026 МедПуть | Med&გзური",
@@ -346,9 +346,9 @@ const brandConfig = {
       whyUs: {
         title: "Почему МедПуть?",
         points: [
-          { icon: "🎯", title: "Клинические исследования", desc: "Находим trials на ClinicalTrials.gov и EU CTR, которые подходят вашему ребёнку" },
+          { icon: "🎯", title: "Клинические исследования", desc: "Находим исследования на ClinicalTrials.gov и EU CTR, подходящие вашему ребёнку" },
           { icon: "📧", title: "Прямая связь с врачами", desc: "Составляем письма ведущим исследователям по проверенной методологии" },
-          { icon: "💰", title: "Финансовая навигация", desc: "Гранты, фонды, charity care — находим способы покрыть расходы" },
+          { icon: "💰", title: "Финансовая навигация", desc: "Гранты, фонды, благотворительные программы — находим способы покрыть расходы" },
           { icon: "🌍", title: "3 континента", desc: "США, Европа, Азия — знаем систему изнутри" },
         ],
       },
