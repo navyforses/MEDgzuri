@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
   "version": 2,
   "buildCommand": "",
   "framework": null,
