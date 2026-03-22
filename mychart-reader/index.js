@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * mychart-reader — CLI tool to fetch patient data from MyChart via SMART on FHIR (PKCE)
+ * mychart-reader — CLI tool to fetch patient data from BMC MyChart via SMART on FHIR (PKCE)
+ *
+ * Manual OAuth2 + PKCE implementation (no fhirclient dependency).
  *
  * Flow:
- *   1. Discover FHIR server endpoints via .well-known/smart-configuration
- *   2. Generate PKCE code_verifier + code_challenge
- *   3. Open browser for OAuth authorization
- *   4. Local Express server catches the callback with auth code
- *   5. Exchange code for access token (with PKCE verifier)
- *   6. Fetch FHIR R4 resources
- *   7. Save JSON files + generate Markdown summary
+ *   1. Discover auth endpoints from FHIR base URL (.well-known or /metadata)
+ *   2. Generate PKCE code_verifier (128 chars) + code_challenge (S256)
+ *   3. Open browser to Epic OAuth authorize endpoint
+ *   4. Express callback server catches the auth code at /callback
+ *   5. Exchange code for access token with PKCE verifier
+ *   6. Fetch all FHIR R4 resources for the patient
+ *   7. Save JSON files to ./output/ + generate patient-summary.md
  */
 
 const dotenv = require('dotenv');
 const crypto = require('crypto');
-const http = require('http');
 const { URL, URLSearchParams } = require('url');
 const fs = require('fs');
 const path = require('path');
@@ -25,42 +26,61 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 // ═══════════════ CONFIGURATION ═══════════════
 
+const FHIR_BASE_URLS = [
+  process.env.FHIR_BASE_URL,
+  'https://fhir.bmc.org/FHIR/api/FHIR/R4',
+  'https://mychart.bmc.org/FHIR/api/FHIR/R4',
+  'https://mychart.bmc.org/interconnect-prd-fhir/api/FHIR/R4',
+  'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4',
+].filter(Boolean).map((u) => u.replace(/\/+$/, ''));
+
+// Deduplicate while preserving order
+const UNIQUE_FHIR_URLS = [...new Set(FHIR_BASE_URLS)];
+
 const CONFIG = {
-  clientId: process.env.EPIC_CLIENT_ID,
-  fhirBaseUrl: (process.env.EPIC_FHIR_BASE_URL || '').replace(/\/+$/, ''),
+  clientId: process.env.EPIC_CLIENT_ID || 'eb2d7820-3ffc-48f5-8da4-0461bd04c6b8',
   redirectUri: process.env.REDIRECT_URI || 'http://localhost:3000/callback',
   port: parseInt(process.env.PORT, 10) || 3000,
   outputDir: path.join(process.cwd(), 'output'),
   scopes: [
     'openid',
     'fhirUser',
+    'launch/patient',
     'patient/Patient.read',
-    'patient/Condition.read',
     'patient/Observation.read',
+    'patient/Condition.read',
     'patient/MedicationRequest.read',
     'patient/DiagnosticReport.read',
     'patient/Encounter.read',
     'patient/AllergyIntolerance.read',
     'patient/Immunization.read',
+    'patient/Procedure.read',
     'patient/DocumentReference.read',
   ].join(' '),
 };
 
-function validateConfig() {
-  if (!CONFIG.clientId) {
-    console.error('Error: EPIC_CLIENT_ID is required. Set it in .env');
-    process.exit(1);
-  }
-  if (!CONFIG.fhirBaseUrl) {
-    console.error('Error: EPIC_FHIR_BASE_URL is required. Set it in .env');
-    process.exit(1);
-  }
+// ═══════════════ LOGGING ═══════════════
+
+function log(msg) {
+  console.log(`[mychart-reader] ${msg}`);
+}
+
+function logHttp(method, url, status) {
+  const statusText = status >= 200 && status < 300 ? `\x1b[32m${status}\x1b[0m` : `\x1b[31m${status}\x1b[0m`;
+  console.log(`  ${method} ${url} → ${statusText}`);
 }
 
 // ═══════════════ PKCE UTILITIES ═══════════════
 
 function generateCodeVerifier() {
-  return crypto.randomBytes(32).toString('base64url');
+  // 128 characters from unreserved URL-safe characters
+  const unreserved = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const bytes = crypto.randomBytes(128);
+  let verifier = '';
+  for (let i = 0; i < 128; i++) {
+    verifier += unreserved[bytes[i] % unreserved.length];
+  }
+  return verifier;
 }
 
 function generateCodeChallenge(verifier) {
@@ -71,58 +91,84 @@ function generateState() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-// ═══════════════ SMART DISCOVERY ═══════════════
+// ═══════════════ SMART ENDPOINT DISCOVERY ═══════════════
 
 async function discoverEndpoints(fhirBaseUrl) {
-  console.log('Discovering SMART endpoints...');
-
   // Try .well-known/smart-configuration first
   const smartConfigUrl = `${fhirBaseUrl}/.well-known/smart-configuration`;
   try {
-    const resp = await fetch(smartConfigUrl);
+    log(`Trying ${smartConfigUrl}`);
+    const resp = await fetch(smartConfigUrl, { signal: AbortSignal.timeout(10000) });
+    logHttp('GET', smartConfigUrl, resp.status);
     if (resp.ok) {
       const config = await resp.json();
-      console.log('  Found via .well-known/smart-configuration');
-      return {
-        authorizationEndpoint: config.authorization_endpoint,
-        tokenEndpoint: config.token_endpoint,
-      };
+      if (config.authorization_endpoint && config.token_endpoint) {
+        log('Discovered endpoints via .well-known/smart-configuration');
+        return {
+          authorizationEndpoint: config.authorization_endpoint,
+          tokenEndpoint: config.token_endpoint,
+        };
+      }
     }
-  } catch {
-    // Fall through to metadata
+  } catch (err) {
+    log(`  .well-known failed: ${err.message}`);
   }
 
-  // Fallback: FHIR metadata (CapabilityStatement)
+  // Fallback: FHIR /metadata (CapabilityStatement)
   const metadataUrl = `${fhirBaseUrl}/metadata`;
-  const resp = await fetch(metadataUrl, {
-    headers: { Accept: 'application/fhir+json' },
-  });
-  if (!resp.ok) {
-    throw new Error(`Failed to fetch FHIR metadata: ${resp.status} ${resp.statusText}`);
+  try {
+    log(`Trying ${metadataUrl}`);
+    const resp = await fetch(metadataUrl, {
+      headers: { Accept: 'application/fhir+json' },
+      signal: AbortSignal.timeout(10000),
+    });
+    logHttp('GET', metadataUrl, resp.status);
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+
+    const metadata = await resp.json();
+    const security = metadata.rest?.[0]?.security;
+    const oauthExt = security?.extension?.find(
+      (e) => e.url === 'http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris'
+    );
+
+    if (!oauthExt) {
+      throw new Error('No OAuth extension in CapabilityStatement');
+    }
+
+    const authEndpoint = oauthExt.extension?.find((e) => e.url === 'authorize')?.valueUri;
+    const tokenEndpoint = oauthExt.extension?.find((e) => e.url === 'token')?.valueUri;
+
+    if (!authEndpoint || !tokenEndpoint) {
+      throw new Error('Missing authorize/token URIs in metadata');
+    }
+
+    log('Discovered endpoints via /metadata CapabilityStatement');
+    return { authorizationEndpoint: authEndpoint, tokenEndpoint: tokenEndpoint };
+  } catch (err) {
+    log(`  /metadata failed: ${err.message}`);
+    throw new Error(`Could not discover SMART endpoints from ${fhirBaseUrl}`);
   }
-
-  const metadata = await resp.json();
-  const security = metadata.rest?.[0]?.security;
-  const oauthExt = security?.extension?.find(
-    (e) => e.url === 'http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris'
-  );
-
-  if (!oauthExt) {
-    throw new Error('Could not find OAuth endpoints in FHIR server metadata');
-  }
-
-  const authEndpoint = oauthExt.extension?.find((e) => e.url === 'authorize')?.valueUri;
-  const tokenEndpoint = oauthExt.extension?.find((e) => e.url === 'token')?.valueUri;
-
-  if (!authEndpoint || !tokenEndpoint) {
-    throw new Error('OAuth authorize/token endpoints not found in metadata');
-  }
-
-  console.log('  Found via FHIR CapabilityStatement metadata');
-  return { authorizationEndpoint: authEndpoint, tokenEndpoint: tokenEndpoint };
 }
 
-// ═══════════════ OAUTH + PKCE FLOW ═══════════════
+async function discoverWithFallback() {
+  for (const baseUrl of UNIQUE_FHIR_URLS) {
+    log(`\nTrying FHIR base URL: ${baseUrl}`);
+    try {
+      const endpoints = await discoverEndpoints(baseUrl);
+      return { fhirBaseUrl: baseUrl, ...endpoints };
+    } catch (err) {
+      log(`  Failed: ${err.message}`);
+    }
+  }
+  throw new Error(
+    'Could not discover SMART endpoints from any configured FHIR base URL.\n' +
+    'Tried: ' + UNIQUE_FHIR_URLS.join(', ')
+  );
+}
+
+// ═══════════════ OAUTH TOKEN EXCHANGE ═══════════════
 
 async function exchangeCodeForToken(tokenEndpoint, code, codeVerifier) {
   const body = new URLSearchParams({
@@ -133,125 +179,127 @@ async function exchangeCodeForToken(tokenEndpoint, code, codeVerifier) {
     code_verifier: codeVerifier,
   });
 
+  log(`Exchanging auth code at ${tokenEndpoint}`);
   const resp = await fetch(tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
+  logHttp('POST', tokenEndpoint, resp.status);
 
   if (!resp.ok) {
     const errText = await resp.text();
     throw new Error(`Token exchange failed (${resp.status}): ${errText}`);
   }
 
-  return resp.json();
+  const tokenData = await resp.json();
+  log(`Token response keys: ${Object.keys(tokenData).join(', ')}`);
+  return tokenData;
 }
 
 // ═══════════════ FHIR RESOURCE FETCHING ═══════════════
 
-async function fetchFhirResource(fhirBaseUrl, resourceType, accessToken, patientId, params = {}) {
-  const url = new URL(`${fhirBaseUrl}/${resourceType}`);
-
-  // For Patient, fetch by ID directly
-  if (resourceType === 'Patient') {
-    const directUrl = `${fhirBaseUrl}/Patient/${patientId}`;
-    const resp = await fetch(directUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/fhir+json',
-      },
-    });
-    if (!resp.ok) {
-      console.warn(`  Warning: Failed to fetch ${resourceType}: ${resp.status}`);
-      return null;
-    }
-    return resp.json();
-  }
-
-  // For other resources, search by patient
-  url.searchParams.set('patient', patientId);
-  url.searchParams.set('_count', '100');
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
-
-  const resp = await fetch(url.toString(), {
+async function fhirGet(url, accessToken) {
+  const resp = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/fhir+json',
     },
   });
+  logHttp('GET', url, resp.status);
 
   if (!resp.ok) {
-    console.warn(`  Warning: Failed to fetch ${resourceType}: ${resp.status}`);
+    const errText = await resp.text().catch(() => '');
+    log(`  Response body: ${errText.slice(0, 200)}`);
     return null;
   }
-
   return resp.json();
 }
 
-async function fetchAllResources(fhirBaseUrl, accessToken, patientId) {
-  console.log(`\nFetching FHIR resources for patient ${patientId}...\n`);
+async function fetchResource(fhirBaseUrl, resourceType, accessToken, patientId, params = {}) {
+  if (resourceType === 'Patient') {
+    const url = `${fhirBaseUrl}/Patient/${patientId}`;
+    return fhirGet(url, accessToken);
+  }
 
-  const resourceConfigs = [
-    { type: 'Patient', filename: 'patient.json' },
-    { type: 'Condition', filename: 'conditions.json', params: { _sort: '-recorded-date' } },
-    { type: 'Observation', filename: 'observations.json', params: { category: 'laboratory', _sort: '-date', _count: '200' } },
-    { type: 'MedicationRequest', filename: 'medication-requests.json', params: { _sort: '-authoredon' } },
-    { type: 'DiagnosticReport', filename: 'diagnostic-reports.json', params: { _sort: '-date' } },
-    { type: 'Encounter', filename: 'encounters.json', params: { _sort: '-date' } },
-    { type: 'AllergyIntolerance', filename: 'allergy-intolerances.json' },
-    { type: 'Immunization', filename: 'immunizations.json', params: { _sort: '-date' } },
-    { type: 'DocumentReference', filename: 'document-references.json', params: { _sort: '-date' } },
-  ];
+  const url = new URL(`${fhirBaseUrl}/${resourceType}`);
+  url.searchParams.set('patient', patientId);
+  url.searchParams.set('_count', '200');
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+  return fhirGet(url.toString(), accessToken);
+}
+
+const RESOURCE_CONFIGS = [
+  { type: 'Patient', filename: 'patient.json' },
+  { type: 'Condition', filename: 'conditions.json' },
+  { type: 'Observation', filename: 'observations.json', params: { category: 'laboratory', _count: '500' } },
+  { type: 'MedicationRequest', filename: 'medication-requests.json' },
+  { type: 'DiagnosticReport', filename: 'diagnostic-reports.json' },
+  { type: 'Encounter', filename: 'encounters.json', params: { date: `ge${twelveMonthsAgo()}` } },
+  { type: 'AllergyIntolerance', filename: 'allergy-intolerances.json' },
+  { type: 'Immunization', filename: 'immunizations.json' },
+  { type: 'Procedure', filename: 'procedures.json' },
+  { type: 'DocumentReference', filename: 'document-references.json' },
+];
+
+function twelveMonthsAgo() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 1);
+  return d.toISOString().split('T')[0];
+}
+
+async function fetchAllResources(fhirBaseUrl, accessToken, patientId) {
+  log(`\nFetching FHIR R4 resources for patient: ${patientId}\n`);
 
   const results = {};
 
-  for (const rc of resourceConfigs) {
-    process.stdout.write(`  Fetching ${rc.type}...`);
+  for (const rc of RESOURCE_CONFIGS) {
+    process.stdout.write(`  ${rc.type}... `);
     try {
-      const data = await fetchFhirResource(fhirBaseUrl, rc.type, accessToken, patientId, rc.params || {});
+      const data = await fetchResource(fhirBaseUrl, rc.type, accessToken, patientId, rc.params || {});
       if (data) {
         results[rc.type] = data;
-        const count = rc.type === 'Patient' ? 1 : (data.entry?.length || 0);
-        console.log(` ${count} record(s)`);
+        const count = rc.type === 'Patient' ? 1 : (data.total ?? data.entry?.length ?? 0);
+        console.log(`${count} record(s)`);
       } else {
         results[rc.type] = null;
-        console.log(' (not available)');
+        console.log('(empty or denied)');
       }
     } catch (err) {
-      console.log(` Error: ${err.message}`);
+      console.log(`ERROR: ${err.message}`);
       results[rc.type] = null;
     }
   }
 
-  return { results, resourceConfigs };
+  return results;
 }
 
 // ═══════════════ FILE OUTPUT ═══════════════
 
-function saveJsonFiles(outputDir, results, resourceConfigs) {
+function saveJsonFiles(outputDir, results) {
   fs.mkdirSync(outputDir, { recursive: true });
 
-  for (const rc of resourceConfigs) {
+  for (const rc of RESOURCE_CONFIGS) {
     const data = results[rc.type];
     if (data) {
       const filePath = path.join(outputDir, rc.filename);
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-      console.log(`  Saved ${rc.filename}`);
+      log(`Saved ${rc.filename}`);
     }
   }
 }
 
-// ═══════════════ MARKDOWN SUMMARY GENERATION ═══════════════
+// ═══════════════ MARKDOWN SUMMARY ═══════════════
 
-function extractEntries(bundle) {
+function entries(bundle) {
   if (!bundle || !bundle.entry) return [];
   return bundle.entry.map((e) => e.resource).filter(Boolean);
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return 'N/A';
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
   try {
     return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
@@ -261,14 +309,36 @@ function formatDate(dateStr) {
   }
 }
 
+function escMd(str) {
+  if (!str) return '';
+  return str.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+}
+
+function isAbnormal(obs) {
+  // Check interpretation coding
+  const interp = obs.interpretation?.[0]?.coding?.[0]?.code;
+  if (interp && !['N', 'normal'].includes(interp.toLowerCase())) return true;
+
+  // Check if value is outside reference range
+  if (obs.valueQuantity?.value != null && obs.referenceRange?.[0]) {
+    const val = obs.valueQuantity.value;
+    const low = obs.referenceRange[0].low?.value;
+    const high = obs.referenceRange[0].high?.value;
+    if (low != null && val < low) return true;
+    if (high != null && val > high) return true;
+  }
+
+  return false;
+}
+
 function generateMarkdownSummary(results) {
   const lines = [];
   const now = new Date().toISOString().split('T')[0];
 
   lines.push('# Patient Summary');
-  lines.push(`\n_Generated on ${now} by mychart-reader_\n`);
+  lines.push(`\n_Generated on ${now} by mychart-reader (SMART on FHIR)_\n`);
 
-  // ── Demographics ──
+  // ═══════════════ Demographics ═══════════════
   lines.push('## Demographics\n');
   const pt = results.Patient;
   if (pt) {
@@ -276,224 +346,240 @@ function generateMarkdownSummary(results) {
     const fullName = name
       ? [name.prefix?.join(' '), name.given?.join(' '), name.family].filter(Boolean).join(' ')
       : 'Unknown';
-    lines.push(`| Field | Value |`);
-    lines.push(`|-------|-------|`);
-    lines.push(`| **Name** | ${fullName} |`);
-    lines.push(`| **Date of Birth** | ${formatDate(pt.birthDate)} |`);
-    lines.push(`| **Gender** | ${pt.gender || 'N/A'} |`);
-    lines.push(`| **MRN** | ${pt.identifier?.find((i) => i.type?.coding?.[0]?.code === 'MR')?.value || 'N/A'} |`);
+    const mrn = pt.identifier?.find((i) =>
+      i.type?.coding?.some((c) => c.code === 'MR' || c.code === 'MRN')
+    )?.value || pt.identifier?.[0]?.value || 'N/A';
+
+    lines.push(`- **Name:** ${fullName}`);
+    lines.push(`- **Date of Birth:** ${fmtDate(pt.birthDate)}`);
+    lines.push(`- **MRN:** ${mrn}`);
+    lines.push(`- **Gender:** ${pt.gender || 'N/A'}`);
 
     const addr = pt.address?.[0];
     if (addr) {
-      const addrStr = [addr.line?.join(', '), addr.city, addr.state, addr.postalCode, addr.country]
+      const addrStr = [addr.line?.join(', '), addr.city, addr.state, addr.postalCode]
         .filter(Boolean).join(', ');
-      lines.push(`| **Address** | ${addrStr} |`);
+      lines.push(`- **Address:** ${addrStr}`);
     }
-
     const phone = pt.telecom?.find((t) => t.system === 'phone');
-    if (phone) lines.push(`| **Phone** | ${phone.value} |`);
+    if (phone) lines.push(`- **Phone:** ${phone.value}`);
     const email = pt.telecom?.find((t) => t.system === 'email');
-    if (email) lines.push(`| **Email** | ${email.value} |`);
-
-    lines.push(`| **Language** | ${pt.communication?.[0]?.language?.text || 'N/A'} |`);
+    if (email) lines.push(`- **Email:** ${email.value}`);
   } else {
-    lines.push('_Patient demographics not available._\n');
+    lines.push('_Patient demographics not available._');
   }
 
-  // ── Diagnoses ──
-  lines.push('\n## Diagnoses\n');
-  const conditions = extractEntries(results.Condition);
+  // ═══════════════ Active Diagnoses ═══════════════
+  lines.push('\n## Active Diagnoses\n');
+  const conditions = entries(results.Condition);
   if (conditions.length > 0) {
-    lines.push('| Condition | Status | Onset | Code |');
-    lines.push('|-----------|--------|-------|------|');
+    lines.push('| Code | Description | Onset Date |');
+    lines.push('|------|-------------|------------|');
     for (const c of conditions) {
-      const display = c.code?.coding?.[0]?.display || c.code?.text || 'Unknown';
-      const status = c.clinicalStatus?.coding?.[0]?.code || 'N/A';
-      const onset = formatDate(c.onsetDateTime || c.recordedDate);
       const code = c.code?.coding?.[0]?.code || '';
-      lines.push(`| ${display} | ${status} | ${onset} | ${code} |`);
+      const display = escMd(c.code?.coding?.[0]?.display || c.code?.text || 'Unknown');
+      const onset = fmtDate(c.onsetDateTime || c.onsetPeriod?.start || c.recordedDate);
+      lines.push(`| ${code} | ${display} | ${onset} |`);
     }
   } else {
-    lines.push('_No conditions on file._\n');
+    lines.push('_No diagnoses on file._');
   }
 
-  // ── Allergies ──
+  // ═══════════════ Allergies ═══════════════
   lines.push('\n## Allergies\n');
-  const allergies = extractEntries(results.AllergyIntolerance);
+  const allergies = entries(results.AllergyIntolerance);
   if (allergies.length > 0) {
     lines.push('| Allergen | Reaction | Severity | Status |');
     lines.push('|----------|----------|----------|--------|');
     for (const a of allergies) {
-      const allergen = a.code?.coding?.[0]?.display || a.code?.text || 'Unknown';
-      const reaction = a.reaction?.[0]?.manifestation?.[0]?.coding?.[0]?.display || 'N/A';
+      const allergen = escMd(a.code?.coding?.[0]?.display || a.code?.text || 'Unknown');
+      const reaction = escMd(a.reaction?.[0]?.manifestation?.[0]?.coding?.[0]?.display || 'N/A');
       const severity = a.reaction?.[0]?.severity || 'N/A';
       const status = a.clinicalStatus?.coding?.[0]?.code || 'N/A';
       lines.push(`| ${allergen} | ${reaction} | ${severity} | ${status} |`);
     }
   } else {
-    lines.push('_No allergies on file._\n');
+    lines.push('_No allergies on file._');
   }
 
-  // ── Current Medications ──
+  // ═══════════════ Current Medications ═══════════════
   lines.push('\n## Current Medications\n');
-  const meds = extractEntries(results.MedicationRequest);
+  const meds = entries(results.MedicationRequest);
   if (meds.length > 0) {
-    lines.push('| Medication | Dosage | Status | Prescribed |');
-    lines.push('|------------|--------|--------|------------|');
+    lines.push('| Drug | Dose | Frequency | Status |');
+    lines.push('|------|------|-----------|--------|');
     for (const m of meds) {
-      const name = m.medicationCodeableConcept?.coding?.[0]?.display
+      const drug = escMd(
+        m.medicationCodeableConcept?.coding?.[0]?.display
         || m.medicationCodeableConcept?.text
         || m.medicationReference?.display
-        || 'Unknown';
-      const dosage = m.dosageInstruction?.[0]?.text || 'N/A';
+        || 'Unknown'
+      );
+      const dosageInst = m.dosageInstruction?.[0];
+      const dose = escMd(dosageInst?.doseAndRate?.[0]?.doseQuantity
+        ? `${dosageInst.doseAndRate[0].doseQuantity.value} ${dosageInst.doseAndRate[0].doseQuantity.unit || ''}`
+        : dosageInst?.text || 'N/A');
+      const frequency = escMd(dosageInst?.timing?.code?.text
+        || dosageInst?.timing?.repeat?.frequency
+          ? `${dosageInst?.timing?.repeat?.frequency || ''}x/${dosageInst?.timing?.repeat?.period || ''} ${dosageInst?.timing?.repeat?.periodUnit || ''}`
+          : 'N/A');
       const status = m.status || 'N/A';
-      const date = formatDate(m.authoredOn);
-      lines.push(`| ${name} | ${dosage} | ${status} | ${date} |`);
+      lines.push(`| ${drug} | ${dose} | ${frequency} | ${status} |`);
     }
   } else {
-    lines.push('_No medications on file._\n');
+    lines.push('_No medications on file._');
   }
 
-  // ── Recent Lab Results ──
-  lines.push('\n## Recent Lab Results\n');
-  const observations = extractEntries(results.Observation);
-  const labs = observations.filter((o) => {
-    const cats = o.category || [];
-    return cats.some((c) => c.coding?.some((cd) => cd.code === 'laboratory'));
-  });
+  // ═══════════════ Lab Results ═══════════════
+  lines.push('\n## Lab Results (most recent first)\n');
+  const observations = entries(results.Observation);
+  const labs = observations.filter((o) =>
+    o.category?.some((c) => c.coding?.some((cd) => cd.code === 'laboratory'))
+  );
 
   if (labs.length > 0) {
-    lines.push('| Test | Value | Unit | Reference Range | Date | Status |');
-    lines.push('|------|-------|------|-----------------|------|--------|');
-
-    // Highlight liver function tests
-    const liverCodes = new Set([
-      '1742-6',  // ALT
-      '1920-8',  // AST
-      '6768-6',  // ALP
-      '1975-2',  // Bilirubin total
-      '1968-7',  // Bilirubin direct
-      '2885-2',  // Total protein
-      '1751-7',  // Albumin
-      '6690-2',  // GGT
-    ]);
-
-    // Sort: liver function tests first, then by date desc
-    const sortedLabs = [...labs].sort((a, b) => {
-      const aIsLiver = a.code?.coding?.some((c) => liverCodes.has(c.code)) ? 0 : 1;
-      const bIsLiver = b.code?.coding?.some((c) => liverCodes.has(c.code)) ? 0 : 1;
-      if (aIsLiver !== bIsLiver) return aIsLiver - bIsLiver;
-      const aDate = a.effectiveDateTime || '';
-      const bDate = b.effectiveDateTime || '';
+    // Sort by date descending
+    labs.sort((a, b) => {
+      const aDate = a.effectiveDateTime || a.issued || '';
+      const bDate = b.effectiveDateTime || b.issued || '';
       return bDate.localeCompare(aDate);
     });
 
-    for (const lab of sortedLabs.slice(0, 50)) {
-      const testName = lab.code?.coding?.[0]?.display || lab.code?.text || 'Unknown';
-      let value = 'N/A';
+    lines.push('| Test | Value | Units | Range | Date | Flag |');
+    lines.push('|------|-------|-------|-------|------|------|');
+
+    for (const lab of labs) {
+      const testName = escMd(lab.code?.coding?.[0]?.display || lab.code?.text || 'Unknown');
+
+      let value = '';
       if (lab.valueQuantity) {
         value = `${lab.valueQuantity.value}`;
       } else if (lab.valueString) {
-        value = lab.valueString;
+        value = escMd(lab.valueString);
       } else if (lab.valueCodeableConcept) {
-        value = lab.valueCodeableConcept.text || lab.valueCodeableConcept.coding?.[0]?.display || 'N/A';
+        value = escMd(lab.valueCodeableConcept.text || lab.valueCodeableConcept.coding?.[0]?.display || '');
       }
-      const unit = lab.valueQuantity?.unit || lab.valueQuantity?.code || '';
-      const refRange = lab.referenceRange?.[0]?.text
-        || (lab.referenceRange?.[0]?.low && lab.referenceRange?.[0]?.high
-          ? `${lab.referenceRange[0].low.value}-${lab.referenceRange[0].high.value}`
-          : '')
-        || '';
-      const date = formatDate(lab.effectiveDateTime);
-      const status = lab.status || '';
-      const isLiver = lab.code?.coding?.some((c) => liverCodes.has(c.code));
-      const prefix = isLiver ? '**' : '';
-      const suffix = isLiver ? '** 🔬' : '';
-      lines.push(`| ${prefix}${testName}${suffix} | ${value} | ${unit} | ${refRange} | ${date} | ${status} |`);
-    }
 
-    if (sortedLabs.length > 50) {
-      lines.push(`\n_...and ${sortedLabs.length - 50} more lab results (see observations.json)_\n`);
+      const units = lab.valueQuantity?.unit || lab.valueQuantity?.code || '';
+
+      let range = '';
+      if (lab.referenceRange?.[0]) {
+        const rr = lab.referenceRange[0];
+        if (rr.text) {
+          range = escMd(rr.text);
+        } else if (rr.low?.value != null && rr.high?.value != null) {
+          range = `${rr.low.value}-${rr.high.value}`;
+        } else if (rr.low?.value != null) {
+          range = `>=${rr.low.value}`;
+        } else if (rr.high?.value != null) {
+          range = `<=${rr.high.value}`;
+        }
+      }
+
+      const date = fmtDate(lab.effectiveDateTime || lab.issued);
+      const abnormal = isAbnormal(lab);
+      const flag = abnormal ? '\u26a0\ufe0f' : '';
+
+      lines.push(`| ${testName} | ${value} | ${units} | ${range} | ${date} | ${flag} |`);
     }
   } else {
-    lines.push('_No lab results on file._\n');
+    lines.push('_No lab results on file._');
   }
 
-  // ── Diagnostic Reports ──
-  lines.push('\n## Diagnostic Reports (MRI, EEG, etc.)\n');
-  const reports = extractEntries(results.DiagnosticReport);
+  // ═══════════════ Diagnostic Reports ═══════════════
+  lines.push('\n## Diagnostic Reports\n');
+  const reports = entries(results.DiagnosticReport);
   if (reports.length > 0) {
     for (const r of reports) {
-      const title = r.code?.coding?.[0]?.display || r.code?.text || 'Report';
-      const date = formatDate(r.effectiveDateTime || r.issued);
+      const title = escMd(r.code?.coding?.[0]?.display || r.code?.text || 'Report');
+      const date = fmtDate(r.effectiveDateTime || r.effectivePeriod?.start || r.issued);
       const status = r.status || 'N/A';
+      const category = r.category?.[0]?.coding?.[0]?.display || '';
       lines.push(`### ${title}`);
       lines.push(`- **Date:** ${date}`);
       lines.push(`- **Status:** ${status}`);
-      if (r.conclusion) {
-        lines.push(`- **Conclusion:** ${r.conclusion}`);
-      }
-      if (r.presentedForm?.[0]?.data) {
-        lines.push(`- _Attached document available (base64 encoded in JSON)_`);
+      if (category) lines.push(`- **Category:** ${category}`);
+      if (r.conclusion) lines.push(`- **Conclusion:** ${escMd(r.conclusion)}`);
+      if (r.presentedForm?.length) {
+        lines.push(`- _${r.presentedForm.length} attached document(s) (see JSON)_`);
       }
       lines.push('');
     }
   } else {
-    lines.push('_No diagnostic reports on file._\n');
+    lines.push('_No diagnostic reports on file._');
   }
 
-  // ── Recent Visits ──
-  lines.push('\n## Recent Visits\n');
-  const encounters = extractEntries(results.Encounter);
+  // ═══════════════ Recent Encounters ═══════════════
+  lines.push('\n## Recent Encounters\n');
+  const encounters = entries(results.Encounter);
   if (encounters.length > 0) {
-    lines.push('| Date | Type | Reason | Status | Location |');
-    lines.push('|------|------|--------|--------|----------|');
-    for (const enc of encounters.slice(0, 20)) {
-      const date = formatDate(enc.period?.start);
-      const type = enc.type?.[0]?.coding?.[0]?.display || enc.type?.[0]?.text || 'N/A';
-      const reason = enc.reasonCode?.[0]?.coding?.[0]?.display || enc.reasonCode?.[0]?.text || '';
-      const status = enc.status || 'N/A';
-      const location = enc.location?.[0]?.location?.display || '';
-      lines.push(`| ${date} | ${type} | ${reason} | ${status} | ${location} |`);
-    }
-    if (encounters.length > 20) {
-      lines.push(`\n_...and ${encounters.length - 20} more encounters (see encounters.json)_\n`);
+    lines.push('| Date | Type | Provider | Department |');
+    lines.push('|------|------|----------|------------|');
+    for (const enc of encounters) {
+      const date = fmtDate(enc.period?.start);
+      const type = escMd(enc.type?.[0]?.coding?.[0]?.display || enc.type?.[0]?.text || enc.class?.display || 'N/A');
+      const provider = escMd(
+        enc.participant?.[0]?.individual?.display || ''
+      );
+      const dept = escMd(
+        enc.location?.[0]?.location?.display
+        || enc.serviceProvider?.display
+        || ''
+      );
+      lines.push(`| ${date} | ${type} | ${provider} | ${dept} |`);
     }
   } else {
-    lines.push('_No visit history on file._\n');
+    lines.push('_No recent encounters on file._');
   }
 
-  // ── Immunizations ──
+  // ═══════════════ Immunizations ═══════════════
   lines.push('\n## Immunizations\n');
-  const immunizations = extractEntries(results.Immunization);
+  const immunizations = entries(results.Immunization);
   if (immunizations.length > 0) {
     lines.push('| Vaccine | Date | Status |');
     lines.push('|---------|------|--------|');
     for (const imm of immunizations) {
-      const vaccine = imm.vaccineCode?.coding?.[0]?.display || imm.vaccineCode?.text || 'Unknown';
-      const date = formatDate(imm.occurrenceDateTime);
+      const vaccine = escMd(imm.vaccineCode?.coding?.[0]?.display || imm.vaccineCode?.text || 'Unknown');
+      const date = fmtDate(imm.occurrenceDateTime || imm.occurrenceString);
       const status = imm.status || 'N/A';
       lines.push(`| ${vaccine} | ${date} | ${status} |`);
     }
   } else {
-    lines.push('_No immunization records on file._\n');
+    lines.push('_No immunization records on file._');
   }
 
-  // ── Documents ──
-  lines.push('\n## Clinical Documents\n');
-  const docs = extractEntries(results.DocumentReference);
-  if (docs.length > 0) {
-    lines.push('| Document | Type | Date | Status |');
-    lines.push('|----------|------|------|--------|');
-    for (const doc of docs) {
-      const desc = doc.description || doc.type?.coding?.[0]?.display || doc.type?.text || 'Document';
-      const docType = doc.category?.[0]?.coding?.[0]?.display || '';
-      const date = formatDate(doc.date || doc.context?.period?.start);
-      const status = doc.status || 'N/A';
-      lines.push(`| ${desc} | ${docType} | ${date} | ${status} |`);
+  // ═══════════════ Procedures ═══════════════
+  lines.push('\n## Procedures\n');
+  const procedures = entries(results.Procedure);
+  if (procedures.length > 0) {
+    lines.push('| Procedure | Date | Status |');
+    lines.push('|-----------|------|--------|');
+    for (const p of procedures) {
+      const name = escMd(p.code?.coding?.[0]?.display || p.code?.text || 'Unknown');
+      const date = fmtDate(p.performedDateTime || p.performedPeriod?.start);
+      const status = p.status || 'N/A';
+      lines.push(`| ${name} | ${date} | ${status} |`);
     }
   } else {
-    lines.push('_No clinical documents on file._\n');
+    lines.push('_No procedures on file._');
+  }
+
+  // ═══════════════ Documents Available ═══════════════
+  lines.push('\n## Documents Available\n');
+  const docs = entries(results.DocumentReference);
+  if (docs.length > 0) {
+    lines.push('| Document | Category | Date | Format | Status |');
+    lines.push('|----------|----------|------|--------|--------|');
+    for (const doc of docs) {
+      const desc = escMd(doc.description || doc.type?.coding?.[0]?.display || doc.type?.text || 'Document');
+      const category = escMd(doc.category?.[0]?.coding?.[0]?.display || '');
+      const date = fmtDate(doc.date || doc.context?.period?.start);
+      const format = doc.content?.[0]?.attachment?.contentType || '';
+      const status = doc.status || 'N/A';
+      lines.push(`| ${desc} | ${category} | ${date} | ${format} | ${status} |`);
+    }
+  } else {
+    lines.push('_No clinical documents on file._');
   }
 
   lines.push('\n---');
@@ -502,84 +588,63 @@ function generateMarkdownSummary(results) {
   return lines.join('\n');
 }
 
-// ═══════════════ MAIN CLI FLOW ═══════════════
+// ═══════════════ CONSOLE SUMMARY ═══════════════
 
-async function main() {
-  console.log('╔══════════════════════════════════════╗');
-  console.log('║       mychart-reader v1.0.0          ║');
-  console.log('║  SMART on FHIR Patient Data Export   ║');
-  console.log('╚══════════════════════════════════════╝\n');
+function printConsoleSummary(results) {
+  console.log('\n' + '='.repeat(60));
+  console.log('  PATIENT DATA SUMMARY');
+  console.log('='.repeat(60));
 
-  validateConfig();
-
-  // Step 1: Discover endpoints
-  const { authorizationEndpoint, tokenEndpoint } = await discoverEndpoints(CONFIG.fhirBaseUrl);
-  console.log(`  Authorization: ${authorizationEndpoint}`);
-  console.log(`  Token:         ${tokenEndpoint}`);
-
-  // Step 2: Generate PKCE parameters
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
-  const state = generateState();
-
-  // Step 3: Build authorization URL
-  const authUrl = new URL(authorizationEndpoint);
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('client_id', CONFIG.clientId);
-  authUrl.searchParams.set('redirect_uri', CONFIG.redirectUri);
-  authUrl.searchParams.set('scope', CONFIG.scopes);
-  authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('aud', CONFIG.fhirBaseUrl);
-  authUrl.searchParams.set('code_challenge', codeChallenge);
-  authUrl.searchParams.set('code_challenge_method', 'S256');
-
-  // Step 4: Start local callback server + open browser
-  const { code, receivedState } = await startCallbackServerAndAuth(authUrl.toString(), state);
-
-  // Verify state
-  if (receivedState !== state) {
-    console.error('Error: OAuth state mismatch. Possible CSRF attack.');
-    process.exit(1);
+  const pt = results.Patient;
+  if (pt) {
+    const name = pt.name?.[0];
+    const fullName = name
+      ? [name.given?.join(' '), name.family].filter(Boolean).join(' ')
+      : 'Unknown';
+    console.log(`\n  Patient: ${fullName}`);
+    console.log(`  DOB:     ${fmtDate(pt.birthDate)}`);
+    console.log(`  Gender:  ${pt.gender || 'N/A'}`);
   }
 
-  console.log('\nAuthorization code received. Exchanging for access token...');
+  const counts = {
+    Conditions: entries(results.Condition).length,
+    Allergies: entries(results.AllergyIntolerance).length,
+    Medications: entries(results.MedicationRequest).length,
+    'Lab Results': entries(results.Observation).length,
+    'Diagnostic Reports': entries(results.DiagnosticReport).length,
+    Encounters: entries(results.Encounter).length,
+    Immunizations: entries(results.Immunization).length,
+    Procedures: entries(results.Procedure).length,
+    Documents: entries(results.DocumentReference).length,
+  };
 
-  // Step 5: Exchange code for token
-  const tokenResponse = await exchangeCodeForToken(tokenEndpoint, code, codeVerifier);
-  const accessToken = tokenResponse.access_token;
-  const patientId = tokenResponse.patient;
-
-  if (!accessToken) {
-    console.error('Error: No access token in token response.');
-    process.exit(1);
+  console.log('\n  Records retrieved:');
+  for (const [label, count] of Object.entries(counts)) {
+    const bar = '\u2588'.repeat(Math.min(count, 30));
+    console.log(`    ${label.padEnd(20)} ${String(count).padStart(4)}  ${bar}`);
   }
-  if (!patientId) {
-    console.error('Error: No patient ID in token response. The server may not support patient launch context.');
-    process.exit(1);
+
+  // Highlight abnormal labs
+  const labs = entries(results.Observation);
+  const abnormalLabs = labs.filter(isAbnormal);
+  if (abnormalLabs.length > 0) {
+    console.log(`\n  \u26a0\ufe0f  ${abnormalLabs.length} abnormal lab result(s) found:`);
+    for (const lab of abnormalLabs.slice(0, 10)) {
+      const name = lab.code?.coding?.[0]?.display || lab.code?.text || 'Unknown';
+      const val = lab.valueQuantity ? `${lab.valueQuantity.value} ${lab.valueQuantity.unit || ''}` : '';
+      console.log(`     - ${name}: ${val}`);
+    }
+    if (abnormalLabs.length > 10) {
+      console.log(`     ... and ${abnormalLabs.length - 10} more`);
+    }
   }
 
-  console.log(`Access token obtained. Patient ID: ${patientId}`);
-
-  // Step 6: Fetch all FHIR resources
-  const { results, resourceConfigs } = await fetchAllResources(CONFIG.fhirBaseUrl, accessToken, patientId);
-
-  // Step 7: Save JSON files
-  console.log(`\nSaving data to ${CONFIG.outputDir}/\n`);
-  saveJsonFiles(CONFIG.outputDir, results, resourceConfigs);
-
-  // Step 8: Generate Markdown summary
-  const markdown = generateMarkdownSummary(results);
-  const mdPath = path.join(CONFIG.outputDir, 'patient-summary.md');
-  fs.writeFileSync(mdPath, markdown);
-  console.log(`  Saved patient-summary.md`);
-
-  console.log('\nDone! Your patient data has been exported to ./output/');
-  console.log('Open output/patient-summary.md for a readable summary.\n');
+  console.log('\n' + '='.repeat(60) + '\n');
 }
 
 // ═══════════════ CALLBACK SERVER ═══════════════
 
-function startCallbackServerAndAuth(authUrl, expectedState) {
+function startCallbackServerAndAuth(authUrl) {
   return new Promise((resolve, reject) => {
     const app = express();
     let server;
@@ -589,9 +654,9 @@ function startCallbackServerAndAuth(authUrl, expectedState) {
 
       if (error) {
         res.send(`
-          <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #e74c3c;">Authorization Failed</h1>
-            <p>${error}: ${error_description || 'Unknown error'}</p>
+          <html><body style="font-family:system-ui;text-align:center;padding:50px">
+            <h1 style="color:#e74c3c">Authorization Failed</h1>
+            <p><strong>${escHtml(error)}</strong>: ${escHtml(error_description || 'Unknown error')}</p>
             <p>You can close this window.</p>
           </body></html>
         `);
@@ -602,9 +667,9 @@ function startCallbackServerAndAuth(authUrl, expectedState) {
 
       if (!code) {
         res.send(`
-          <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
-            <h1 style="color: #e74c3c;">Missing Authorization Code</h1>
-            <p>No authorization code was received.</p>
+          <html><body style="font-family:system-ui;text-align:center;padding:50px">
+            <h1 style="color:#e74c3c">Missing Authorization Code</h1>
+            <p>No authorization code was received in the callback.</p>
           </body></html>
         `);
         server.close();
@@ -613,8 +678,9 @@ function startCallbackServerAndAuth(authUrl, expectedState) {
       }
 
       res.send(`
-        <html><body style="font-family: sans-serif; text-align: center; padding: 50px;">
-          <h1 style="color: #27ae60;">Authorization Successful</h1>
+        <html><body style="font-family:system-ui;text-align:center;padding:50px">
+          <h1 style="color:#27ae60">Authorization Successful</h1>
+          <p>Your medical records are being downloaded.</p>
           <p>You can close this window and return to the terminal.</p>
         </body></html>
       `);
@@ -624,14 +690,14 @@ function startCallbackServerAndAuth(authUrl, expectedState) {
     });
 
     server = app.listen(CONFIG.port, async () => {
-      console.log(`\nCallback server listening on port ${CONFIG.port}`);
-      console.log('Opening browser for MyChart login...\n');
+      log(`Callback server listening on http://localhost:${CONFIG.port}/callback`);
+      log('Opening browser for MyChart login...\n');
 
       try {
         const open = (await import('open')).default;
         await open(authUrl);
       } catch {
-        console.log('Could not open browser automatically.');
+        console.log('\nCould not open browser automatically.');
         console.log('Please open this URL manually:\n');
         console.log(`  ${authUrl}\n`);
       }
@@ -646,16 +712,110 @@ function startCallbackServerAndAuth(authUrl, expectedState) {
     });
 
     // Timeout after 5 minutes
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       server.close();
-      reject(new Error('Authorization timed out after 5 minutes'));
+      reject(new Error('Authorization timed out after 5 minutes. Please try again.'));
     }, 5 * 60 * 1000);
+
+    // Clean up timeout if resolved
+    const origResolve = resolve;
+    const origReject = reject;
+    resolve = (val) => { clearTimeout(timeout); origResolve(val); };
+    reject = (err) => { clearTimeout(timeout); origReject(err); };
   });
 }
 
-// ═══════════════ RUN ═══════════════
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ═══════════════ MAIN ═══════════════
+
+async function main() {
+  console.log('');
+  console.log('\x1b[1m╔══════════════════════════════════════════╗\x1b[0m');
+  console.log('\x1b[1m║        mychart-reader v1.0.0              ║\x1b[0m');
+  console.log('\x1b[1m║   BMC MyChart — SMART on FHIR + PKCE     ║\x1b[0m');
+  console.log('\x1b[1m╚══════════════════════════════════════════╝\x1b[0m');
+  console.log('');
+
+  log(`Client ID: ${CONFIG.clientId}`);
+  log(`Redirect:  ${CONFIG.redirectUri}`);
+
+  // Step 1: Discover SMART endpoints (with URL fallback)
+  const { fhirBaseUrl, authorizationEndpoint, tokenEndpoint } = await discoverWithFallback();
+  log(`\nUsing FHIR base: ${fhirBaseUrl}`);
+  log(`Authorization:   ${authorizationEndpoint}`);
+  log(`Token:           ${tokenEndpoint}`);
+
+  // Step 2: Generate PKCE parameters
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const state = generateState();
+
+  log(`\nPKCE code_verifier length: ${codeVerifier.length}`);
+  log(`PKCE code_challenge: ${codeChallenge}`);
+
+  // Step 3: Build authorization URL
+  const authUrl = new URL(authorizationEndpoint);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('client_id', CONFIG.clientId);
+  authUrl.searchParams.set('redirect_uri', CONFIG.redirectUri);
+  authUrl.searchParams.set('scope', CONFIG.scopes);
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('aud', fhirBaseUrl);
+  authUrl.searchParams.set('code_challenge', codeChallenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+
+  // Step 4: Start callback server + open browser
+  const { code, receivedState } = await startCallbackServerAndAuth(authUrl.toString());
+
+  // Verify state parameter
+  if (receivedState !== state) {
+    console.error('\nERROR: OAuth state mismatch — possible CSRF attack. Aborting.');
+    process.exit(1);
+  }
+
+  log('Authorization code received.');
+
+  // Step 5: Exchange code for access token
+  const tokenResponse = await exchangeCodeForToken(tokenEndpoint, code, codeVerifier);
+  const accessToken = tokenResponse.access_token;
+  const patientId = tokenResponse.patient;
+
+  if (!accessToken) {
+    console.error('ERROR: No access_token in token response.');
+    process.exit(1);
+  }
+  if (!patientId) {
+    console.error('ERROR: No patient ID in token response. Server may not support standalone patient launch.');
+    process.exit(1);
+  }
+
+  log(`Access token obtained (expires_in: ${tokenResponse.expires_in || 'N/A'}s)`);
+  log(`Patient ID: ${patientId}`);
+
+  // Step 6: Fetch all FHIR resources
+  const results = await fetchAllResources(fhirBaseUrl, accessToken, patientId);
+
+  // Step 7: Save JSON files
+  log(`\nSaving to ${CONFIG.outputDir}/`);
+  saveJsonFiles(CONFIG.outputDir, results);
+
+  // Step 8: Generate Markdown summary
+  const markdown = generateMarkdownSummary(results);
+  const mdPath = path.join(CONFIG.outputDir, 'patient-summary.md');
+  fs.writeFileSync(mdPath, markdown);
+  log('Saved patient-summary.md');
+
+  // Step 9: Print console summary
+  printConsoleSummary(results);
+
+  log('Done! Open output/patient-summary.md for the full summary.\n');
+}
 
 main().catch((err) => {
-  console.error(`\nFatal error: ${err.message}`);
+  console.error(`\n\x1b[31mFatal error: ${err.message}\x1b[0m`);
   process.exit(1);
 });
