@@ -822,6 +822,62 @@
             line-height: 1.5;
         }
 
+        /* Trust line */
+        .hero-trust-line {
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.625rem 1.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            letter-spacing: 0.03em;
+        }
+
+        /* Extra About strip (RU-specific) */
+        .extra-about-strip {
+            background: var(--color-surface);
+            border-bottom: 1px solid var(--color-border);
+            padding: 2rem 3rem;
+            text-align: center;
+        }
+        .extra-about-strip .about-text {
+            max-width: 700px;
+            margin: 0 auto;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: var(--color-text-secondary);
+            font-style: italic;
+        }
+        .extra-about-strip .about-author {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--color-text);
+        }
+        .extra-about-strip .countries-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .extra-about-strip .countries-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .extra-about-strip .country-tag {
+            padding: 0.3rem 0.75rem;
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 2rem;
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+        }
+
         /* Contact Section */
         #contact {
             background: var(--color-dark);
@@ -1929,8 +1985,12 @@
                 <div class="hero-values" id="heroValues">
                     <!-- Populated by applyLanguageContent() -->
                 </div>
+                <!-- Trust line (populated by JS when available) -->
+                <div class="hero-trust-line" id="heroTrustLine" style="display:none;"></div>
             </div>
         </section>
+
+        <!-- Note: extraAboutStrip is rendered inside services section below -->
 
         <!-- Section 2: Services -->
         <section class="section" id="services">
@@ -1945,6 +2005,8 @@
                         <!-- Populated by applyLanguageContent() -->
                     </div>
                 </div>
+                <!-- Extra: About / Countries (RU-specific, hidden by default) -->
+                <div class="extra-about-strip" id="extraAboutStrip" style="display:none;"></div>
             </div>
         </section>
 
@@ -2209,6 +2271,57 @@
             // 11. Update typing animation queries
             if (typeof updateTypingQueries === 'function') {
                 updateTypingQueries(cfg.searchQueries);
+            }
+
+            // 12. Trust line
+            const trustEl = document.getElementById('heroTrustLine');
+            if (trustEl) {
+                if (cfg.trust) {
+                    trustEl.textContent = cfg.trust;
+                    trustEl.style.display = '';
+                } else {
+                    trustEl.style.display = 'none';
+                }
+            }
+
+            // 13. Extra about/countries strip (RU-specific)
+            const aboutStrip = document.getElementById('extraAboutStrip');
+            if (aboutStrip) {
+                if (cfg.about || (cfg.extraSections && cfg.extraSections.countries)) {
+                    let html = '';
+                    if (cfg.about) {
+                        html += '<p class="about-text">' + cfg.about + '</p>';
+                    }
+                    if (cfg.extraSections && cfg.extraSections.countries) {
+                        const c = cfg.extraSections.countries;
+                        html += '<div class="countries-title">' + c.title + '</div>';
+                        html += '<div class="countries-list">' +
+                            c.list.map(function(name) { return '<span class="country-tag">' + name + '</span>'; }).join('') +
+                            '</div>';
+                    }
+                    aboutStrip.innerHTML = html;
+                    aboutStrip.style.display = '';
+                } else {
+                    aboutStrip.innerHTML = '';
+                    aboutStrip.style.display = 'none';
+                }
+            }
+
+            // 14. RU-specific: Swap Messenger → Telegram
+            const contactBtnsEl = document.getElementById('contactButtons');
+            if (contactBtnsEl) {
+                const fbBtn = contactBtnsEl.querySelector('a:last-child');
+                if (fbBtn) {
+                    if (cfg.contact && cfg.contact.linkTelegram) {
+                        fbBtn.href = cfg.contact.linkTelegram;
+                        fbBtn.querySelector('span').textContent = 'Telegram';
+                        fbBtn.innerHTML = fbBtn.innerHTML.replace('💬', '✈️');
+                    } else {
+                        fbBtn.href = 'https://m.me/' + (cfg.contact && cfg.contact.linkFacebook || '61587738421431');
+                        fbBtn.querySelector('span').textContent = cfg.contact && cfg.contact.btnFacebook || 'Messenger';
+                        fbBtn.innerHTML = fbBtn.innerHTML.replace('✈️', '💬');
+                    }
+                }
             }
         }
 
