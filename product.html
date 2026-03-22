@@ -13,9 +13,19 @@
     <meta property="og:locale" content="ka_GE">
     <meta name="twitter:card" content="summary">
 
+    <!-- Performance: DNS prefetch & preconnect -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js" defer></script>
+
+    <!-- PWA manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0A1628">
 
     <style>
         :root {
@@ -489,100 +499,379 @@
         .result-icon svg {
             width: 20px;
             height: 20px;
-            color: var(--teal);
         }
 
-        .result-card-title {
-            font-size: 0.9375rem;
+        .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .result-title {
+            font-size: 1rem;
             font-weight: 700;
-            line-height: 1.4;
             margin-bottom: 0.25rem;
+            line-height: 1.3;
         }
 
-        .result-card-source {
-            font-size: 0.6875rem;
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .result-source {
+            font-size: 0.75rem;
             color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
-        .result-card-body {
-            font-size: 0.8125rem;
+        .result-source svg { width: 12px; height: 12px; }
+
+        .result-body {
+            font-size: 0.875rem;
             color: var(--text-secondary);
-            line-height: 1.7;
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
         }
-
-        .result-card-body p { margin-bottom: 0.5rem; }
-        .result-card-body p:last-child { margin-bottom: 0; }
 
         .result-tags {
             display: flex;
             flex-wrap: wrap;
             gap: 0.375rem;
-            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
         }
 
         .result-tag {
-            padding: 0.25rem 0.625rem;
+            display: inline-block;
             font-size: 0.6875rem;
-            font-weight: 500;
-            color: var(--teal);
-            background: var(--teal-light);
+            font-weight: 600;
+            padding: 0.1875rem 0.5rem;
+            background: rgba(95, 168, 211, 0.08);
+            color: #5FA8D3;
             border-radius: 999px;
+        }
+
+        .result-card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: var(--text);
+        }
+
+        .result-card-body {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.3s ease;
+            padding-top: 0;
+        }
+
+        .result-card-body.expanded {
+            max-height: 2000px;
+            padding-top: 0.75rem;
+        }
+
+        .result-card-body p {
+            margin-bottom: 0.5rem;
+        }
+
+        .accordion-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--teal);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.375rem 0;
+            margin-top: 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .accordion-toggle:hover {
+            color: var(--teal-hover);
+        }
+
+        .accordion-toggle .arrow {
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+
+        .accordion-toggle.open .arrow {
+            transform: rotate(180deg);
+        }
+
+        .result-card-source {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.125rem;
         }
 
         .result-link {
             display: inline-flex;
             align-items: center;
             gap: 0.25rem;
-            margin-top: 0.75rem;
             font-size: 0.8125rem;
             font-weight: 600;
             color: var(--teal);
             text-decoration: none;
+            margin-top: 0.75rem;
+            transition: color 0.2s;
         }
 
-        .result-link:hover { text-decoration: underline; }
+        .result-link:hover {
+            color: var(--teal-hover);
+        }
 
-        /* AI Processing Animation */
+        .result-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .result-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .result-section-icon {
+            font-size: 1.25rem;
+        }
+
+        .result-section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .tag-pill {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.1875rem 0.5rem;
+            background: var(--teal-light);
+            color: var(--teal);
+            border-radius: 999px;
+        }
+
+        .result-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-visit {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.875rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
+            border-radius: 999px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-visit:hover {
+            background: var(--teal);
+            color: white;
+            border-color: var(--teal);
+        }
+
+        .btn-visit svg { width: 12px; height: 12px; }
+
+        /* ═══════════════ PRIORITY BADGES ═══════════════ */
+        .priority-badge {
+            font-size: 0.625rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .priority-high {
+            background: rgba(239, 68, 68, 0.1);
+            color: #DC2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .priority-med {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .priority-low {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        /* ═══════════════ LOADING ═══════════════ */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 3rem 0;
+        }
+
+        .loading.visible { display: block; }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--teal);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        .loading-steps {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        .loading-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--teal-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step-icon svg { width: 12px; height: 12px; color: var(--teal); }
+
+        .loading-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+        }
+
+        /* ═══════════════ ERROR & EMPTY ═══════════════ */
+        .error-state, .empty-state {
+            text-align: center;
+            padding: 3rem 0;
+            display: none;
+        }
+
+        .error-state.visible, .empty-state.visible { display: block; }
+
+        .state-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+        }
+
+        .error-state .state-icon { background: rgba(239, 68, 68, 0.1); }
+        .empty-state .state-icon { background: var(--teal-light); }
+
+        .state-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .error-state .state-icon svg { color: var(--danger); }
+        .empty-state .state-icon svg { color: var(--teal); }
+
+        .state-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .state-desc {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .btn-retry {
+            padding: 0.5rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-retry:hover { background: var(--teal); color: white; }
+
+        /* ═══════════════ FOOTER ═══════════════ */
+        .disclaimer {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        /* ═══════════════ AI PROCESSING ═══════════════ */
         .ai-processing {
             display: none;
             text-align: center;
             padding: 3rem 1.5rem;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
-        .ai-processing.visible { display: block; }
+        .ai-processing.visible {
+            display: block;
+        }
 
         .ai-orb {
-            width: 80px;
-            height: 80px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), var(--teal-hover));
             margin: 0 auto 1.5rem;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--teal), var(--navy));
             animation: orbPulse 2s ease-in-out infinite;
-            position: relative;
-        }
-
-        .ai-orb::after {
-            content: '';
-            position: absolute;
-            inset: -8px;
-            border-radius: 50%;
-            border: 2px solid var(--teal-pale);
-            animation: orbRing 3s linear infinite;
+            box-shadow: 0 0 30px rgba(95, 168, 211, 0.3);
         }
 
         @keyframes orbPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(95, 168, 211, 0.3); }
-            50% { transform: scale(1.08); box-shadow: 0 0 50px rgba(95, 168, 211, 0.5); }
-        }
-
-        @keyframes orbRing {
-            to { transform: rotate(360deg); }
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.1); opacity: 1; }
         }
 
         .ai-status {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.375rem;
         }
 
         .ai-substatus {
@@ -601,16 +890,22 @@
         .ai-step {
             display: flex;
             align-items: center;
-            gap: 0.375rem;
-            font-size: 0.75rem;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
             color: var(--text-muted);
             transition: all 0.3s;
         }
 
-        .ai-step.active { color: var(--teal); font-weight: 600; }
-        .ai-step.done { color: var(--success); }
+        .ai-step.active {
+            color: var(--teal);
+            font-weight: 600;
+        }
 
-        .ai-step .step-dot {
+        .ai-step.done {
+            color: var(--success);
+        }
+
+        .step-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
@@ -618,87 +913,38 @@
             transition: all 0.3s;
         }
 
-        .ai-step.active .step-dot { background: var(--teal); animation: pulse 1s infinite; }
-        .ai-step.done .step-dot { background: var(--success); }
-
-        /* ═══════════════ DISCLAIMER ═══════════════ */
-        .disclaimer {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 1.5rem 2rem;
-            text-align: center;
+        .ai-step.active .step-dot {
+            background: var(--teal);
+            box-shadow: 0 0 8px rgba(95, 168, 211, 0.4);
+            animation: dotPulse 1s infinite;
         }
 
-        .disclaimer p {
-            font-size: 0.6875rem;
-            color: var(--text-muted);
-            line-height: 1.6;
+        .ai-step.done .step-dot {
+            background: var(--success);
         }
 
-        /* ═══════════════ RESPONSIVE ═══════════════ */
-        @media (max-width: 768px) {
-            .hero { padding: 2rem 1rem 1.5rem; }
-            .hero h1 { font-size: 1.5rem; }
-            .search-container { padding: 0 1rem 2rem; }
-            .panel-header { padding: 1.25rem 1.25rem 0; }
-            .panel-body { padding: 0 1.25rem 1.25rem; }
-            .submit-section {
-                padding: 1rem 1.25rem;
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            .submit-info { text-align: center; }
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.4); }
         }
 
-        /* ═══════════════ ERROR STATE ═══════════════ */
+        /* ═══════════════ ERROR MESSAGE ═══════════════ */
         .error-message {
-            padding: 1rem;
-            background: rgba(239, 68, 68, 0.05);
+            display: none;
+            padding: 0.75rem 1.25rem;
+            margin: 0.75rem 1.5rem;
+            font-size: 0.8125rem;
+            color: #DC2626;
+            background: rgba(239, 68, 68, 0.06);
             border: 1px solid rgba(239, 68, 68, 0.15);
             border-radius: var(--radius-md);
-            color: var(--danger);
-            font-size: 0.8125rem;
-            margin-top: 1rem;
-            display: none;
         }
 
-        .error-message.visible { display: block; }
-
-        /* ═══════════════ ENHANCED RESULTS (n8n multi-agent) ═══════════════ */
-        .result-section {
-            margin-bottom: 1.5rem;
+        .error-message.visible {
+            display: block;
         }
 
-        .result-section-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--teal-pale);
-        }
-
-        .result-section-icon {
-            font-size: 1.25rem;
-        }
-
-        .result-section-title {
-            font-size: 1.0625rem;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .priority-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.625rem;
-            font-size: 0.6875rem;
-            font-weight: 600;
-            border-radius: 999px;
-            margin-bottom: 0.5rem;
-        }
-
+        /* ═══════════════ PRIORITY BADGES (enhanced) ═══════════════ */
         .priority-high {
             background: rgba(239, 68, 68, 0.1);
             color: #DC2626;
@@ -852,6 +1098,478 @@
             border-radius: 999px;
             margin-top: 0.5rem;
         }
+
+        /* ═══════════════ DOWNLOAD BUTTON ═══════════════ */
+        .download-report-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background: var(--teal);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Noto Sans Georgian', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+        }
+        .download-report-btn:hover { background: var(--teal-hover); }
+        .download-report-btn:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        .results-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        /* ═══════════════ PDF REPORT STYLES ═══════════════ */
+        .report-page {
+            font-family: 'Noto Sans Georgian', sans-serif;
+            width: 760px;
+            padding: 40px;
+            color: #1a1a1a;
+            line-height: 1.8;
+            background: #fff;
+            box-sizing: border-box;
+        }
+        .report-header-block {
+            text-align: center;
+            border-bottom: 2px solid #5FA8D3;
+            padding-bottom: 12pt;
+            margin-bottom: 16pt;
+        }
+        .report-logo {
+            font-size: 10pt;
+            color: #5FA8D3;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .report-title {
+            font-size: 16pt;
+            color: #1e293b;
+            margin: 8pt 0 4pt;
+            font-weight: 700;
+        }
+        .report-date {
+            font-size: 9pt;
+            color: #6b7280;
+        }
+        .report-section-heading {
+            font-size: 13pt;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 18pt 0 8pt;
+            padding-bottom: 4pt;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .report-body p {
+            text-align: justify;
+            margin: 0 0 8pt;
+            font-size: 10.5pt;
+        }
+        .report-disclaimer {
+            font-size: 8pt;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8pt;
+            margin-top: 20pt;
+            font-style: italic;
+        }
+        .report-footer {
+            text-align: center;
+            font-size: 7pt;
+            color: #9ca3af;
+            margin-top: 12pt;
+        }
+
+        /* ═══════════════ CHATBOT WIDGET ═══════════════ */
+        #chatbot-widget {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            z-index: 9999;
+            font-family: 'Noto Sans Georgian', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .chatbot-toggle {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), var(--teal-hover));
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(95, 168, 211, 0.4);
+            transition: all 0.3s;
+            z-index: 10000;
+        }
+
+        .chatbot-toggle:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 28px rgba(95, 168, 211, 0.5);
+        }
+
+        .chatbot-toggle.hidden { display: none; }
+
+        .chatbot-toggle svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .chatbot-toggle-pulse {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: rgba(95, 168, 211, 0.3);
+            animation: chatPulse 2s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes chatPulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .chatbot-notification {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 20px;
+            height: 20px;
+            background: #EF4444;
+            color: white;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        .chatbot-container {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 370px;
+            max-height: 520px;
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 12px 48px rgba(10, 22, 40, 0.18);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.8) translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 10001;
+        }
+
+        .chatbot-container.open {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .chatbot-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: var(--navy);
+            color: white;
+        }
+
+        .chatbot-avatar {
+            width: 36px;
+            height: 36px;
+            background: rgba(95, 168, 211, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .chatbot-avatar svg {
+            width: 20px;
+            height: 20px;
+            color: var(--teal);
+        }
+
+        .chatbot-info { flex: 1; }
+
+        .chatbot-name {
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+
+        .chatbot-status {
+            font-size: 0.6875rem;
+            opacity: 0.8;
+        }
+
+        .chatbot-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .chatbot-close:hover { opacity: 1; }
+
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-height: 280px;
+            max-height: 320px;
+            background: var(--bg);
+        }
+
+        .message {
+            display: flex;
+            gap: 0.5rem;
+            max-width: 88%;
+            animation: msgIn 0.3s ease;
+        }
+
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-bot { align-self: flex-start; }
+
+        .message-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--teal-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .message-avatar svg {
+            width: 14px;
+            height: 14px;
+            color: var(--teal);
+        }
+
+        .message-content {
+            padding: 0.625rem 0.875rem;
+            border-radius: 14px;
+            font-size: 0.8125rem;
+            line-height: 1.55;
+            word-break: break-word;
+        }
+
+        .message-user .message-content {
+            background: var(--teal);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bot .message-content {
+            background: var(--white);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 0.875rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 999px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+        }
+
+        .action-whatsapp {
+            background: #25D366;
+            color: white;
+            border-color: #25D366;
+        }
+
+        .action-whatsapp:hover {
+            background: #1eb954;
+        }
+
+        .action-form {
+            background: var(--white);
+            color: var(--teal);
+            border-color: var(--teal-pale);
+        }
+
+        .action-form:hover {
+            background: var(--teal-light);
+        }
+
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0.75rem 1rem;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            border-bottom-left-radius: 4px;
+        }
+
+        .typing-dots span {
+            width: 7px;
+            height: 7px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typingBounce 1.2s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .chatbot-quick-replies {
+            display: flex;
+            gap: 0.375rem;
+            padding: 0.5rem 1rem;
+            flex-wrap: wrap;
+            background: var(--white);
+            border-top: 1px solid var(--border-light);
+        }
+
+        .quick-reply {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            font-family: inherit;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 1px solid var(--teal-pale);
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-reply:hover {
+            background: var(--teal);
+            color: white;
+        }
+
+        .chatbot-input-area {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--white);
+            border-top: 1px solid var(--border);
+        }
+
+        .chatbot-input {
+            flex: 1;
+            padding: 0.625rem 0.875rem;
+            font-size: 0.8125rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chatbot-input:focus {
+            border-color: var(--teal);
+        }
+
+        .chatbot-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .chatbot-send {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .chatbot-send:hover {
+            background: var(--teal-hover);
+            transform: scale(1.05);
+        }
+
+        .chatbot-send svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .chatbot-container {
+                bottom: 0;
+                right: 0;
+                left: 0;
+                width: 100%;
+                max-height: 85vh;
+                border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            }
+
+            .chatbot-toggle {
+                bottom: 1rem;
+                right: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -930,11 +1648,8 @@
                     <div class="form-group">
                         <label class="form-label">კვლევის ტიპი</label>
                         <select class="form-select" id="research-type">
-                            <option value="all">ყველა ტიპი</option>
                             <option value="clinical_trial">კლინიკური კვლევა</option>
-                            <option value="systematic_review">სისტემატური მიმოხილვა</option>
-                            <option value="case_study">შემთხვევის კვლევა</option>
-                            <option value="meta_analysis">ერთობლივი ანალიზი</option>
+                            <option value="research_results">კვლევის შედეგები</option>
                         </select>
                     </div>
                 </div>
@@ -1053,7 +1768,7 @@
                             <input type="checkbox" value="spain"> ესპანეთი
                         </label>
                         <label class="checkbox-item" onclick="toggleCheck(this)">
-                            <input type="checkbox" value="india"> ინდოეთი
+                            <input type="checkbox" value="india"> იაპაზონი
                         </label>
                     </div>
                 </div>
@@ -1127,8 +1842,28 @@
         <div class="results-header">
             <div class="results-title" id="results-title">ძიების შედეგები</div>
             <div class="results-meta" id="results-meta"></div>
+            <button id="download-report-btn" class="download-report-btn" onclick="downloadReport()" style="display:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                ანგარიშის ჩამოტვირთვა (PDF)
+            </button>
         </div>
         <div id="results-list"></div>
+    </div>
+
+    <!-- PDF REPORT TEMPLATE (hidden via overflow, not offscreen — html2canvas compatible) -->
+    <div id="report-template" style="overflow:hidden;height:0;width:0;position:absolute;left:0;top:0;opacity:0;pointer-events:none;">
+        <div class="report-page" id="report-page">
+            <div class="report-header-block">
+                <div class="report-logo">MED&გზური</div>
+                <h1 class="report-title" id="report-title-text"></h1>
+                <div class="report-date" id="report-date-text"></div>
+            </div>
+            <div class="report-body" id="report-body-content"></div>
+            <div class="report-disclaimer" id="report-disclaimer-text"></div>
+            <div class="report-footer">
+                MED&გზური &copy; 2026 | ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას
+            </div>
+        </div>
     </div>
 
     <!-- DISCLAIMER -->
@@ -1137,11 +1872,28 @@
     </div>
 
     <script>
+    // ═══════════════ CONFIG ═══════════════
+    const API_BASE = '';
+
     // ═══════════════ STATE ═══════════════
+    /** @type {string} Currently active search tab */
     let currentTab = 'research';
+    /** @type {boolean} Whether a search is in progress (prevents concurrent searches) */
     let isSearching = false;
+    /** @type {object|null} Last search result (used for PDF report generation) */
+    let lastSearchResult = null;
+    /** @type {string|null} Last search type (research|symptoms|clinics) */
+    let lastSearchType = null;
+    /** @type {string|null} Last search query (original user input) */
+    let lastSearchQuery = null;
 
     // ═══════════════ TAB SWITCHING ═══════════════
+    /**
+     * Switch the active search tab and panel.
+     * Blocked while a search is in progress to prevent state corruption.
+     *
+     * @param {string} tab - Target tab name (research|symptoms|clinics)
+     */
     function switchTab(tab) {
         if (isSearching) return;
         currentTab = tab;
@@ -1163,6 +1915,10 @@
     }
 
     // ═══════════════ CHECKBOX TOGGLE ═══════════════
+    /**
+     * Toggle a custom checkbox element's checked state.
+     * @param {HTMLElement} el - The .checkbox-item container element
+     */
     function toggleCheck(el) {
         const input = el.querySelector('input');
         input.checked = !input.checked;
@@ -1170,6 +1926,14 @@
     }
 
     // ═══════════════ SEARCH LOGIC ═══════════════
+    /**
+     * Execute a search: validate input → show progress → call API → display results.
+     *
+     * Uses an AbortController with a 600-second timeout. Progress is visualized
+     * through a multi-step animation. On failure, shows a Georgian error message.
+     *
+     * @param {string} type - Search type (research|symptoms|clinics)
+     */
     async function startSearch(type) {
         if (isSearching) return;
 
@@ -1177,10 +1941,13 @@
         const data = collectFormData(type);
         if (!data) return;
 
+        // Save original query for report generation
+        lastSearchQuery = data.diagnosis || data.symptoms || data.treatment || '';
+
         isSearching = true;
         const btn = document.querySelector(`#panel-${type} .btn-search`);
         btn.disabled = true;
-        btn.innerHTML = '<div class="spinner"></div> მიმდინარეობს...';
+        btn.innerHTML = '<div class="spinner"></div> მიმდინარეობს კვლევების მოძიება...';
 
         // Hide previous results, show processing
         document.getElementById('results-container').classList.remove('visible');
@@ -1191,16 +1958,16 @@
         resetAISteps();
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        const timeoutId = setTimeout(() => controller.abort(), 600000);
 
         try {
             const steps = getTeamSteps(type);
 
             // Step 1
             updateAIStep(steps[0].key, 'active');
-            updateAIStatus(steps[0].label + '...', 'ვეძებთ რელევანტურ ინფორმაციას მრავალ წყაროში');
+            updateAIStatus(steps[0].label + '...', 'მიმდინარეობს კვლევების მოძიება და ანალიზი... ეს შეიძლება რამდენიმე წუთი გასტანოს.');
 
-            const response = await fetch(`/api/search`, {
+            const response = await fetch(API_BASE + '/api/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type, data }),
@@ -1256,6 +2023,15 @@
         }
     }
 
+    /**
+     * Collect and validate form data for the given search type.
+     *
+     * Returns null (and shows an error) if validation fails.
+     * Validates: required fields, max text lengths, age range.
+     *
+     * @param {string} type - Search type
+     * @returns {object|null} Form data object or null on validation failure
+     */
     function collectFormData(type) {
         const errEl = document.getElementById(`error-${type}`);
         errEl.classList.remove('visible');
@@ -1393,6 +2169,20 @@
     function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     // ═══════════════ DISPLAY RESULTS ═══════════════
+    /**
+     * Render search results into the results container.
+     *
+     * Handles multiple response formats:
+     *   - sections[] (enhanced n8n response)
+     *   - items[] (standard flat format)
+     *   - summary (text-only fallback)
+     *   - comparison, tips, nextSteps (supplementary data)
+     *
+     * Saves the result for later PDF report generation.
+     *
+     * @param {string} type   - Search type (for icon/title selection)
+     * @param {object} result - API response object
+     */
     function displayResults(type, result) {
         const container = document.getElementById('results-container');
         const list = document.getElementById('results-list');
@@ -1429,7 +2219,10 @@
         else if (result.summary) {
             var card = document.createElement('div');
             card.className = 'result-card';
-            card.innerHTML = '<div class="result-card-body">' + formatResultBody(result.summary) + '</div>';
+            card.innerHTML =
+                '<div class="result-card-body" style="font-weight:700;margin-bottom:0.5rem">&#9888;&#65039; სტრუქტურირებული ძიების შედეგი ვერ მივიღეთ</div>' +
+                '<div class="result-card-body">' + formatResultBody(result.summary) + '</div>' +
+                '<div class="result-card-source" style="margin-top:0.75rem">გირჩევთ: სცადეთ თავიდან ან შეამოწმეთ API კონფიგურაცია.</div>';
             list.appendChild(card);
         }
 
@@ -1455,6 +2248,15 @@
             disc.textContent = result.disclaimer;
             list.appendChild(disc);
         }
+
+        // Save result for report generation
+        lastSearchResult = result;
+        lastSearchResult.originalQuery = lastSearchQuery;
+        lastSearchType = type;
+
+        // Show download button
+        var dlBtn = document.getElementById('download-report-btn');
+        if (dlBtn) dlBtn.style.display = 'inline-flex';
 
         container.classList.add('visible');
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1499,20 +2301,14 @@
             priorityHtml = '<span class="priority-badge priority-' + item.priority + '">' + (priorityLabels[item.priority] || '') + '</span>';
         }
 
-        var ratingHtml = '';
-        if (item.rating) {
-            var fullStars = Math.floor(item.rating);
-            ratingHtml = '<div class="result-rating">' + '\u2B50'.repeat(fullStars) + ' ' + item.rating + '/5</div>';
-        }
-
         var phaseHtml = '';
         if (item.phase) {
             phaseHtml = '<span class="phase-badge">' + escapeHtml(item.phase) + ' \u10E4\u10D0\u10D6\u10D0</span>';
         }
 
-        var priceHtml = '';
-        if (item.price) {
-            priceHtml = '<div class="result-price">\uD83D\uDCB0 ' + escapeHtml(item.price) + '</div>';
+        var tagsHtml = '';
+        if (item.tags) {
+            tagsHtml = '<div class="result-tags">' + item.tags.map(function(t) { return '<span class="result-tag">' + escapeHtml(t) + '</span>'; }).join('') + '</div>';
         }
 
         card.innerHTML = priorityHtml +
@@ -1525,14 +2321,28 @@
                     (item.source ? '<div class="result-card-source">' + escapeHtml(item.source) + '</div>' : '') +
                 '</div>' +
             '</div>' +
-            '<div class="result-card-body">' + formatResultBody(item.body) + '</div>' +
-            ratingHtml +
             phaseHtml +
-            priceHtml +
-            (item.tags ? '<div class="result-tags">' + item.tags.map(function(t) { return '<span class="result-tag">' + escapeHtml(t) + '</span>'; }).join('') + '</div>' : '') +
-            (item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener" class="result-link">\u10EC\u10E7\u10D0\u10E0\u10DD\u10E1 \u10DC\u10D0\u10EE\u10D5\u10D0 \u2192</a>' : '');
+            tagsHtml +
+            '<button class="accordion-toggle" onclick="toggleAccordion(this)">' +
+                '<span class="arrow">▼</span> ვრცლად' +
+            '</button>' +
+            '<div class="result-card-body">' + formatResultBody(item.body) + '</div>';
 
         return card;
+    }
+
+    function toggleAccordion(btn) {
+        var body = btn.nextElementSibling;
+        var isOpen = body.classList.contains('expanded');
+        if (isOpen) {
+            body.classList.remove('expanded');
+            btn.classList.remove('open');
+            btn.innerHTML = '<span class="arrow">▼</span> ვრცლად';
+        } else {
+            body.classList.add('expanded');
+            btn.classList.add('open');
+            btn.innerHTML = '<span class="arrow">▼</span> დახურვა';
+        }
     }
 
     function renderComparisonTable(comparison) {
@@ -1590,8 +2400,43 @@
         return icons[type] || icons.research;
     }
 
+    /**
+     * Convert markdown text to sanitized HTML for result card bodies.
+     *
+     * Uses marked.js for parsing and DOMPurify for XSS prevention.
+     * Falls back to plain-text paragraph wrapping if libraries are unavailable.
+     *
+     * Performance fix: marked.setOptions() was called on every invocation,
+     * re-configuring the parser each time. Now configured once via an IIFE flag.
+     *
+     * @param {string} text - Markdown or plain text
+     * @returns {string} Sanitized HTML
+     */
+    let _markedConfigured = false;
+    const _purifyConfig = {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'h3', 'h4', 'a', 'code', 'pre', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sup', 'sub'],
+        ALLOWED_ATTR: ['href', 'target', 'rel']
+    };
+
     function formatResultBody(text) {
         if (!text) return '';
+        if (typeof marked !== 'undefined') {
+            try {
+                // Configure marked once — avoids per-call overhead
+                if (!_markedConfigured) {
+                    marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+                    _markedConfigured = true;
+                }
+                const rawHtml = marked.parse(text);
+                if (typeof DOMPurify !== 'undefined') {
+                    return DOMPurify.sanitize(rawHtml, _purifyConfig);
+                }
+                return rawHtml;
+            } catch (e) {
+                console.warn('[MedGzuri] Markdown parse failed, falling back:', e.message);
+            }
+        }
+        // Fallback: plain text with paragraph wrapping
         return text
             .split('\n')
             .filter(l => l.trim())
@@ -1599,12 +2444,271 @@
             .join('');
     }
 
+    // ═══════════════ PDF REPORT GENERATION ═══════════════
+    /**
+     * Generate and download a PDF report from the last search results.
+     *
+     * Flow:
+     *   1. Request structured report from /api/search (type: 'report')
+     *   2. Fallback to buildLocalReport() if API fails
+     *   3. Render HTML into a hidden container
+     *   4. Convert to PDF using html2pdf.js
+     *   5. Clean up temporary DOM elements
+     */
+    async function downloadReport() {
+        if (!lastSearchResult) return;
+
+        var btn = document.getElementById('download-report-btn');
+        btn.disabled = true;
+        btn.textContent = 'ანგარიში მზადდება...';
+
+        var pdfContainer = null;
+
+        try {
+            // Request report from API
+            var report;
+            try {
+                var response = await fetch(API_BASE + '/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'report',
+                        data: {
+                            reportType: lastSearchType,
+                            searchResult: lastSearchResult
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    report = await response.json();
+                }
+            } catch (fetchErr) {
+                console.warn('[MedGzuri] Report API failed, using local:', fetchErr.message);
+            }
+
+            // Fallback: build report from existing results
+            if (!report || (!report.sections && !report.summary)) {
+                report = buildLocalReport(lastSearchType, lastSearchResult);
+            }
+
+            // Build date string
+            var dateStr;
+            try {
+                dateStr = new Date().toLocaleDateString('ka-GE', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch (e) {
+                dateStr = new Date().toISOString().slice(0, 10);
+            }
+
+            // Build body HTML from report
+            var bodyHtml = '';
+            if (report.sections && report.sections.length > 0) {
+                report.sections.forEach(function(section) {
+                    bodyHtml += '<div class="report-section-heading">' + escapeHtml(section.heading) + '</div>';
+                    var paragraphs = (section.content || '').split('\n').filter(function(p) { return p.trim(); });
+                    paragraphs.forEach(function(p) {
+                        bodyHtml += '<p>' + escapeHtml(p) + '</p>';
+                    });
+                });
+            } else if (report.summary) {
+                bodyHtml = '<p>' + escapeHtml(report.summary) + '</p>';
+            }
+
+            // Fallback if body is still empty
+            if (!bodyHtml) {
+                report = buildLocalReport(lastSearchType, lastSearchResult);
+                report.sections.forEach(function(section) {
+                    bodyHtml += '<div class="report-section-heading">' + escapeHtml(section.heading) + '</div>';
+                    var paragraphs = (section.content || '').split('\n').filter(function(p) { return p.trim(); });
+                    paragraphs.forEach(function(p) {
+                        bodyHtml += '<p>' + escapeHtml(p) + '</p>';
+                    });
+                });
+            }
+
+            // Create a standalone container for PDF rendering (avoids clipping issues)
+            pdfContainer = document.createElement('div');
+            pdfContainer.style.cssText = 'position:fixed;left:0;top:0;z-index:-1;opacity:0;pointer-events:none;background:#fff;';
+            pdfContainer.innerHTML =
+                '<div id="pdf-render-target" style="' +
+                    'font-family:Noto Sans Georgian,sans-serif;' +
+                    'width:700px;' +
+                    'padding:40px 50px;' +
+                    'color:#1a1a1a;' +
+                    'line-height:1.8;' +
+                    'background:#fff;' +
+                    'box-sizing:border-box;' +
+                '">' +
+                    '<div style="text-align:center;border-bottom:2px solid #5FA8D3;padding-bottom:14px;margin-bottom:20px;">' +
+                        '<div style="font-size:11pt;color:#5FA8D3;font-weight:700;letter-spacing:1px;">MED&amp;გზური</div>' +
+                        '<h1 style="font-size:16pt;color:#1e293b;margin:10px 0 6px;font-weight:700;">' + escapeHtml(report.title || 'სამედიცინო ანგარიში') + '</h1>' +
+                        '<div style="font-size:9pt;color:#6b7280;">' + escapeHtml(dateStr) + '</div>' +
+                    '</div>' +
+                    '<div class="report-body">' + bodyHtml + '</div>' +
+                    '<div style="font-size:8pt;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:24px;font-style:italic;">' +
+                        escapeHtml(report.disclaimer || 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას.') +
+                    '</div>' +
+                    '<div style="text-align:center;font-size:7pt;color:#9ca3af;margin-top:14px;">' +
+                        'MED&amp;გზური &copy; 2026 | ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას' +
+                    '</div>' +
+                '</div>';
+            document.body.appendChild(pdfContainer);
+
+            // Wait for browser to render
+            await new Promise(function(resolve) { setTimeout(resolve, 300); });
+
+            // Generate PDF from the standalone element
+            var element = document.getElementById('pdf-render-target');
+            var opt = {
+                margin: [8, 5, 12, 5],
+                filename: 'MedGzuri-' + (lastSearchType || 'report') + '-' + new Date().toISOString().slice(0, 10) + '.pdf',
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    letterRendering: true,
+                    scrollX: 0,
+                    scrollY: 0,
+                    x: 0,
+                    y: 0,
+                    width: 700,
+                    windowWidth: 700
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+
+            // Wait for Georgian font to load before rendering
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+
+            await html2pdf().set(opt).from(element).save();
+
+        } catch (err) {
+            console.error('[MedGzuri] Report download failed:', err);
+            alert('ანგარიშის გენერაცია ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.');
+        } finally {
+            // Remove temporary container
+            if (pdfContainer && pdfContainer.parentNode) {
+                pdfContainer.parentNode.removeChild(pdfContainer);
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ანგარიშის ჩამოტვირთვა (PDF)';
+        }
+    }
+
+    function buildLocalReport(type, result) {
+        var typeNames = { research: 'კვლევების', symptoms: 'სიმპტომების', clinics: 'კლინიკების' };
+        var typeName = typeNames[type] || 'სამედიცინო';
+        var query = result.originalQuery || lastSearchQuery || 'სამედიცინო მოთხოვნა';
+        var sections = [];
+
+        sections.push({
+            heading: 'შესავალი',
+            content: 'წინამდებარე ანგარიში მომზადებულია MED&გზურის სამედიცინო საძიებო სისტემის მიერ, თქვენი მოთხოვნის საფუძველზე: "' + query + '".\n\nანგარიშის მიზანია მოგაწოდოთ სისტემატიზებული ინფორმაცია თანამედროვე სამედიცინო კვლევებისა და კლინიკური პრაქტიკის შესახებ. ინფორმაცია მოძიებულია საერთაშორისო სამედიცინო მონაცემთა ბაზებიდან.\n\nგთხოვთ გაითვალისწინოთ, რომ ეს ანგარიში არ ჩაანაცვლებს კვალიფიციური ექიმის კონსულტაციას.'
+        });
+
+        // Extract content from sections format
+        if (result.sections && result.sections.length > 0) {
+            result.sections.forEach(function(section) {
+                var content = '';
+                if (section.items && section.items.length > 0) {
+                    section.items.forEach(function(item, idx) {
+                        content += (idx + 1) + '. ' + (item.title || 'მიგნება') + '\n';
+                        content += (item.body || '') + '\n';
+                        if (item.source) content += 'წყარო: ' + item.source + '\n';
+                        if (item.tags && item.tags.length) content += 'თეგები: ' + item.tags.join(', ') + '\n';
+                        content += '\n';
+                    });
+                }
+                if (content.trim()) {
+                    sections.push({
+                        heading: section.title || 'მიგნებები',
+                        content: content.trim()
+                    });
+                }
+            });
+        }
+        // Fallback to items format
+        else if (result.items && result.items.length > 0) {
+            result.items.forEach(function(item, idx) {
+                var itemContent = (item.body || '');
+                if (item.source) itemContent += '\n\nწყარო: ' + item.source;
+                if (item.tags && item.tags.length) itemContent += '\nთეგები: ' + item.tags.join(', ');
+                if (item.price) itemContent += '\nსავარაუდო ღირებულება: ' + item.price;
+
+                sections.push({
+                    heading: item.title || ('მიგნება #' + (idx + 1)),
+                    content: itemContent
+                });
+            });
+        }
+
+        if (result.summary) {
+            sections.push({ heading: 'მიმოხილვა', content: result.summary });
+        }
+
+        // Add comparison if available
+        if (result.comparison && result.comparison.headers && result.comparison.rows) {
+            var compContent = result.comparison.headers.join(' | ') + '\n';
+            compContent += result.comparison.rows.map(function(row) {
+                return row.join(' | ');
+            }).join('\n');
+            sections.push({ heading: 'შედარებითი ანალიზი', content: compContent });
+        }
+
+        // Add next steps if available
+        if (result.nextSteps && result.nextSteps.length > 0) {
+            var stepsContent = result.nextSteps.map(function(step, i) {
+                return (i + 1) + '. ' + step.text;
+            }).join('\n');
+            sections.push({ heading: 'რეკომენდებული შემდეგი ნაბიჯები', content: stepsContent });
+        }
+
+        // Add tips if available
+        if (result.tips && result.tips.length > 0) {
+            var tipsContent = result.tips.map(function(tip) {
+                return '• ' + tip.text;
+            }).join('\n');
+            sections.push({ heading: 'პრაქტიკული რჩევები', content: tipsContent });
+        }
+
+        sections.push({
+            heading: 'დასკვნა',
+            content: 'ამ ანგარიშში წარმოდგენილი ინფორმაცია ეფუძნება საერთაშორისო სამედიცინო მონაცემთა ბაზებში არსებულ კვლევებსა და პუბლიკაციებს.\n\nმნიშვნელოვანია, რომ ყველა სამედიცინო გადაწყვეტილება მიღებული იყოს კვალიფიციურ სპეციალისტთან კონსულტაციის შემდეგ. ანგარიშში წარმოდგენილი ინფორმაცია დაგეხმარებათ ექიმთან უფრო ინფორმირებული საუბრის წარმართვაში.\n\nMED&გზური მზადაა გაგიწიოთ შემდგომი დახმარება — დამატებითი კვლევების მოძიება, კლინიკებთან კომუნიკაცია ან სამედიცინო დოკუმენტაციის თარგმანი.'
+        });
+
+        return {
+            title: typeName + ' ანგარიში — ' + query,
+            sections: sections,
+            disclaimer: 'ეს ანგარიში არ ჩაანაცვლებს ექიმის კონსულტაციას. ყველა სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან ერთად. MED&გზური არ არის სამედიცინო დაწესებულება და არ ახორციელებს დიაგნოსტიკურ ან სამკურნალო საქმიანობას.'
+        };
+    }
+
+    /**
+     * Escape HTML special characters to prevent XSS injection.
+     *
+     * Optimization: Uses a single regex pass with a replacement map instead of
+     * 5 chained .replace() calls. Each .replace() creates a new string and
+     * scans the full input — O(5n). Single-pass version is O(n).
+     *
+     * @param {string} str - Raw text to escape
+     * @returns {string} HTML-safe string
+     */
+    const _escapeMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const _escapeRe = /[&<>"']/g;
     function escapeHtml(str) {
         if (!str) return '';
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return str.replace(_escapeRe, ch => _escapeMap[ch]);
     }
 
     // ═══════════════ ERROR HANDLING ═══════════════
+    /**
+     * Display an error message for the given search panel.
+     * @param {string} type - Search type (determines which error element to show)
+     * @param {string} msg  - Georgian error message text
+     */
     function showError(type, msg) {
         const el = document.getElementById(`error-${type}`);
         el.textContent = msg;
@@ -1613,6 +2717,15 @@
     }
 
     // ═══════════════ TYPING PLACEHOLDER ANIMATION ═══════════════
+    /**
+     * Animated typewriter effect for input placeholders.
+     *
+     * Cycles through example phrases to guide users on what to search.
+     * Pauses when the input is focused or has a value.
+     *
+     * Fix: Uses requestAnimationFrame-aware guards to prevent animation
+     * from running on elements removed from the DOM (memory leak prevention).
+     */
     (function() {
         const inputs = {
             'research-diagnosis': [
@@ -1640,6 +2753,9 @@
             const origPlaceholder = el.placeholder;
 
             function animate() {
+                // Guard: stop if element was removed from DOM (prevents memory leak)
+                if (!el.isConnected) return;
+
                 if (document.activeElement === el || el.value.length > 0) {
                     el.placeholder = origPlaceholder;
                     setTimeout(animate, 1000);
@@ -1662,5 +2778,6 @@
         });
     })();
     </script>
+    <script src="chatbot.js"></script>
 </body>
 </html>

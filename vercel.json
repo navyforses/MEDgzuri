@@ -5,6 +5,58 @@
     }
   },
   "rewrites": [
+  "version": 2,
+  "buildCommand": "",
+  "framework": null,
+  "alias": ["medgzuri.com", "www.medgzuri.com"],
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 300
+    },
+    "api/auth.js": {
+      "maxDuration": 30
+    },
+    "api/leads.js": {
+      "maxDuration": 30
+    },
+    "api/qa.js": {
+      "maxDuration": 300
+    },
+    "api/chat.js": {
+      "maxDuration": 120
+    },
+    "api/profile.js": {
+      "maxDuration": 30
+    },
+    "api/bookmarks.js": {
+      "maxDuration": 30
+    },
+    "api/alerts.js": {
+      "maxDuration": 30
+    },
+    "api/widget.js": {
+      "maxDuration": 10
+    },
+    "api/subscription.js": {
+      "maxDuration": 30
+    },
+    "api/analytics.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/api/search", "destination": "/api/search.js" },
+    { "source": "/api/chat", "destination": "/api/chat.js" },
+    { "source": "/api/auth", "destination": "/api/auth.js" },
+    { "source": "/api/leads", "destination": "/api/leads.js" },
+    { "source": "/api/qa", "destination": "/api/qa.js" },
+    { "source": "/api/profile", "destination": "/api/profile.js" },
+    { "source": "/api/bookmarks", "destination": "/api/bookmarks.js" },
+    { "source": "/api/alerts", "destination": "/api/alerts.js" },
+    { "source": "/api/widget", "destination": "/api/widget.js" },
+    { "source": "/api/subscription", "destination": "/api/subscription.js" },
+    { "source": "/api/analytics", "destination": "/api/analytics.js" },
+    { "source": "/qa", "destination": "/qa.html" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/admin", "destination": "/admin.html" },

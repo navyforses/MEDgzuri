@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ადმინპანელი - შესვლა</title>
+    <title>MED&გზური - შესვლა</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -27,7 +27,7 @@
             border-radius: 16px;
             padding: 2.5rem;
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
@@ -55,6 +55,42 @@
             color: #6B7280;
             text-align: center;
             margin-bottom: 2rem;
+        }
+
+        /* Tab switcher */
+        .auth-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 1.5rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 0.625rem;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #6B7280;
+            transition: all 0.2s;
+        }
+
+        .auth-tab.active {
+            background: #5FA8D3;
+            color: white;
+        }
+
+        .auth-panel {
+            display: none;
+        }
+
+        .auth-panel.active {
+            display: block;
         }
 
         .form-group {
@@ -100,73 +136,54 @@
             font-family: inherit;
         }
 
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .btn-primary {
             background: #5FA8D3;
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: #4A8FB8;
         }
 
-        .btn-secondary {
-            background: transparent;
-            color: #6B7280;
-            border: 1px solid #E5E7EB;
-            margin-top: 0.75rem;
-        }
-
-        .btn-secondary:hover {
-            background: #F3F4F6;
-        }
-
-        .error-message {
-            color: #EF4444;
+        .message {
             font-size: 0.875rem;
             text-align: center;
             margin-top: 1rem;
+            padding: 0.625rem;
+            border-radius: 8px;
             display: none;
         }
 
-        .error-message.show {
+        .message.show {
             display: block;
         }
 
-        .setup-section {
-            display: none;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #E5E7EB;
+        .message.error {
+            color: #991B1B;
+            background: #FEE2E2;
         }
 
-        .setup-section.show {
-            display: block;
+        .message.success {
+            color: #065F46;
+            background: #D1FAE5;
         }
 
-        .setup-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #0A1628;
+        .mode-badge {
+            text-align: center;
             margin-bottom: 1rem;
-        }
-
-        .setup-hint {
             font-size: 0.75rem;
-            color: #6B7280;
-            margin-top: 0.5rem;
-            line-height: 1.5;
+            color: #9CA3AF;
         }
 
-        .success-message {
-            color: #10B981;
-            font-size: 0.875rem;
-            text-align: center;
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .success-message.show {
-            display: block;
+        .mode-badge span {
+            background: #F3F4F6;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
         }
 
         .back-link {
@@ -181,6 +198,64 @@
         .back-link:hover {
             text-decoration: underline;
         }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.25rem 0;
+            gap: 0.75rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #E5E7EB;
+        }
+
+        .divider span {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+        }
+
+        .btn-google {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 2px solid #E5E7EB;
+            background: white;
+            color: #374151;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-google:hover {
+            background: #F9FAFB;
+            border-color: #D1D5DB;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -193,60 +268,316 @@
                 <circle cx="16" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="2 2"/>
             </svg>
         </div>
-        
-        <h1 class="login-title">ადმინპანელი</h1>
-        <p class="login-subtitle">შეიყვანეთ თქვენი მონაცემები</p>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label class="form-label">მომხმარებელი</label>
-                <input type="text" class="form-control" id="username" placeholder="მაგ: admin" autocomplete="username">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">პაროლი</label>
-                <input type="password" class="form-control" id="password" placeholder="პაროლი" autocomplete="current-password">
-            </div>
+        <h1 class="login-title">MED&გზური</h1>
+        <p class="login-subtitle">შედით თქვენს ანგარიშში</p>
 
-            <button type="submit" class="btn btn-primary">შესვლა</button>
-            
-            <p class="error-message" id="errorMessage">❌ არასწორი მომხმარებელი ან პაროლი</p>
-            <p class="success-message" id="successMessage">✅ წარმატებული ავტორიზაცია!</p>
-        </form>
+        <div class="mode-badge" id="modeBadge"></div>
 
-        <button class="btn btn-secondary" id="setupBtn" onclick="showSetup()">🔐 პაროლის დაყენება / შეცვლა</button>
+        <!-- Tab Switcher -->
+        <div class="auth-tabs">
+            <button class="auth-tab active" data-tab="login" onclick="switchTab('login')">შესვლა</button>
+            <button class="auth-tab" data-tab="signup" onclick="switchTab('signup')">რეგისტრაცია</button>
+        </div>
 
-        <div class="setup-section" id="setupSection">
-            <h3 class="setup-title">ახალი პაროლის დაყენება</h3>
-            <form id="setupForm">
+        <!-- Login Panel -->
+        <div class="auth-panel active" id="loginPanel">
+            <form id="loginForm">
                 <div class="form-group">
-                    <label class="form-label">ახალი მომხმარებელი</label>
-                    <input type="text" class="form-control" id="newUsername" placeholder="მაგ: admin">
+                    <label class="form-label">ელ-ფოსტა</label>
+                    <input type="email" class="form-control" id="loginEmail" placeholder="მაგ: user@example.com" autocomplete="email" required>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label">ახალი პაროლი</label>
-                    <input type="password" class="form-control" id="newPassword" placeholder="მინიმუმ 4 სიმბოლო">
+                    <label class="form-label">პაროლი</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="პაროლი" autocomplete="current-password" required>
                 </div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">შესვლა</button>
+
+                <div class="message" id="loginMessage"></div>
+            </form>
+
+            <div class="divider" id="googleDivider" style="display:none"><span>ან</span></div>
+            <button class="btn-google" id="googleBtn" style="display:none" onclick="loginWithGoogle()">
+                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"/></svg>
+                Google-ით შესვლა
+            </button>
+        </div>
+
+        <!-- Signup Panel -->
+        <div class="auth-panel" id="signupPanel">
+            <form id="signupForm">
+                <div class="form-group">
+                    <label class="form-label">სახელი და გვარი</label>
+                    <input type="text" class="form-control" id="signupName" placeholder="მაგ: გიორგი მაისურაძე" autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ელ-ფოსტა</label>
+                    <input type="email" class="form-control" id="signupEmail" placeholder="მაგ: user@example.com" autocomplete="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">პაროლი</label>
+                    <input type="password" class="form-control" id="signupPassword" placeholder="მინიმუმ 6 სიმბოლო" autocomplete="new-password" required minlength="6">
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">გაიმეორეთ პაროლი</label>
-                    <input type="password" class="form-control" id="confirmPassword" placeholder="გაიმეორეთ პაროლი">
+                    <input type="password" class="form-control" id="signupConfirm" placeholder="გაიმეორეთ პაროლი" autocomplete="new-password" required>
                 </div>
-                <button type="submit" class="btn btn-primary">პაროლის შენახვა</button>
-                <p class="setup-hint">⚠️ პაროლი ინახება ამ ბრაუზერში მხოლოდ. დაიმახსოვრეთ იგი!</p>
+
+                <button type="submit" class="btn btn-primary" id="signupBtn">რეგისტრაცია</button>
+
+                <div class="message" id="signupMessage"></div>
             </form>
         </div>
 
-        <a href="index.html" class="back-link">← მთავარ გვერდზე დაბრუნება</a>
+        <a href="index.html" class="back-link">&#8592; მთავარ გვერდზე დაბრუნება</a>
     </div>
 
     <script>
-        // Check if already logged in
-        if (sessionStorage.getItem('medGzuriLoggedIn') === 'true') {
-            window.location.href = 'admin.html';
+        // ═══════════════ STATE ═══════════════
+        let authMode = 'cloud'; // 'cloud' (Supabase) or 'local' (localStorage fallback)
+
+        // ═══════════════ INIT ═══════════════
+        (async function init() {
+            // Check if already logged in
+            const session = getSession();
+            if (session) {
+                window.location.href = 'admin.html';
+                return;
+            }
+
+            // Check if Supabase is configured
+            try {
+                const resp = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'config' })
+                });
+                const config = await resp.json();
+
+                if (config.configured) {
+                    authMode = 'cloud';
+                    document.getElementById('modeBadge').innerHTML = '<span>Cloud Auth</span>';
+                    // Enable Google login if Supabase configured
+                    document.getElementById('googleDivider').style.display = '';
+                    document.getElementById('googleBtn').style.display = '';
+                } else {
+                    authMode = 'local';
+                    document.getElementById('modeBadge').innerHTML = '<span>Local Mode</span>';
+                }
+            } catch (e) {
+                authMode = 'local';
+                document.getElementById('modeBadge').innerHTML = '<span>Offline Mode</span>';
+            }
+        })();
+
+        // ═══════════════ SESSION MANAGEMENT ═══════════════
+        function getSession() {
+            const raw = sessionStorage.getItem('medGzuriSession');
+            if (!raw) return null;
+            try {
+                const session = JSON.parse(raw);
+                // Check expiry
+                if (session.expires_at && Date.now() / 1000 > session.expires_at) {
+                    sessionStorage.removeItem('medGzuriSession');
+                    return null;
+                }
+                return session;
+            } catch (e) {
+                return null;
+            }
         }
 
-        // Get stored credentials (no hardcoded defaults)
-        function getCredentials() {
+        function setSession(sessionData) {
+            sessionStorage.setItem('medGzuriSession', JSON.stringify(sessionData));
+            // Keep backwards compatibility
+            sessionStorage.setItem('medGzuriLoggedIn', 'true');
+            sessionStorage.setItem('medGzuriLoginTime', Date.now().toString());
+        }
+
+        // ═══════════════ TAB SWITCHING ═══════════════
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`.auth-tab[data-tab="${tab}"]`).classList.add('active');
+            document.getElementById(tab === 'login' ? 'loginPanel' : 'signupPanel').classList.add('active');
+        }
+
+        // ═══════════════ SHOW MESSAGE ═══════════════
+        function showMessage(elementId, text, type) {
+            const el = document.getElementById(elementId);
+            el.textContent = text;
+            el.className = 'message show ' + type;
+        }
+
+        function clearMessage(elementId) {
+            const el = document.getElementById(elementId);
+            el.className = 'message';
+        }
+
+        // ═══════════════ LOGIN ═══════════════
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            clearMessage('loginMessage');
+
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+
+            if (!email || !password) {
+                showMessage('loginMessage', 'ელ-ფოსტა და პაროლი სავალდებულოა.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>იტვირთება...';
+
+            try {
+                if (authMode === 'cloud') {
+                    const resp = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'login', email, password })
+                    });
+                    const result = await resp.json();
+
+                    if (result.success) {
+                        setSession({
+                            access_token: result.session.access_token,
+                            refresh_token: result.session.refresh_token,
+                            expires_at: result.session.expires_at,
+                            user: result.user
+                        });
+                        showMessage('loginMessage', 'წარმატებული ავტორიზაცია!', 'success');
+                        setTimeout(() => { window.location.href = 'admin.html'; }, 500);
+                        return;
+                    }
+
+                    // Cloud failed — show error, try local fallback if applicable
+                    if (result.fallback) {
+                        authMode = 'local';
+                    } else {
+                        showMessage('loginMessage', result.error || 'ავტორიზაცია ვერ მოხერხდა.', 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'შესვლა';
+                        return;
+                    }
+                }
+
+                // Local fallback auth
+                const credentials = getLocalCredentials();
+                if (!credentials) {
+                    showMessage('loginMessage', 'ანგარიში არ არსებობს. გაიარეთ რეგისტრაცია.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'შესვლა';
+                    return;
+                }
+
+                const hash = await sha256(password);
+                if (credentials.email === email && credentials.passwordHash === hash) {
+                    setSession({
+                        user: { email, fullName: credentials.fullName || '', role: 'admin' },
+                        local: true
+                    });
+                    showMessage('loginMessage', 'წარმატებული ავტორიზაცია!', 'success');
+                    setTimeout(() => { window.location.href = 'admin.html'; }, 500);
+                } else {
+                    showMessage('loginMessage', 'არასწორი ელ-ფოსტა ან პაროლი.', 'error');
+                }
+            } catch (err) {
+                showMessage('loginMessage', 'კავშირის შეცდომა. გთხოვთ სცადოთ მოგვიანებით.', 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'შესვლა';
+        });
+
+        // ═══════════════ SIGNUP ═══════════════
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            clearMessage('signupMessage');
+
+            const fullName = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim();
+            const password = document.getElementById('signupPassword').value;
+            const confirm = document.getElementById('signupConfirm').value;
+            const btn = document.getElementById('signupBtn');
+
+            if (!email || !password) {
+                showMessage('signupMessage', 'ელ-ფოსტა და პაროლი სავალდებულოა.', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showMessage('signupMessage', 'პაროლი მინიმუმ 6 სიმბოლო უნდა იყოს.', 'error');
+                return;
+            }
+            if (password !== confirm) {
+                showMessage('signupMessage', 'პაროლები არ ემთხვევა.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>იტვირთება...';
+
+            try {
+                if (authMode === 'cloud') {
+                    const resp = await fetch('/api/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'signup', email, password, fullName })
+                    });
+                    const result = await resp.json();
+
+                    if (result.success) {
+                        showMessage('signupMessage', 'ანგარიში შეიქმნა! ახლა შეგიძლიათ შეხვიდეთ.', 'success');
+                        setTimeout(() => switchTab('login'), 1500);
+                        btn.disabled = false;
+                        btn.textContent = 'რეგისტრაცია';
+                        return;
+                    }
+
+                    if (result.fallback) {
+                        authMode = 'local';
+                    } else {
+                        showMessage('signupMessage', result.error || 'რეგისტრაცია ვერ მოხერხდა.', 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'რეგისტრაცია';
+                        return;
+                    }
+                }
+
+                // Local fallback signup
+                const hash = await sha256(password);
+                localStorage.setItem('medGzuriCredentials', JSON.stringify({
+                    email,
+                    fullName,
+                    passwordHash: hash,
+                    // Keep old format for backwards compat
+                    username: email,
+                    password: 'hash:' + hash
+                }));
+                showMessage('signupMessage', 'ანგარიში შეიქმნა! ახლა შეგიძლიათ შეხვიდეთ.', 'success');
+                setTimeout(() => switchTab('login'), 1500);
+            } catch (err) {
+                showMessage('signupMessage', 'კავშირის შეცდომა. გთხოვთ სცადოთ მოგვიანებით.', 'error');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'რეგისტრაცია';
+        });
+
+        // ═══════════════ GOOGLE LOGIN ═══════════════
+        async function loginWithGoogle() {
+            // Supabase OAuth redirect (handled by Supabase hosted UI)
+            showMessage('loginMessage', 'Google ავტორიზაცია მალე ხელმისაწვდომი იქნება.', 'error');
+        }
+
+        // ═══════════════ LOCAL AUTH HELPERS ═══════════════
+        function getLocalCredentials() {
             const stored = localStorage.getItem('medGzuriCredentials');
             if (stored) {
                 try { return JSON.parse(stored); }
@@ -255,125 +586,18 @@
             return null;
         }
 
-        // SHA-256 hash via Web Crypto API
-        async function secureHash(str) {
+        async function sha256(str) {
             const msgBuffer = new TextEncoder().encode(str);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        // If no credentials exist yet, show setup form instead of login
-        if (!getCredentials()) {
-            document.addEventListener('DOMContentLoaded', () => {
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('setupBtn').style.display = 'none';
-                document.getElementById('setupSection').classList.add('show');
+        // ═══════════════ CLEAR ERRORS ON INPUT ═══════════════
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('error');
             });
-        }
-
-        // Login form
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const credentials = getCredentials();
-
-            // Clear previous errors
-            document.getElementById('errorMessage').classList.remove('show');
-            document.getElementById('username').classList.remove('error');
-            document.getElementById('password').classList.remove('error');
-
-            if (!credentials) {
-                document.getElementById('errorMessage').textContent = 'ჯერ დააყენეთ პაროლი';
-                document.getElementById('errorMessage').classList.add('show');
-                return;
-            }
-
-            // Check credentials — compare SHA-256 hashes only
-            const hashedPassword = await secureHash(password);
-            const storedHash = credentials.password.replace('hash:', '');
-
-            if (username === credentials.username && hashedPassword === storedHash) {
-                // Success
-                document.getElementById('successMessage').classList.add('show');
-                sessionStorage.setItem('medGzuriLoggedIn', 'true');
-                sessionStorage.setItem('medGzuriLoginTime', Date.now().toString());
-
-                // Redirect after short delay
-                setTimeout(() => {
-                    window.location.href = 'admin.html';
-                }, 500);
-            } else {
-                // Error
-                document.getElementById('errorMessage').textContent = 'არასწორი მომხმარებელი ან პაროლი';
-                document.getElementById('errorMessage').classList.add('show');
-                document.getElementById('username').classList.add('error');
-                document.getElementById('password').classList.add('error');
-            }
-        });
-
-        // Show setup section
-        function showSetup() {
-            const setupSection = document.getElementById('setupSection');
-            setupSection.classList.toggle('show');
-        }
-
-        // Setup form (change password)
-        document.getElementById('setupForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const newUsername = document.getElementById('newUsername').value.trim();
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-
-            // Validation
-            if (newUsername.length < 3) {
-                alert('მომხმარებელი უნდა იყოს მინიმუმ 3 სიმბოლო');
-                return;
-            }
-
-            if (newPassword.length < 4) {
-                alert('პაროლი უნდა იყოს მინიმუმ 4 სიმბოლო');
-                return;
-            }
-
-            if (newPassword !== confirmPassword) {
-                alert('პაროლები არ ემთხვევა');
-                return;
-            }
-
-            // Save new credentials (SHA-256 hashed)
-            const credentials = {
-                username: newUsername,
-                password: 'hash:' + await secureHash(newPassword)
-            };
-
-            localStorage.setItem('medGzuriCredentials', JSON.stringify(credentials));
-
-            alert('ახალი პაროლი შენახულია! ახლა შეგიძლიათ შეხვიდეთ.');
-
-            // Hide setup section, show login form
-            document.getElementById('setupSection').classList.remove('show');
-            document.getElementById('loginForm').style.display = '';
-            document.getElementById('setupBtn').style.display = '';
-
-            // Pre-fill login form
-            document.getElementById('username').value = newUsername;
-            document.getElementById('password').value = '';
-            document.getElementById('password').focus();
-        });
-
-        // Clear error on input
-        document.getElementById('username').addEventListener('input', function() {
-            this.classList.remove('error');
-            document.getElementById('errorMessage').classList.remove('show');
-        });
-
-        document.getElementById('password').addEventListener('input', function() {
-            this.classList.remove('error');
-            document.getElementById('errorMessage').classList.remove('show');
         });
     </script>
 </body>
