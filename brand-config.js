@@ -66,7 +66,6 @@ const brandConfig = {
       ],
     },
     trust: "95-დღიანი კამპანია • 50+ მოთხოვნა • 24% წარმატების მაჩვენებელი",
-    about: "მე ვარ შალვა ჯინჭარაძე, ალექსანდრას მამა. როცა ჩემს ქალიშვილს HIE დაუდგინდა, ექიმებმა თქვეს \u201Eვერაფერს ვიზამთ\u201C. 7 თვეში ვიპოვე 12+ პროგრამა 3 კონტინენტზე. ეს გამოცდილება ახლა შენი ოჯახის სამსახურშია.",
     contact: {
       label: "კონტაქტი",
       title: "დაიწყეთ ძიება დღეს",
@@ -179,7 +178,6 @@ const brandConfig = {
       ],
     },
     trust: "95-day campaign • 50+ requests • 24% success rate • 12+ programs secured",
-    about: "I'm Shalva Jintcharadze, Aleksandra's father. When my daughter was diagnosed with severe HIE, doctors said nothing could be done. In 7 months, I found 12+ programs across 3 continents. Now this experience serves your family.",
     contact: {
       label: "Contact",
       title: "Start your search today",
@@ -292,7 +290,6 @@ const brandConfig = {
       ],
     },
     trust: "95 дней кампании • 50+ обращений • 24% успешность • 12+ программ",
-    about: "Меня зовут Шалва Джинчарадзе, я отец Александры. Когда моей дочери поставили диагноз тяжёлой ГИЭ, врачи сказали, что ничего нельзя сделать. За 7 месяцев я нашёл 12+ программ на 3 континентах. Теперь этот опыт — для вашей семьи.",
     contact: {
       label: "Контакт",
       title: "Начните поиск сегодня",
