@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED&გზური — უფასო კონსულტაცია</title>
+    <meta name="description" content="შეავსეთ ანკეტა და მიიღეთ პერსონალიზებული კლინიკური კვლევების სია უფასოდ">
+
+    <meta property="og:title" content="MED&გზური — უფასო კონსულტაცია">
+    <meta property="og:description" content="შეავსეთ ანკეტა და მიიღეთ პერსონალიზებული კლინიკური კვლევების სია უფასოდ">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ka_GE">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;600;700;800&family=Noto+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+
+    <style>
+        /* ═══════════════ DEFAULT / GEORGIAN THEME ═══════════════ */
+        :root, [data-lang="ka"] {
+            --color-primary: #8B1A1A;
+            --color-primary-hover: #6B1414;
+            --color-primary-light: rgba(139, 26, 26, 0.08);
+            --color-primary-pale: rgba(139, 26, 26, 0.15);
+            --color-accent: #D4A843;
+            --color-accent-hover: #B8922E;
+            --color-text: #2C1810;
+            --color-text-secondary: rgba(44, 24, 16, 0.6);
+            --color-text-muted: #6B5D52;
+            --color-bg: #FFFDF7;
+            --color-bg-alt: #F5F0E8;
+            --color-bg-white: #FFFFFF;
+            --color-border: #D9CFC2;
+            --color-border-light: #EDE7DD;
+            --color-dark: #2C1810;
+            --color-success: #10B981;
+            --font-heading: 'Noto Sans Georgian', sans-serif;
+            --font-body: 'Noto Sans Georgian', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #8B1A1A 0%, #5C1010 50%, #2C1810 100%);
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+            --spacing-2xl: 4rem;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-full: 9999px;
+            --shadow-sm: 0 1px 3px rgba(44, 24, 16, 0.06);
+            --shadow-md: 0 4px 12px rgba(44, 24, 16, 0.08);
+            --shadow-lg: 0 8px 30px rgba(44, 24, 16, 0.12);
+        }
+
+        /* ═══════════════ ENGLISH THEME ═══════════════ */
+        [data-lang="en"] {
+            --color-primary: #1B4F72;
+            --color-primary-hover: #134074;
+            --color-primary-light: rgba(27, 79, 114, 0.08);
+            --color-primary-pale: rgba(27, 79, 114, 0.15);
+            --color-accent: #2ECC71;
+            --color-accent-hover: #27AE60;
+            --color-text: #1A202C;
+            --color-text-secondary: rgba(26, 32, 44, 0.6);
+            --color-text-muted: #718096;
+            --color-bg: #FFFFFF;
+            --color-bg-alt: #F8FAFC;
+            --color-bg-white: #FFFFFF;
+            --color-border: #E2E8F0;
+            --color-border-light: #EDF2F7;
+            --color-dark: #1A202C;
+            --font-heading: 'Source Sans 3', 'Inter', sans-serif;
+            --font-body: 'Noto Sans', 'Inter', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #1B4F72 0%, #2C3E50 50%, #1A202C 100%);
+            --shadow-sm: 0 1px 3px rgba(26, 32, 44, 0.06);
+            --shadow-md: 0 4px 12px rgba(26, 32, 44, 0.08);
+            --shadow-lg: 0 8px 30px rgba(26, 32, 44, 0.12);
+        }
+
+        /* ═══════════════ RUSSIAN THEME ═══════════════ */
+        [data-lang="ru"] {
+            --color-primary: #5B2C6F;
+            --color-primary-hover: #4A235A;
+            --color-primary-light: rgba(91, 44, 111, 0.08);
+            --color-primary-pale: rgba(91, 44, 111, 0.15);
+            --color-accent: #F39C12;
+            --color-accent-hover: #D68910;
+            --color-text: #1C1C2E;
+            --color-text-secondary: rgba(28, 28, 46, 0.6);
+            --color-text-muted: #6C6C80;
+            --color-bg: #FDFCFF;
+            --color-bg-alt: #F3EFF8;
+            --color-bg-white: #FFFFFF;
+            --color-border: #DDD5E5;
+            --color-border-light: #EDE7F3;
+            --color-dark: #1C1C2E;
+            --font-heading: 'Source Sans 3', 'Inter', sans-serif;
+            --font-body: 'Noto Sans', 'Inter', sans-serif;
+            --hero-gradient: linear-gradient(135deg, #5B2C6F 0%, #3D1952 50%, #1C1C2E 100%);
+            --shadow-sm: 0 1px 3px rgba(28, 28, 46, 0.06);
+            --shadow-md: 0 4px 12px rgba(28, 28, 46, 0.08);
+            --shadow-lg: 0 8px 30px rgba(28, 28, 46, 0.12);
+        }
+
+        /* ═══════════════ RESET & BASE ═══════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font-body);
+            background: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ═══════════════ NAVBAR ═══════════════ */
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--color-border-light);
+            padding: 0.75rem 0;
+        }
+        .navbar .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--color-primary);
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        .logo svg { width: 24px; height: 24px; }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .nav-link {
+            text-decoration: none;
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: var(--color-primary); }
+        .lang-switcher {
+            display: flex;
+            gap: 2px;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-full);
+            padding: 2px;
+        }
+        .lang-btn {
+            padding: 4px 10px;
+            border: none;
+            background: none;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--color-text-muted);
+            transition: all 0.2s;
+        }
+        .lang-btn:hover { color: var(--color-text); }
+        .lang-btn.active {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        /* Hamburger */
+        .hamburger-menu {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .hamburger-menu span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: var(--color-text);
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+        .hamburger-menu.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger-menu.active span:nth-child(2) { opacity: 0; }
+        .hamburger-menu.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        .mobile-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--color-bg-white);
+            border-bottom: 1px solid var(--color-border);
+            padding: 1rem 1.5rem;
+            flex-direction: column;
+            gap: 0.75rem;
+            box-shadow: var(--shadow-lg);
+        }
+        .mobile-menu.open { display: flex; }
+        .mobile-nav-link {
+            text-decoration: none;
+            color: var(--color-text);
+            font-size: 1rem;
+            padding: 0.5rem 0;
+            font-weight: 500;
+        }
+        .mobile-lang-switcher {
+            display: flex;
+            gap: 4px;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--color-border-light);
+        }
+        .mobile-lang-switcher .lang-btn { font-size: 0.85rem; padding: 6px 14px; }
+
+        /* ═══════════════ INTAKE LAYOUT ═══════════════ */
+        .intake-container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Badge */
+        .intake-badge {
+            display: inline-block;
+            background: var(--color-accent);
+            color: white;
+            padding: 0.35rem 1rem;
+            border-radius: var(--radius-full);
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem 0.25rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--color-text-muted);
+            border-bottom: 3px solid var(--color-border-light);
+            transition: all 0.3s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .progress-step.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+        .progress-step.completed {
+            color: var(--color-success);
+            border-bottom-color: var(--color-success);
+        }
+        .progress-text {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            margin-bottom: 2rem;
+        }
+
+        /* Step panels */
+        .step-panel { display: none; }
+        .step-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-title {
+            font-family: var(--font-heading);
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+        .step-subtitle {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        /* ═══════════════ INTRO PANEL ═══════════════ */
+        .intro-card {
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .intro-card .step-title { font-size: 1.4rem; }
+        .intro-desc {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        .how-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--color-text);
+        }
+        .how-steps {
+            list-style: none;
+            margin-bottom: 1rem;
+            padding: 0;
+        }
+        .how-steps li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            font-size: 0.9rem;
+            color: var(--color-text);
+        }
+        .how-steps li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--color-accent);
+            font-weight: 700;
+        }
+        .how-note {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            font-style: italic;
+            margin-bottom: 1.5rem;
+        }
+        .stats-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .stat-number {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--color-primary);
+        }
+        .stat-text {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            text-align: center;
+        }
+        .btn-start {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1.05rem;
+            font-weight: 700;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-start:hover { background: var(--color-primary-hover); }
+
+        /* ═══════════════ FORM ELEMENTS ═══════════════ */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 0.4rem;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-family: var(--font-body);
+            color: var(--color-text);
+            background: var(--color-bg-white);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px var(--color-primary-light);
+        }
+        .form-textarea { resize: vertical; min-height: 80px; }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        .form-row .form-group { flex: 1; }
+
+        .input-error { border-color: #EF4444 !important; }
+        .field-error {
+            color: #EF4444;
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+
+        /* ═══════════════ CHECKBOX / RADIO GRIDS ═══════════════ */
+        .checkbox-grid, .radio-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .checkbox-item, .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.75rem 1rem;
+            background: var(--color-bg-white);
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        .checkbox-item:hover, .radio-item:hover {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+        .checkbox-item.checked, .radio-item.selected {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+        .checkbox-item input, .radio-item input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .checkbox-mark {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: transparent;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .checkbox-item.checked .checkbox-mark {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            color: white;
+        }
+        .radio-mark {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--color-border);
+            border-radius: 50%;
+            position: relative;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .radio-item.selected .radio-mark {
+            border-color: var(--color-primary);
+        }
+        .radio-item.selected .radio-mark::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-primary);
+        }
+        .checkbox-label, .radio-label { line-height: 1.3; }
+
+        /* Conditional (hidden by default) */
+        .conditional-group { display: none; }
+
+        /* ═══════════════ CONTACT / CONSENT ═══════════════ */
+        .consent-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-sm);
+        }
+        .consent-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            flex-shrink: 0;
+            accent-color: var(--color-primary);
+        }
+        .consent-text {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            line-height: 1.5;
+        }
+
+        /* ═══════════════ DONE PANEL ═══════════════ */
+        .done-card {
+            text-align: center;
+            background: var(--color-bg-white);
+            border: 1px solid var(--color-border-light);
+            border-radius: var(--radius-lg);
+            padding: 2.5rem 2rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .done-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--color-success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2rem;
+            color: white;
+        }
+        .done-message {
+            font-size: 0.95rem;
+            color: var(--color-text-muted);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .done-next {
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+        .done-next-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .done-next-list {
+            list-style: none;
+            padding: 0;
+        }
+        .done-next-list li {
+            padding: 0.35rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            font-size: 0.9rem;
+            color: var(--color-text);
+        }
+        .done-next-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--color-success);
+            font-weight: 700;
+        }
+        .telegram-card {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-md);
+            text-align: center;
+        }
+        .telegram-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+        .telegram-desc {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            margin-bottom: 0.75rem;
+        }
+        .telegram-btn {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: #0088cc;
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius-full);
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .telegram-btn:hover { background: #006699; }
+
+        /* ═══════════════ NAV BUTTONS ═══════════════ */
+        .wizard-nav {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-border-light);
+        }
+        .btn-back, .btn-next, .btn-submit {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: var(--font-body);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-back {
+            background: var(--color-bg-alt);
+            color: var(--color-text-muted);
+        }
+        .btn-back:hover { background: var(--color-border); }
+        .btn-next {
+            background: var(--color-primary);
+            color: white;
+        }
+        .btn-next:hover { background: var(--color-primary-hover); }
+        .btn-submit {
+            background: var(--color-success);
+            color: white;
+        }
+        .btn-submit:hover { background: #0D9668; }
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* ═══════════════ TOAST ═══════════════ */
+        .toast-notification {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: white;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+            max-width: 90%;
+        }
+        .toast-notification.toast-visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .toast-error { background: #EF4444; }
+        .toast-success { background: var(--color-success); }
+
+        /* ═══════════════ RESPONSIVE ═══════════════ */
+        @media (max-width: 768px) {
+            .nav-right { display: none; }
+            .hamburger-menu { display: flex; }
+            .intake-container { padding: 1.5rem 1rem 3rem; }
+            .progress-bar { gap: 0.25rem; }
+            .progress-step { font-size: 0.6rem; padding: 0.4rem 0.15rem; }
+            .step-title { font-size: 1.3rem; }
+            .checkbox-grid, .radio-grid { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; gap: 0; }
+            .stats-row { gap: 0.75rem; }
+            .stat-number { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ═══════════════ NAVBAR ═══════════════ -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                <span id="brandName">MED&გზური</span>
+            </a>
+            <div class="nav-right">
+                <a class="nav-link" href="/">მთავარი</a>
+                <a class="nav-link" href="/product">ძიება</a>
+                <div class="lang-switcher">
+                    <button class="lang-btn active" data-lang-btn="ka">ქარ</button>
+                    <button class="lang-btn" data-lang-btn="en">EN</button>
+                    <button class="lang-btn" data-lang-btn="ru">РУ</button>
+                </div>
+            </div>
+            <button class="hamburger-menu" id="hamburgerMenu" aria-label="Navigation menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="mobile-menu" id="mobileMenu">
+                <a class="mobile-nav-link" href="/">მთავარი</a>
+                <a class="mobile-nav-link" href="/product">ძიება</a>
+                <div class="mobile-lang-switcher">
+                    <button class="lang-btn active" data-lang-btn="ka">ქარ</button>
+                    <button class="lang-btn" data-lang-btn="en">EN</button>
+                    <button class="lang-btn" data-lang-btn="ru">РУ</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ═══════════════ INTAKE WIZARD ═══════════════ -->
+    <main class="intake-container">
+
+        <!-- Badge -->
+        <div style="text-align:center;">
+            <span class="intake-badge" id="intakeBadge">უფასო აქცია · 10 დღე</span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar">
+            <div class="progress-step active" data-progress-step="0">დასაწყისი</div>
+            <div class="progress-step" data-progress-step="1">ბავშვი</div>
+            <div class="progress-step" data-progress-step="2">დიაგნოზი</div>
+            <div class="progress-step" data-progress-step="3">მიზნები</div>
+            <div class="progress-step" data-progress-step="4">გამოკითხვა</div>
+            <div class="progress-step" data-progress-step="5">კონტაქტი</div>
+        </div>
+        <div class="progress-text" id="progressText">ნაბიჯი 1 -დან 6</div>
+
+        <!-- ══════ STEP 0: INTRO ══════ -->
+        <div class="step-panel active" id="step-intro">
+            <div class="intro-card">
+                <h1 class="step-title" id="introTitle"></h1>
+                <p class="intro-desc" id="introDesc"></p>
+
+                <h3 class="how-title" id="howTitle"></h3>
+                <ol class="how-steps" id="howStepsList"></ol>
+                <p class="how-note" id="howNote"></p>
+
+                <div class="stats-row" id="introStats"></div>
+
+                <button class="btn-start" id="btnStart">შევსების დაწყება →</button>
+            </div>
+        </div>
+
+        <!-- ══════ STEP 1: CHILD ══════ -->
+        <div class="step-panel" id="step-child">
+            <h2 class="step-title" id="childTitle"></h2>
+            <p class="step-subtitle" id="childSubtitle"></p>
+
+            <div class="form-group">
+                <label class="form-label" id="childNameLabel"></label>
+                <input type="text" class="form-input" id="childName" placeholder="">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" id="childAgeLabel"></label>
+                    <input type="number" class="form-input" id="childAge" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">&nbsp;</label>
+                    <select class="form-select" id="ageUnit"></select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="countryLabel"></label>
+                <select class="form-select" id="countrySelect"></select>
+            </div>
+
+            <div class="form-group conditional-group" id="otherCountryGroup">
+                <input type="text" class="form-input" id="otherCountry" placeholder="">
+            </div>
+        </div>
+
+        <!-- ══════ STEP 2: DIAGNOSIS ══════ -->
+        <div class="step-panel" id="step-medical">
+            <h2 class="step-title" id="diagTitle"></h2>
+            <p class="step-subtitle" id="diagSubtitle"></p>
+
+            <div class="checkbox-grid" id="diagGrid"></div>
+
+            <div class="form-group conditional-group" id="diagOtherGroup">
+                <input type="text" class="form-input" id="diagOther" placeholder="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="detailsLabel"></label>
+                <textarea class="form-textarea" id="conditionDetails" placeholder="" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="treatmentLabel"></label>
+                <textarea class="form-textarea" id="treatmentDetails" placeholder="" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="mriLabel"></label>
+                <div class="radio-grid" id="mriOptions"></div>
+            </div>
+        </div>
+
+        <!-- ══════ STEP 3: GOALS ══════ -->
+        <div class="step-panel" id="step-goals">
+            <h2 class="step-title" id="goalsTitle"></h2>
+            <p class="step-subtitle" id="goalsSubtitle"></p>
+
+            <div class="checkbox-grid" id="goalsGrid"></div>
+
+            <div class="form-group">
+                <label class="form-label" id="goalsOtherLabel"></label>
+                <input type="text" class="form-input" id="goalsOther" placeholder="">
+            </div>
+        </div>
+
+        <!-- ══════ STEP 4: SURVEY ══════ -->
+        <div class="step-panel" id="step-survey">
+            <h2 class="step-title" id="surveyTitle"></h2>
+            <p class="step-subtitle" id="surveySubtitle"></p>
+
+            <p class="step-subtitle" id="surveyQuestion" style="font-size:0.9rem; margin-bottom:1.5rem;"></p>
+
+            <div class="radio-grid" id="pricingOptions"></div>
+
+            <div class="form-group">
+                <label class="form-label" id="surveyValueLabel"></label>
+                <textarea class="form-textarea" id="surveyValue" placeholder="" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="sourceLabel"></label>
+                <div class="radio-grid" id="sourceOptions"></div>
+            </div>
+        </div>
+
+        <!-- ══════ STEP 5: CONTACT ══════ -->
+        <div class="step-panel" id="step-contact">
+            <h2 class="step-title" id="contactTitle"></h2>
+            <p class="step-subtitle" id="contactSubtitle"></p>
+
+            <div class="form-group">
+                <label class="form-label" id="contactNameLabel"></label>
+                <input type="text" class="form-input" id="contactName" placeholder="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="contactEmailLabel"></label>
+                <input type="email" class="form-input" id="contactEmail" placeholder="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="contactPhoneLabel"></label>
+                <input type="tel" class="form-input" id="contactPhone" placeholder="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="contactMessengerLabel"></label>
+                <input type="text" class="form-input" id="contactMessenger" placeholder="">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="preferLabel"></label>
+                <div class="radio-grid" id="preferOptions"></div>
+            </div>
+
+            <div class="consent-row">
+                <input type="checkbox" id="consentCheck">
+                <span class="consent-text" id="consentText"></span>
+            </div>
+        </div>
+
+        <!-- ══════ STEP 6: DONE ══════ -->
+        <div class="step-panel" id="step-done">
+            <div class="done-card">
+                <div class="done-icon">✓</div>
+                <h2 class="step-title" id="doneTitle"></h2>
+                <p class="done-message" id="doneMessage"></p>
+
+                <div class="done-next">
+                    <h3 class="done-next-title" id="doneNextTitle"></h3>
+                    <ol class="done-next-list" id="nextStepsList"></ol>
+                </div>
+
+                <div class="telegram-card">
+                    <h4 class="telegram-title" id="telegramTitle"></h4>
+                    <p class="telegram-desc" id="telegramDesc"></p>
+                    <a class="telegram-btn" id="telegramBtn" href="#" target="_blank"></a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════ WIZARD NAV ══════ -->
+        <div class="wizard-nav" id="wizardNav">
+            <button class="btn-back" id="btnBack">← უკან</button>
+            <button class="btn-next" id="btnNext">შემდეგი →</button>
+            <button class="btn-submit" id="btnSubmit" style="display:none;">გაგზავნა ✓</button>
+        </div>
+
+    </main>
+
+    <!-- ═══════════════ SCRIPTS ═══════════════ -->
+    <script src="brand-config.js"></script>
+    <script src="intake.js"></script>
+</body>
+</html>
