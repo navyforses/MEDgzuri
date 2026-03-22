@@ -2284,14 +2284,11 @@
                 }
             }
 
-            // 13. Extra about/countries strip (RU-specific)
+            // 13. Extra countries strip (RU-specific)
             const aboutStrip = document.getElementById('extraAboutStrip');
             if (aboutStrip) {
-                if (cfg.about || (cfg.extraSections && cfg.extraSections.countries)) {
+                if (cfg.extraSections && cfg.extraSections.countries) {
                     let html = '';
-                    if (cfg.about) {
-                        html += '<p class="about-text">' + cfg.about + '</p>';
-                    }
                     if (cfg.extraSections && cfg.extraSections.countries) {
                         const c = cfg.extraSections.countries;
                         html += '<div class="countries-title">' + c.title + '</div>';
