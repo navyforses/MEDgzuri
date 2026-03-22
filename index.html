@@ -2334,14 +2334,15 @@
             });
         }
 
+        // ═══════ SEARCH TEASER TYPING ANIMATION ═══════
+        let typingQueries = [];
+        function updateTypingQueries(newQueries) { typingQueries = newQueries; }
+
         // Boot: detect + apply
         currentLang = detectLang();
         setLang(currentLang);
+        typingQueries = brandConfig[currentLang].searchQueries || [];
         initLangSwitcher();
-
-        // ═══════ SEARCH TEASER TYPING ANIMATION ═══════
-        let typingQueries = brandConfig[currentLang].searchQueries || [];
-        function updateTypingQueries(newQueries) { typingQueries = newQueries; }
         (function() {
             const el = document.getElementById('searchTyping');
             let qIndex = 0, cIndex = 0, deleting = false;
