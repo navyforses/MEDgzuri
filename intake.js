@@ -308,6 +308,13 @@ function renderIntake(lang) {
   setLabel('mriLabel', diagnosis.mriLabel);
   renderRadioGroup('mriOptions', diagnosis.mriOptions, 'mri');
 
+  // Documents upload
+  setText('documentsLabel', diagnosis.documentsLabel);
+  setText('documentsHint', diagnosis.documentsHint);
+  const uploadBtn = document.getElementById('uploadBtn');
+  if (uploadBtn) uploadBtn.textContent = diagnosis.documentsBtnText || '';
+  setText('documentsFormats', diagnosis.documentsFormats);
+
   // ── Goals panel ──
   const goals = intake.goals;
   setText('goalsTitle', goals.title);
@@ -713,11 +720,25 @@ async function submitForm() {
   };
 
   try {
-    const response = await fetch('/api/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
+    let response;
+    if (uploadedFiles.length > 0) {
+      // Use FormData to include files
+      const formData = new FormData();
+      formData.append('data', JSON.stringify(data));
+      uploadedFiles.forEach(file => {
+        formData.append('documents', file);
+      });
+      response = await fetch('/api/leads', {
+        method: 'POST',
+        body: formData,
+      });
+    } else {
+      response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -762,6 +783,107 @@ function initConditionalFields() {
       }
     });
   }
+}
+
+// ═══════════════ FILE UPLOAD ═══════════════
+
+let uploadedFiles = [];
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+function initFileUpload() {
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  if (!uploadZone || !fileInput) return;
+
+  // Click to upload
+  uploadBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  // File selection
+  fileInput.addEventListener('change', () => {
+    handleFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  // Drag & drop
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+  });
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  });
+}
+
+function handleFiles(fileList) {
+  for (const file of fileList) {
+    if (file.size > MAX_FILE_SIZE) {
+      showToast(file.name + ' — too large (max 20MB)', 'error');
+      continue;
+    }
+    // Avoid duplicates by name+size
+    const exists = uploadedFiles.some(f => f.name === file.name && f.size === file.size);
+    if (!exists) {
+      uploadedFiles.push(file);
+    }
+  }
+  renderFileList();
+}
+
+function removeFile(index) {
+  uploadedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  uploadedFiles.forEach((file, idx) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'file-item-name';
+    nameDiv.innerHTML = '<span>' + escapeHtml(file.name) + '</span>';
+
+    const sizeSpan = document.createElement('span');
+    sizeSpan.className = 'file-item-size';
+    sizeSpan.textContent = formatFileSize(file.size);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'file-item-remove';
+    removeBtn.textContent = '\u00D7';
+    removeBtn.type = 'button';
+    removeBtn.addEventListener('click', () => removeFile(idx));
+
+    div.appendChild(nameDiv);
+    div.appendChild(sizeSpan);
+    div.appendChild(removeBtn);
+    list.appendChild(div);
+  });
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 // ═══════════════ HAMBURGER MENU ═══════════════
@@ -813,6 +935,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init conditional fields
   initConditionalFields();
+
+  // Init file upload
+  initFileUpload();
 
   // Detect and set language (also calls renderIntake)
   const lang = detectLang();

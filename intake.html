@@ -520,6 +520,89 @@
         /* Conditional (hidden by default) */
         .conditional-group { display: none; }
 
+        /* ═══════════════ FILE UPLOAD ═══════════════ */
+        .documents-hint {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+        }
+        .upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: all 0.2s;
+            background: var(--color-bg-white);
+            cursor: pointer;
+        }
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+        .upload-icon {
+            color: var(--color-text-muted);
+            margin-bottom: 0.75rem;
+        }
+        .upload-btn {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+            font-family: var(--font-body);
+            cursor: pointer;
+            margin-bottom: 0.5rem;
+            transition: background 0.2s;
+        }
+        .upload-btn:hover { background: var(--color-primary-hover); }
+        .upload-formats {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+        }
+        .file-list { margin-top: 0.75rem; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.75rem;
+            background: var(--color-bg-alt);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+        .file-item-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            overflow: hidden;
+        }
+        .file-item-name span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-item-size {
+            color: var(--color-text-muted);
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            margin-left: 0.5rem;
+        }
+        .file-item-remove {
+            background: none;
+            border: none;
+            color: #EF4444;
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0 0.25rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .file-item-remove:hover { color: #DC2626; }
+
         /* ═══════════════ CONTACT / CONSENT ═══════════════ */
         .consent-row {
             display: flex;
@@ -752,7 +835,7 @@
         <!-- Progress bar -->
         <div class="progress-bar">
             <div class="progress-step active" data-progress-step="0">დასაწყისი</div>
-            <div class="progress-step" data-progress-step="1">ბავშვი</div>
+            <div class="progress-step" data-progress-step="1">პაციენტი</div>
             <div class="progress-step" data-progress-step="2">დიაგნოზი</div>
             <div class="progress-step" data-progress-step="3">მიზნები</div>
             <div class="progress-step" data-progress-step="4">გამოკითხვა</div>
@@ -831,6 +914,20 @@
             <div class="form-group">
                 <label class="form-label" id="mriLabel"></label>
                 <div class="radio-grid" id="mriOptions"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" id="documentsLabel"></label>
+                <p class="documents-hint" id="documentsHint"></p>
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </div>
+                    <button type="button" class="upload-btn" id="uploadBtn"></button>
+                    <p class="upload-formats" id="documentsFormats"></p>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.dcm,.dicom" style="display:none;">
+                </div>
+                <div class="file-list" id="fileList"></div>
             </div>
         </div>
 

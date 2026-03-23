@@ -2,7 +2,7 @@
  * MedGzuri Leads API
  *
  * Actions:
- *   - create:  Submit new lead (contact form, public)
+ *   - create:  Submit new lead (contact form, public) — supports multipart with file uploads
  *   - list:    Get all leads (admin/operator only)
  *   - update:  Update lead status/notes (admin/operator only)
  *   - stats:   Lead analytics (admin only)
@@ -13,6 +13,71 @@ const {
     setCorsHeaders, setSecurityHeaders, leadsRateLimiter,
     getClientIp, sanitizeString, isValidEmail, isValidPhone
 } = require('../lib/security');
+const { uploadLeadDocuments } = require('../lib/google-drive');
+
+// Vercel serverless: disable default body parser for multipart
+module.exports.config = {
+    api: { bodyParser: { sizeLimit: '100mb' } }
+};
+
+// ═══════════════ MULTIPART PARSER ═══════════════
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB per file
+const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100MB total
+
+/**
+ * Parse multipart/form-data request using busboy.
+ * Returns { fields: { data: string }, files: [{ name, buffer, mimeType }] }
+ */
+function parseMultipart(req) {
+    return new Promise((resolve, reject) => {
+        const Busboy = require('busboy');
+        const busboy = Busboy({
+            headers: req.headers,
+            limits: { fileSize: MAX_FILE_SIZE, files: 10 }
+        });
+
+        const fields = {};
+        const files = [];
+        let totalSize = 0;
+
+        busboy.on('field', (name, val) => {
+            fields[name] = val;
+        });
+
+        busboy.on('file', (fieldname, stream, info) => {
+            const { filename, mimeType } = info;
+            const chunks = [];
+
+            stream.on('data', (chunk) => {
+                totalSize += chunk.length;
+                if (totalSize > MAX_TOTAL_SIZE) {
+                    stream.destroy();
+                    reject(new Error('Total upload size exceeds 100MB'));
+                    return;
+                }
+                chunks.push(chunk);
+            });
+
+            stream.on('end', () => {
+                if (filename) {
+                    files.push({
+                        name: filename,
+                        buffer: Buffer.concat(chunks),
+                        mimeType: mimeType || 'application/octet-stream'
+                    });
+                }
+            });
+        });
+
+        busboy.on('finish', () => resolve({ fields, files }));
+        busboy.on('error', reject);
+
+        req.pipe(busboy);
+    });
+}
+
+// ═══════════════ MAIN HANDLER ═══════════════
 
 module.exports = async function handler(req, res) {
     // CORS & security headers (shared)
@@ -27,7 +92,26 @@ module.exports = async function handler(req, res) {
         return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
     }
 
-    const { action, ...payload } = req.body || {};
+    // ── Parse request body (JSON or multipart) ──
+    let action, payload, uploadFiles = [];
+    const contentType = req.headers['content-type'] || '';
+
+    if (contentType.includes('multipart/form-data')) {
+        // Multipart: intake form with file uploads
+        const { fields, files } = await parseMultipart(req);
+        const parsed = JSON.parse(fields.data || '{}');
+        action = parsed.action;
+        payload = parsed;
+        delete payload.action;
+        uploadFiles = files;
+    } else {
+        // Standard JSON
+        const body = req.body || {};
+        action = body.action;
+        payload = { ...body };
+        delete payload.action;
+    }
+
     const supabase = getServiceClient();
 
     // ── Public: Create lead (no auth required) ──
@@ -43,25 +127,62 @@ module.exports = async function handler(req, res) {
             return res.status(400).json({ error: 'ტელეფონის ნომრის ფორმატი არასწორია.' });
         }
 
+        // ── Upload documents to Google Drive ──
+        let documentLinks = [];
+        if (uploadFiles.length > 0) {
+            try {
+                const driveResults = await uploadLeadDocuments(uploadFiles, name);
+                documentLinks = driveResults.map(f => ({
+                    name: f.name,
+                    url: f.webViewLink,
+                    driveId: f.id
+                }));
+            } catch (driveErr) {
+                console.error('[MedGzuri] Google Drive upload error:', driveErr.message);
+                // Continue without files — don't block lead submission
+            }
+        }
+
+        // Enrich message with document links if any
+        let enrichedMessage = message || null;
+        if (documentLinks.length > 0 && enrichedMessage) {
+            try {
+                const msgData = JSON.parse(enrichedMessage);
+                msgData.documents = documentLinks;
+                enrichedMessage = JSON.stringify(msgData);
+            } catch {
+                // message is plain text, append links
+                enrichedMessage += '\n\nDocuments: ' + documentLinks.map(d => d.url).join(', ');
+            }
+        }
+
         if (!supabase) {
             // Fallback: return success but note data isn't persisted
-            console.log('[MedGzuri] Lead received (no DB):', { name, email, phone });
+            console.log('[MedGzuri] Lead received (no DB):', { name, email, phone, documents: documentLinks.length });
             return res.status(200).json({
                 success: true,
                 message: 'თქვენი მოთხოვნა მიღებულია. დაგიკავშირდებით მალე!',
-                persisted: false
+                persisted: false,
+                documentsUploaded: documentLinks.length
             });
         }
 
         try {
-            const { error } = await supabase.from('leads').insert({
+            const insertData = {
                 name,
                 phone: phone || null,
                 email: email || null,
-                message: message || null,
+                message: enrichedMessage,
                 source: source || 'website',
                 status: 'new'
-            });
+            };
+
+            // Store Drive folder link if documents were uploaded
+            if (documentLinks.length > 0) {
+                insertData.documents_url = documentLinks[0].url.replace(/\/file\/.*/, '');
+            }
+
+            const { error } = await supabase.from('leads').insert(insertData);
 
             if (error) {
                 console.error('[MedGzuri] Lead insert error:', error.message);
@@ -71,7 +192,8 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 message: 'თქვენი მოთხოვნა მიღებულია. დაგიკავშირდებით მალე!',
-                persisted: true
+                persisted: true,
+                documentsUploaded: documentLinks.length
             });
         } catch (err) {
             console.error('[MedGzuri] Lead error:', err);
