@@ -17,7 +17,7 @@ const { uploadLeadDocuments } = require('../lib/google-drive');
 
 // Vercel serverless: disable default body parser for multipart
 module.exports.config = {
-    api: { bodyParser: { sizeLimit: '100mb' } }
+    api: { bodyParser: false }
 };
 
 // ═══════════════ MULTIPART PARSER ═══════════════
@@ -105,8 +105,14 @@ module.exports = async function handler(req, res) {
         delete payload.action;
         uploadFiles = files;
     } else {
-        // Standard JSON
-        const body = req.body || {};
+        // Standard JSON — manually parse since bodyParser is disabled
+        let body = req.body;
+        if (!body || typeof body !== 'object') {
+            const chunks = [];
+            for await (const chunk of req) chunks.push(chunk);
+            const raw = Buffer.concat(chunks).toString('utf8');
+            body = raw ? JSON.parse(raw) : {};
+        }
         action = body.action;
         payload = { ...body };
         delete payload.action;
@@ -129,18 +135,32 @@ module.exports = async function handler(req, res) {
 
         // ── Upload documents to Google Drive ──
         let documentLinks = [];
+        let driveWarning = null;
         if (uploadFiles.length > 0) {
-            try {
-                const driveResults = await uploadLeadDocuments(uploadFiles, name);
-                documentLinks = driveResults.map(f => ({
-                    name: f.name,
-                    url: f.webViewLink,
-                    driveId: f.id
-                }));
-            } catch (driveErr) {
-                console.error('[MedGzuri] Google Drive upload error:', driveErr.message);
-                // Continue without files — don't block lead submission
+            if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+                driveWarning = 'GOOGLE_SERVICE_ACCOUNT_JSON not configured';
+                console.warn('[MedGzuri] Drive upload skipped: GOOGLE_SERVICE_ACCOUNT_JSON (or _KEY) not set');
+            } else if (!process.env.GOOGLE_DRIVE_FOLDER_ID) {
+                driveWarning = 'GOOGLE_DRIVE_FOLDER_ID not configured';
+                console.warn('[MedGzuri] Drive upload skipped: GOOGLE_DRIVE_FOLDER_ID not set');
+            } else {
+                try {
+                    console.log('[MedGzuri] Uploading', uploadFiles.length, 'file(s) to Drive for lead:', name);
+                    const driveResults = await uploadLeadDocuments(uploadFiles, name);
+                    documentLinks = driveResults.map(f => ({
+                        name: f.name,
+                        url: f.webViewLink,
+                        driveId: f.id
+                    }));
+                    console.log('[MedGzuri] Drive upload success:', documentLinks.length, 'file(s)');
+                } catch (driveErr) {
+                    driveWarning = driveErr.message;
+                    console.error('[MedGzuri] Google Drive upload error:', driveErr.message);
+                    // Continue without files — don't block lead submission
+                }
             }
+        } else if (uploadFiles.length === 0 && (req.headers['content-type'] || '').includes('multipart')) {
+            console.warn('[MedGzuri] Multipart request received but no files parsed — possible bodyParser conflict');
         }
 
         // Enrich message with document links if any
@@ -163,7 +183,8 @@ module.exports = async function handler(req, res) {
                 success: true,
                 message: 'თქვენი მოთხოვნა მიღებულია. დაგიკავშირდებით მალე!',
                 persisted: false,
-                documentsUploaded: documentLinks.length
+                documentsUploaded: documentLinks.length,
+                ...(driveWarning && { driveWarning })
             });
         }
 
@@ -193,7 +214,8 @@ module.exports = async function handler(req, res) {
                 success: true,
                 message: 'თქვენი მოთხოვნა მიღებულია. დაგიკავშირდებით მალე!',
                 persisted: true,
-                documentsUploaded: documentLinks.length
+                documentsUploaded: documentLinks.length,
+                ...(driveWarning && { driveWarning })
             });
         } catch (err) {
             console.error('[MedGzuri] Lead error:', err);
