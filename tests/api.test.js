@@ -40,7 +40,7 @@ function mockReq(method, body, headers = {}) {
     return {
         method,
         body,
-        headers: { origin: 'http://localhost', ...headers },
+        headers: { origin: 'http://localhost:3000', ...headers },
         socket: { remoteAddress: '127.0.0.1' }
     };
 }
