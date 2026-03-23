@@ -137,9 +137,9 @@ module.exports = async function handler(req, res) {
         let documentLinks = [];
         let driveWarning = null;
         if (uploadFiles.length > 0) {
-            if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+            if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
                 driveWarning = 'GOOGLE_SERVICE_ACCOUNT_JSON not configured';
-                console.warn('[MedGzuri] Drive upload skipped: GOOGLE_SERVICE_ACCOUNT_JSON not set');
+                console.warn('[MedGzuri] Drive upload skipped: GOOGLE_SERVICE_ACCOUNT_JSON (or _KEY) not set');
             } else if (!process.env.GOOGLE_DRIVE_FOLDER_ID) {
                 driveWarning = 'GOOGLE_DRIVE_FOLDER_ID not configured';
                 console.warn('[MedGzuri] Drive upload skipped: GOOGLE_DRIVE_FOLDER_ID not set');
