@@ -185,13 +185,21 @@ module.exports = async function handler(req, res) {
 
         if (!supabase) {
             // Fallback: return success but note data isn't persisted
-            console.log('[MedGzuri] Lead received (no DB):', { name, email, phone, documents: documentLinks.length });
             return res.status(200).json({
                 success: true,
                 message: 'თქვენი მოთხოვნა მიღებულია. დაგიკავშირდებით მალე!',
                 persisted: false,
                 documentsUploaded: documentLinks.length,
-                ...(driveWarning && { driveWarning })
+                ...(driveWarning && { driveWarning }),
+                _debug: {
+                    filesReceived: uploadFiles.length,
+                    contentType: (req.headers['content-type'] || '').substring(0, 60),
+                    hasServiceAccount: !!(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
+                    hasFolderId: !!process.env.GOOGLE_DRIVE_FOLDER_ID,
+                    action,
+                    namePresent: !!name,
+                    driveWarning: driveWarning || 'none'
+                }
             });
         }
 
