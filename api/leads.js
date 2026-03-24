@@ -136,6 +136,13 @@ module.exports = async function handler(req, res) {
         // ── Upload documents to Google Drive ──
         let documentLinks = [];
         let driveWarning = null;
+        console.log('[MedGzuri] Drive diagnostics:', {
+            filesReceived: uploadFiles.length,
+            fileSizes: uploadFiles.map(f => `${f.name}(${f.buffer?.length || 0}b)`),
+            hasServiceAccount: !!(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
+            hasFolderId: !!process.env.GOOGLE_DRIVE_FOLDER_ID,
+            contentType: req.headers['content-type']?.substring(0, 50)
+        });
         if (uploadFiles.length > 0) {
             if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
                 driveWarning = 'GOOGLE_SERVICE_ACCOUNT_JSON not configured';
@@ -155,7 +162,7 @@ module.exports = async function handler(req, res) {
                     console.log('[MedGzuri] Drive upload success:', documentLinks.length, 'file(s)');
                 } catch (driveErr) {
                     driveWarning = driveErr.message;
-                    console.error('[MedGzuri] Google Drive upload error:', driveErr.message);
+                    console.error('[MedGzuri] Google Drive upload error:', driveErr.message, driveErr.stack);
                     // Continue without files — don't block lead submission
                 }
             }

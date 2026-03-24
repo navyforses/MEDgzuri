@@ -740,10 +740,18 @@ async function submitForm() {
       });
     }
 
+    const result = await response.json().catch(() => ({}));
+    console.log('[MedGzuri] Submit response:', response.status, result);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || 'Submission failed');
+      throw new Error(result.message || result.error || 'Submission failed');
     }
+
+    // Log Drive upload diagnostics
+    if (result.driveWarning) {
+      console.warn('[MedGzuri] Drive warning:', result.driveWarning);
+    }
+    console.log('[MedGzuri] Documents uploaded:', result.documentsUploaded || 0);
 
     // Success: go to done panel
     goToStep(6);
