@@ -1,6 +1,7 @@
 {
   "version": 2,
   "buildCommand": "cd grantkit && npm ci && npx next build",
+  "outputDirectory": ".",
   "framework": null,
   "alias": ["medgzuri.com", "www.medgzuri.com"],
   "functions": {
