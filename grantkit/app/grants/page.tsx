@@ -3,16 +3,16 @@
 import { useState, useMemo } from "react";
 import GrantCard from "@/components/GrantCard";
 import FilterBar from "@/components/FilterBar";
-import Footer from "@/components/Footer";
+import PricingCTA from "@/components/PricingCTA";
 import grants from "@/data/grants.json";
 
 const countryMap: Record<string, { flag: string; name: string }> = {
-  US: { flag: "🇺🇸", name: "United States" },
-  FR: { flag: "🇫🇷", name: "France" },
-  DE: { flag: "🇩🇪", name: "Germany" },
-  GB: { flag: "🇬🇧", name: "United Kingdom" },
-  GE: { flag: "🇬🇪", name: "Georgia" },
-  EU: { flag: "🇪🇺", name: "European Union" },
+  US: { flag: "\u{1F1FA}\u{1F1F8}", name: "United States" },
+  FR: { flag: "\u{1F1EB}\u{1F1F7}", name: "France" },
+  DE: { flag: "\u{1F1E9}\u{1F1EA}", name: "Germany" },
+  GB: { flag: "\u{1F1EC}\u{1F1E7}", name: "United Kingdom" },
+  GE: { flag: "\u{1F1EC}\u{1F1EA}", name: "Georgia" },
+  EU: { flag: "\u{1F1EA}\u{1F1FA}", name: "European Union" },
 };
 
 const countries = Object.entries(countryMap).map(([code, info]) => ({
@@ -32,43 +32,20 @@ export default function GrantsPage() {
     });
   }, [category, country]);
 
+  const hasActiveFilters = category !== "all" || country !== "all";
+
+  const handleReset = () => {
+    setCategory("all");
+    setCountry("all");
+  };
+
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Member Banner */}
-      <div className="bg-primary-700 px-4 py-3 text-center text-sm text-white">
-        This page is for GrantKit members. Not a member yet?{" "}
-        <a
-          href="https://YOURUSERNAME.gumroad.com/l/grantkit"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold underline hover:text-primary-200"
-        >
-          Subscribe on Gumroad →
-        </a>
-      </div>
-
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <a href="/" className="text-xl font-bold text-primary-700">
-            GrantKit
-          </a>
-          <a
-            href="https://YOURUSERNAME.gumroad.com/l/grantkit"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
-          >
-            Get Access
-          </a>
-        </div>
-      </header>
-
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-bold text-gray-900">Grants Directory</h1>
         <p className="mt-2 text-gray-600">
-          {grants.length} grants across {Object.keys(countryMap).length}{" "}
-          countries and 5 categories
+          Browse {grants.length} grants across{" "}
+          {Object.keys(countryMap).length} countries and 5 categories
         </p>
 
         <div className="mt-6">
@@ -76,8 +53,11 @@ export default function GrantsPage() {
             activeCategory={category}
             activeCountry={country}
             countries={countries}
+            filteredCount={filtered.length}
+            totalCount={grants.length}
             onCategoryChange={setCategory}
             onCountryChange={setCountry}
+            onReset={handleReset}
           />
         </div>
 
@@ -95,14 +75,41 @@ export default function GrantsPage() {
 
         {filtered.length === 0 && (
           <div className="py-16 text-center">
-            <p className="text-lg text-gray-500">
-              No grants match your filters. Try a different combination.
+            <div className="mx-auto mb-4 text-5xl">
+              <span role="img" aria-label="no results">&#128269;</span>
+            </div>
+            <p className="text-lg font-medium text-gray-700">
+              No grants match your filters
             </p>
+            <p className="mt-1 text-gray-500">
+              Try a different category or country combination
+            </p>
+            {hasActiveFilters && (
+              <button
+                onClick={handleReset}
+                className="mt-4 rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      <Footer />
+      {/* Bottom CTA */}
+      <section className="bg-primary-700 py-12 text-center text-white">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <h2 className="text-2xl font-bold">
+            Want the full curated database?
+          </h2>
+          <p className="mt-3 text-primary-200">
+            Get access to all grants with monthly updates and new additions.
+          </p>
+          <div className="mt-6">
+            <PricingCTA size="lg" />
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
