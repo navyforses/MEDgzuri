@@ -17,17 +17,30 @@ export default function FAQAccordion({ items }: { items: FAQItem[] }) {
         return (
           <div
             key={i}
-            className="rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-sm"
+            className="overflow-hidden rounded-[16px] bg-white transition-shadow duration-200"
+            style={{
+              border: "1px solid #E2E8F0",
+              boxShadow: isOpen
+                ? "0 4px 12px rgba(26, 32, 44, 0.08)"
+                : "0 1px 3px rgba(26, 32, 44, 0.06)",
+            }}
           >
             <button
               onClick={() => setOpenIndex(isOpen ? null : i)}
               className="flex w-full items-center justify-between px-6 py-5 text-left"
             >
-              <span className="font-semibold text-gray-900">{item.q}</span>
+              <span
+                className="text-[0.9375rem] font-semibold"
+                style={{ color: "#1A202C" }}
+              >
+                {item.q}
+              </span>
               <svg
-                className={`h-5 w-5 flex-shrink-0 text-gray-500 transition-transform duration-200 ${
-                  isOpen ? "rotate-180" : ""
-                }`}
+                className="h-5 w-5 flex-shrink-0 transition-transform duration-200"
+                style={{
+                  color: "rgba(26, 32, 44, 0.4)",
+                  transform: isOpen ? "rotate(180deg)" : "rotate(0)",
+                }}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -41,11 +54,19 @@ export default function FAQAccordion({ items }: { items: FAQItem[] }) {
               </svg>
             </button>
             <div
-              className={`overflow-hidden transition-all duration-200 ${
-                isOpen ? "max-h-40 pb-5" : "max-h-0"
-              }`}
+              className="transition-all duration-200"
+              style={{
+                maxHeight: isOpen ? "160px" : "0",
+                overflow: "hidden",
+                paddingBottom: isOpen ? "20px" : "0",
+              }}
             >
-              <p className="px-6 text-gray-600">{item.a}</p>
+              <p
+                className="px-6 text-[0.875rem] leading-relaxed"
+                style={{ color: "rgba(26, 32, 44, 0.6)" }}
+              >
+                {item.a}
+              </p>
             </div>
           </div>
         );

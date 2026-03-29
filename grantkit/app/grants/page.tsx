@@ -40,10 +40,27 @@ export default function GrantsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-bold text-gray-900">Grants Directory</h1>
-        <p className="mt-2 text-gray-600">
+    <main style={{ background: "#F8FAFC", minHeight: "100vh", paddingTop: "60px" }}>
+      <div className="mx-auto max-w-[1400px] px-6 py-8">
+        <p
+          className="text-xs font-semibold uppercase tracking-[0.1em]"
+          style={{ color: "#1B4F72" }}
+        >
+          Directory
+        </p>
+        <h1
+          className="mt-2 font-extrabold tracking-[-0.02em]"
+          style={{
+            fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
+            color: "#1A202C",
+          }}
+        >
+          Grants Directory
+        </h1>
+        <p
+          className="mt-2 text-base"
+          style={{ color: "rgba(26, 32, 44, 0.6)" }}
+        >
           Browse {grants.length} grants across{" "}
           {Object.keys(countryMap).length} countries and 5 categories
         </p>
@@ -78,16 +95,26 @@ export default function GrantsPage() {
             <div className="mx-auto mb-4 text-5xl">
               <span role="img" aria-label="no results">&#128269;</span>
             </div>
-            <p className="text-lg font-medium text-gray-700">
+            <p
+              className="text-lg font-semibold"
+              style={{ color: "#1A202C" }}
+            >
               No grants match your filters
             </p>
-            <p className="mt-1 text-gray-500">
+            <p
+              className="mt-1 text-[0.875rem]"
+              style={{ color: "rgba(26, 32, 44, 0.6)" }}
+            >
               Try a different category or country combination
             </p>
             {hasActiveFilters && (
               <button
                 onClick={handleReset}
-                className="mt-4 rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
+                className="mt-4 rounded-full px-6 py-2.5 text-[0.875rem] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5"
+                style={{
+                  background: "#1B4F72",
+                  boxShadow: "0 2px 8px rgba(27, 79, 114, 0.2)",
+                }}
               >
                 Reset Filters
               </button>
@@ -97,12 +124,21 @@ export default function GrantsPage() {
       </div>
 
       {/* Bottom CTA */}
-      <section className="bg-primary-700 py-12 text-center text-white">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6">
-          <h2 className="text-2xl font-bold">
+      <section
+        className="py-12 text-center text-white"
+        style={{
+          background:
+            "linear-gradient(135deg, #1B4F72 0%, #2C3E50 50%, #1A202C 100%)",
+        }}
+      >
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="text-2xl font-extrabold tracking-[-0.02em]">
             Want the full curated database?
           </h2>
-          <p className="mt-3 text-primary-200">
+          <p
+            className="mt-3"
+            style={{ color: "rgba(255, 255, 255, 0.7)" }}
+          >
             Get access to all grants with monthly updates and new additions.
           </p>
           <div className="mt-6">

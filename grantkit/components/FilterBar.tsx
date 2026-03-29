@@ -35,16 +35,32 @@ export default function FilterBar({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Category tabs - MedGzuri tab style */}
+        <div
+          className="flex gap-1 overflow-x-auto rounded-[16px] p-1 scrollbar-hide"
+          style={{
+            background: "white",
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 1px 3px rgba(26, 32, 44, 0.06)",
+          }}
+        >
           {categories.map((cat) => (
             <button
               key={cat.value}
               onClick={() => onCategoryChange(cat.value)}
-              className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              className="flex-shrink-0 rounded-[12px] px-4 py-2 text-[0.8125rem] font-medium transition-all duration-200"
+              style={
                 activeCategory === cat.value
-                  ? "bg-primary-700 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+                  ? {
+                      background: "#1B4F72",
+                      color: "white",
+                      boxShadow: "0 4px 12px rgba(26, 32, 44, 0.08)",
+                    }
+                  : {
+                      background: "transparent",
+                      color: "#1A202C",
+                    }
+              }
             >
               {cat.label}
             </button>
@@ -55,7 +71,12 @@ export default function FilterBar({
           <select
             value={activeCountry}
             onChange={(e) => onCountryChange(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="rounded-[12px] bg-[#F8FAFC] px-4 py-2 text-[0.875rem] transition-all duration-200"
+            style={{
+              border: "1.5px solid #E2E8F0",
+              color: "#1A202C",
+              outline: "none",
+            }}
           >
             <option value="all">All Countries</option>
             {countries.map((c) => (
@@ -68,7 +89,8 @@ export default function FilterBar({
           {hasActiveFilters && (
             <button
               onClick={onReset}
-              className="flex-shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+              className="flex-shrink-0 rounded-[8px] px-3 py-2 text-[0.8125rem] font-medium transition-all duration-200"
+              style={{ color: "#1B4F72" }}
             >
               Reset
             </button>
@@ -76,10 +98,12 @@ export default function FilterBar({
         </div>
       </div>
 
-      <p className="text-sm text-gray-500">
+      <p className="text-[0.8125rem]" style={{ color: "rgba(26, 32, 44, 0.4)" }}>
         Showing{" "}
-        <span className="font-medium text-gray-700">{filteredCount}</span> of{" "}
-        {totalCount} grants
+        <span className="font-medium" style={{ color: "#1A202C" }}>
+          {filteredCount}
+        </span>{" "}
+        of {totalCount} grants
       </p>
     </div>
   );
