@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Hero from "@/components/Hero";
 import GrantCard from "@/components/GrantCard";
 import PricingCTA from "@/components/PricingCTA";
@@ -157,12 +158,12 @@ export default function Home() {
             </div>
 
             <div className="mt-8 text-center">
-              <a
+              <Link
                 href="/grants"
                 className="text-sm font-medium text-primary-700 hover:underline"
               >
                 View All Grants &rarr;
-              </a>
+              </Link>
             </div>
           </div>
         </section>

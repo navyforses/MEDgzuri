@@ -39,8 +39,6 @@ export default function Navbar() {
           ))}
           <a
             href={MEDGZURI_URL}
-            target="_blank"
-            rel="noopener noreferrer"
             className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
           >
             MedGzuri

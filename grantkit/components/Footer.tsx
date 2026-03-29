@@ -69,8 +69,6 @@ export default function Footer() {
             </p>
             <a
               href={MEDGZURI_URL}
-              target="_blank"
-              rel="noopener noreferrer"
               className="mt-2 inline-block text-sm font-medium text-primary-700 hover:underline"
             >
               Visit MedGzuri &rarr;
