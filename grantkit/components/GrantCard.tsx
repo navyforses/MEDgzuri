@@ -1,33 +1,5 @@
-interface Grant {
-  id: string;
-  name: string;
-  organization: string;
-  country: string;
-  countryFlag: string;
-  category: string;
-  amount: string;
-  eligibility: string;
-  deadline: string;
-  url: string;
-  description: string;
-  featured: boolean;
-}
-
-const categoryLabels: Record<string, string> = {
-  "medical-treatment": "Medical Treatment",
-  rehabilitation: "Rehabilitation",
-  "rare-disease": "Rare Disease",
-  pediatric: "Pediatric",
-  startup: "Startup",
-};
-
-const categoryColors: Record<string, string> = {
-  "medical-treatment": "bg-blue-100 text-blue-800",
-  rehabilitation: "bg-purple-100 text-purple-800",
-  "rare-disease": "bg-rose-100 text-rose-800",
-  pediatric: "bg-amber-100 text-amber-800",
-  startup: "bg-emerald-100 text-emerald-800",
-};
+import { Grant } from "@/lib/types";
+import { categoryLabels, categoryColors } from "@/lib/constants";
 
 export default function GrantCard({ grant }: { grant: Grant }) {
   return (

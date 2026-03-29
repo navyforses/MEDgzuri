@@ -1,4 +1,4 @@
-const GUMROAD_URL = "https://YOURUSERNAME.gumroad.com/l/grantkit";
+import { GUMROAD_URL } from "@/lib/constants";
 
 interface PricingCTAProps {
   size?: "sm" | "md" | "lg";
