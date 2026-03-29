@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://grantkit.co/sitemap.xml",
+    sitemap: "https://medgzuri.com/grantkit/sitemap.xml",
   };
 }

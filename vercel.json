@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "",
+  "buildCommand": "cd grantkit && npm ci && npx next build",
   "framework": null,
   "alias": ["medgzuri.com", "www.medgzuri.com"],
   "functions": {
@@ -55,6 +55,9 @@
     { "source": "/product", "destination": "/product.html" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/crm", "destination": "/crm.html" }
+    { "source": "/crm", "destination": "/crm.html" },
+    { "source": "/grantkit", "destination": "/grantkit/out/index.html" },
+    { "source": "/grantkit/grants", "destination": "/grantkit/out/grants.html" },
+    { "source": "/grantkit/_next/:path*", "destination": "/grantkit/out/_next/:path*" }
   ]
 }

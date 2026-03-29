@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://grantkit.co"),
+  metadataBase: new URL("https://medgzuri.com"),
   title: "GrantKit — Find Medical & Startup Grants Worldwide",
   description:
     "Curated database of 50+ grants for medical treatment, rehabilitation, rare diseases, and startups. Updated monthly. $9/month.",

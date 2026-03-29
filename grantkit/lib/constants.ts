@@ -1,7 +1,7 @@
 export const GUMROAD_URL = "https://grantkit.gumroad.com/l/grantkit";
-export const SITE_URL = "https://grantkit.co";
-export const MEDGZURI_URL = "https://medgzuri.com";
-export const CONTACT_EMAIL = "hello@grantkit.co";
+export const SITE_URL = "https://medgzuri.com/grantkit";
+export const MEDGZURI_URL = "/";
+export const CONTACT_EMAIL = "hello@medgzuri.com";
 
 export const categoryLabels: Record<string, string> = {
   "medical-treatment": "Medical Treatment",
