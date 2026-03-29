@@ -10,9 +10,9 @@ export default function PricingCTA({
   label = "Get Access — $9/month",
 }: PricingCTAProps) {
   const sizeClasses = {
-    sm: "px-4 py-2 text-sm",
-    md: "px-6 py-3 text-base",
-    lg: "px-8 py-4 text-lg",
+    sm: "px-5 py-2 text-[0.8125rem]",
+    md: "px-6 py-3 text-[0.875rem]",
+    lg: "px-8 py-4 text-base",
   };
 
   return (
@@ -20,7 +20,11 @@ export default function PricingCTA({
       href={GUMROAD_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-block rounded-lg bg-accent font-semibold text-white shadow-lg transition-colors hover:bg-accent-hover ${sizeClasses[size]}`}
+      className={`inline-block rounded-full font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 ${sizeClasses[size]}`}
+      style={{
+        background: "#2ECC71",
+        boxShadow: "0 4px 15px rgba(46, 204, 113, 0.3)",
+      }}
     >
       {label}
     </a>
