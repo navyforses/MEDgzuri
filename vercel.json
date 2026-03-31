@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd grantkit && npm ci && npx next build",
+  "buildCommand": "cd grantkit && npm ci && npx next build && node -e \"const f=require('fs');let h=f.readFileSync('out/grants.html','utf8');h=h.replace('<head>','<head><script src=\\\"/auth-guard.js\\\"></script>');f.writeFileSync('out/grants.html',h);\"",
   "outputDirectory": ".",
   "framework": null,
   "alias": ["medgzuri.com", "www.medgzuri.com"],
