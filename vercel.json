@@ -37,9 +37,13 @@
     },
     "api/analytics.js": {
       "maxDuration": 30
+    },
+    "api/gumroad-webhook.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
+    { "source": "/api/gumroad-webhook", "destination": "/api/gumroad-webhook.js" },
     { "source": "/api/search", "destination": "/api/search.js" },
     { "source": "/api/chat", "destination": "/api/chat.js" },
     { "source": "/api/auth", "destination": "/api/auth.js" },
