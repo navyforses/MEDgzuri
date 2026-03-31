@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ka">
 <head>
+    <script src="/auth-guard.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MED&გზური — სამედიცინო ძიება</title>
@@ -108,6 +109,68 @@
             gap: 0.5rem;
         }
 
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .user-menu:hover { background: var(--bg); }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .user-name {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.375rem;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            min-width: 180px;
+            display: none;
+            z-index: 200;
+        }
+        .user-dropdown.open { display: block; }
+        .user-dropdown a, .user-dropdown button {
+            display: block;
+            width: 100%;
+            padding: 0.625rem 1rem;
+            font-size: 0.8125rem;
+            color: var(--text);
+            text-decoration: none;
+            text-align: left;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .user-dropdown a:hover, .user-dropdown button:hover {
+            background: var(--bg);
+        }
+        .user-dropdown .divider {
+            border-top: 1px solid var(--border);
+            margin: 0.25rem 0;
+        }
+
         .nav-link {
             padding: 0.5rem 0.875rem;
             font-size: 0.8125rem;
@@ -188,63 +251,169 @@
             line-height: 1.7;
         }
 
-        /* ═══════════════ TABS ═══════════════ */
-        .search-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 1.5rem 3rem;
-        }
-
-        .tabs {
+        /* ═══════════════ DASHBOARD LAYOUT ═══════════════ */
+        .dashboard {
             display: flex;
-            background: var(--white);
-            border-radius: var(--radius-lg);
-            padding: 0.375rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border);
-            margin-bottom: 1.5rem;
-            gap: 0.25rem;
+            min-height: calc(100vh - 60px);
         }
 
-        .tab {
-            flex: 1;
+        .sidebar {
+            width: 260px;
+            flex-shrink: 0;
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem 0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: 0 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .sidebar-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 0 0.75rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .sidebar-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
+            gap: 0.625rem;
+            padding: 0.625rem 0.75rem;
             font-size: 0.8125rem;
-            font-weight: 600;
+            font-weight: 500;
             color: var(--text-secondary);
             background: transparent;
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all 0.25s;
+            transition: all 0.2s;
+            width: 100%;
+            text-align: left;
+            text-decoration: none;
         }
 
-        .tab:hover { color: var(--text); background: var(--bg); }
+        .sidebar-item:hover { color: var(--text); background: var(--bg); }
 
-        .tab.active {
-            color: white;
-            background: var(--navy);
-            box-shadow: var(--shadow-md);
+        .sidebar-item.active {
+            color: var(--teal);
+            background: var(--teal-light);
+            font-weight: 600;
         }
 
-        .tab svg {
+        .sidebar-item svg {
             width: 18px;
             height: 18px;
             flex-shrink: 0;
         }
 
+        .sidebar-tier {
+            margin: auto 0.75rem 0;
+            padding: 1rem;
+            background: var(--bg);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+
+        .sidebar-tier .tier-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            border-radius: 999px;
+            text-transform: uppercase;
+        }
+        .tier-badge.free { background: var(--border-light); color: var(--text-muted); }
+        .tier-badge.pro { background: rgba(46,204,113,0.15); color: #27AE60; }
+
+        .sidebar-tier .tier-usage {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.375rem;
+        }
+
+        .sidebar-tier .tier-upgrade {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--teal);
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+        }
+
+        .sidebar-tier .tier-upgrade:hover { text-decoration: underline; }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+            padding: 1.5rem 2rem 3rem;
+            max-width: 900px;
+        }
+
+        /* Mobile sidebar toggle */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 101;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--teal);
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 99;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -280px;
+                height: 100vh;
+                z-index: 100;
+                transition: left 0.3s;
+                padding-top: 4.5rem;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay.open { display: block; }
+            .sidebar-toggle { display: flex; }
+            .main-content { padding: 1rem; }
+        }
+
+        /* Old tabs hidden — replaced by sidebar */
+        .tabs { display: none; }
+        .search-container {
+            max-width: none;
+            margin: 0;
+            padding: 0;
+        }
         .tab-label-full { display: inline; }
         .tab-label-short { display: none; }
-
-        @media (max-width: 640px) {
-            .tab-label-full { display: none; }
-            .tab-label-short { display: inline; }
-            .tab { font-size: 0.75rem; padding: 0.625rem 0.5rem; }
-        }
 
         /* ═══════════════ SEARCH PANELS ═══════════════ */
         .panel {
@@ -1585,24 +1754,77 @@
             </a>
             <div class="nav-links">
                 <a href="/" class="nav-link">მთავარი</a>
-                <a href="/product" class="nav-link" style="color: var(--teal);">ძიება</a>
-                <a href="/grantkit" class="nav-link" style="color: #22c55e; font-weight: 600;">Grants 🌍</a>
-                <a href="/login" class="nav-btn">შესვლა</a>
+                <div style="position:relative" id="userMenuWrap">
+                    <div class="user-menu" onclick="document.getElementById('userDropdown').classList.toggle('open')">
+                        <div class="user-avatar" id="userAvatar">U</div>
+                        <span class="user-name" id="userName">მომხმარებელი</span>
+                    </div>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="/admin">ადმინ პანელი</a>
+                        <div class="divider"></div>
+                        <button onclick="logoutUser()">გასვლა</button>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- HERO -->
-    <section class="hero">
-        <div class="hero-badge">
-            <span class="dot"></span>
-            ძიება აქტიურია
-        </div>
-        <h1>სამედიცინო <span class="highlight">კვლევები</span> ერთი ნაბიჯით</h1>
-        <p>ატვირთეთ დიაგნოზი ან აღწერეთ სიმპტომები. ჩვენი სისტემა მოიძიებს შესაბამის კვლევებს, კლინიკებს და მკურნალობის ვარიანტებს მთელი მსოფლიოდან.</p>
-    </section>
+    <!-- DASHBOARD LAYOUT -->
+    <div class="dashboard">
 
-    <!-- SEARCH TABS -->
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-label">ძიება</div>
+            <button class="sidebar-item active" data-panel="research" onclick="switchPanel('research')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                კვლევები
+            </button>
+            <button class="sidebar-item" data-panel="symptoms" onclick="switchPanel('symptoms')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                სიმპტომები
+            </button>
+            <button class="sidebar-item" data-panel="clinics" onclick="switchPanel('clinics')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M9 8h1"/><path d="M14 8h1"/></svg>
+                კლინიკები
+            </button>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">ინსტრუმენტები</div>
+            <a class="sidebar-item" href="/grantkit/grants" data-panel="grants">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                გრანტები
+            </a>
+            <a class="sidebar-item" href="/intake" data-panel="intake">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+                ანკეტა
+            </a>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">ანგარიში</div>
+            <button class="sidebar-item" data-panel="bookmarks" onclick="switchPanel('bookmarks')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                სანიშნები
+            </button>
+            <button class="sidebar-item" data-panel="alerts" onclick="switchPanel('alerts')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                შეტყობინებები
+            </button>
+            <button class="sidebar-item" data-panel="profile" onclick="switchPanel('profile')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                პროფილი
+            </button>
+        </div>
+        <div class="sidebar-tier" id="sidebarTier">
+            <span class="tier-badge free" id="tierBadge">FREE</span>
+            <div class="tier-usage" id="tierUsage">3/3 ძიება დარჩა</div>
+            <button class="tier-upgrade" id="tierUpgrade" onclick="window.open('https://grantkit.gumroad.com/l/grantkit','_blank')">Upgrade to Pro — $9/თვე</button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
     <div class="search-container">
         <div class="tabs" role="tablist" aria-label="ძიების ტიპები">
             <button class="tab active" data-tab="research" onclick="switchTab('research')" role="tab" aria-selected="true" aria-controls="panel-research" id="tab-research">
@@ -1867,6 +2089,63 @@
         </div>
     </div>
 
+    <!-- ═══════ PANEL: BOOKMARKS ═══════ -->
+    <div class="panel" id="panel-bookmarks" role="tabpanel">
+        <div class="panel-header">
+            <div class="panel-title">სანიშნები</div>
+            <div class="panel-desc">შენახული ძიებების შედეგები</div>
+        </div>
+        <div class="panel-body" id="bookmarks-list">
+            <p style="color: var(--text-muted); text-align: center; padding: 2rem 0;">სანიშნები ცარიელია. ძიების შედეგების შენახვა მალე დაემატება.</p>
+        </div>
+    </div>
+
+    <!-- ═══════ PANEL: ALERTS ═══════ -->
+    <div class="panel" id="panel-alerts" role="tabpanel">
+        <div class="panel-header">
+            <div class="panel-title">შეტყობინებები</div>
+            <div class="panel-desc">კვლევების მონიტორინგი და შეტყობინებები</div>
+        </div>
+        <div class="panel-body" id="alerts-list">
+            <p style="color: var(--text-muted); text-align: center; padding: 2rem 0;">შეტყობინებების სისტემა მალე დაემატება.</p>
+        </div>
+    </div>
+
+    <!-- ═══════ PANEL: PROFILE ═══════ -->
+    <div class="panel" id="panel-profile" role="tabpanel">
+        <div class="panel-header">
+            <div class="panel-title">პროფილი</div>
+            <div class="panel-desc">პირადი ინფორმაცია და გამოწერა</div>
+        </div>
+        <div class="panel-body">
+            <div class="form-group">
+                <label class="form-label">სახელი</label>
+                <input type="text" class="form-input" id="profile-name" placeholder="თქვენი სახელი">
+            </div>
+            <div class="form-group">
+                <label class="form-label">ტელეფონი</label>
+                <input type="text" class="form-input" id="profile-phone" placeholder="+995...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">გამოწერა</label>
+                <div id="profile-tier-info" style="padding: 1rem; background: var(--bg); border-radius: var(--radius-md); border: 1px solid var(--border);">
+                    <strong id="profile-tier-name">Free</strong>
+                    <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem;" id="profile-tier-desc">3 ძიება დღეში</p>
+                </div>
+            </div>
+            <button class="btn-search" style="width: auto; padding: 0.625rem 1.5rem;" onclick="saveProfile()">შენახვა</button>
+        </div>
+    </div>
+
+    </div><!-- /.main-content -->
+    </div><!-- /.dashboard -->
+
+    <!-- SIDEBAR MOBILE TOGGLE -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
     <!-- DISCLAIMER -->
     <div class="disclaimer">
         <p>⚕️ მედგზური არ ანაცვლებს ექიმის კონსულტაციას. წარმოდგენილი ინფორმაცია განკუთვნილია საინფორმაციო მიზნებისთვის. ნებისმიერი სამედიცინო გადაწყვეტილება უნდა მიიღოთ კვალიფიციურ სპეციალისტთან კონსულტაციის შემდეგ.</p>
@@ -1875,6 +2154,113 @@
     <script>
     // ═══════════════ CONFIG ═══════════════
     const API_BASE = '';
+
+    // ═══════════════ DASHBOARD INIT ═══════════════
+    (function initDashboard() {
+        var user = window.__medUser || {};
+        var name = user.fullName || user.email || 'მომხმარებელი';
+        var initials = name.charAt(0).toUpperCase();
+        document.getElementById('userAvatar').textContent = initials;
+        document.getElementById('userName').textContent = name;
+
+        // Load subscription tier
+        var token = (window.__medSession || {}).access_token;
+        if (token) {
+            fetch(API_BASE + '/api/subscription', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                var badge = document.getElementById('tierBadge');
+                var usage = document.getElementById('tierUsage');
+                var upgrade = document.getElementById('tierUpgrade');
+                if (d.tier === 'pro') {
+                    badge.textContent = 'PRO';
+                    badge.className = 'tier-badge pro';
+                    usage.textContent = 'შეუზღუდავი ძიება';
+                    upgrade.style.display = 'none';
+                } else {
+                    badge.textContent = 'FREE';
+                    badge.className = 'tier-badge free';
+                    var remaining = d.searches_remaining != null ? d.searches_remaining : 3;
+                    usage.textContent = remaining + '/3 ძიება დარჩა';
+                }
+                // Profile panel
+                var ptn = document.getElementById('profile-tier-name');
+                var ptd = document.getElementById('profile-tier-desc');
+                if (ptn) ptn.textContent = d.tier === 'pro' ? 'Pro ($9/თვე)' : 'Free';
+                if (ptd) ptd.textContent = d.tier === 'pro' ? 'შეუზღუდავი ძიება' : '3 ძიება დღეში';
+            }).catch(function(){});
+
+            // Load profile data
+            fetch(API_BASE + '/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ action: 'get' })
+            }).then(function(r) { return r.json(); }).then(function(d) {
+                if (d.profile) {
+                    var nameEl = document.getElementById('profile-name');
+                    var phoneEl = document.getElementById('profile-phone');
+                    if (nameEl && d.profile.full_name) nameEl.value = d.profile.full_name;
+                    if (phoneEl && d.profile.phone) phoneEl.value = d.profile.phone;
+                }
+            }).catch(function(){});
+        }
+    })();
+
+    function switchPanel(panel) {
+        // Hide all panels
+        document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+        // Show selected
+        var el = document.getElementById('panel-' + panel);
+        if (el) el.classList.add('active');
+        // Update sidebar active
+        document.querySelectorAll('.sidebar-item').forEach(function(s) { s.classList.remove('active'); });
+        var btn = document.querySelector('[data-panel="' + panel + '"]');
+        if (btn) btn.classList.add('active');
+        // Update search tab state for existing functionality
+        if (['research', 'symptoms', 'clinics'].includes(panel)) {
+            currentTab = panel;
+        }
+        // Hide results when switching
+        document.getElementById('results-container').classList.remove('visible');
+        document.getElementById('ai-processing').classList.remove('visible');
+        // Close mobile sidebar
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('open');
+    }
+
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarOverlay').classList.toggle('open');
+    }
+
+    function logoutUser() {
+        sessionStorage.removeItem('medGzuriSession');
+        sessionStorage.removeItem('medGzuriLoggedIn');
+        sessionStorage.removeItem('medGzuriLoginTime');
+        window.location.href = '/login';
+    }
+
+    function saveProfile() {
+        var token = (window.__medSession || {}).access_token;
+        if (!token) return;
+        var name = document.getElementById('profile-name').value;
+        var phone = document.getElementById('profile-phone').value;
+        fetch(API_BASE + '/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ action: 'update', update: { fullName: name, phone: phone } })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            alert(d.error || 'პროფილი შენახულია!');
+        }).catch(function() { alert('შეცდომა.'); });
+    }
+
+    // Close user dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        var wrap = document.getElementById('userMenuWrap');
+        if (wrap && !wrap.contains(e.target)) {
+            document.getElementById('userDropdown').classList.remove('open');
+        }
+    });
 
     // ═══════════════ STATE ═══════════════
     /** @type {string} Currently active search tab */
@@ -1897,22 +2283,7 @@
      */
     function switchTab(tab) {
         if (isSearching) return;
-        currentTab = tab;
-
-        document.querySelectorAll('.tab').forEach(t => {
-            t.classList.remove('active');
-            t.setAttribute('aria-selected', 'false');
-        });
-        const activeTab = document.querySelector(`[data-tab="${tab}"]`);
-        activeTab.classList.add('active');
-        activeTab.setAttribute('aria-selected', 'true');
-
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        document.getElementById(`panel-${tab}`).classList.add('active');
-
-        // Hide results when switching
-        document.getElementById('results-container').classList.remove('visible');
-        document.getElementById('ai-processing').classList.remove('visible');
+        switchPanel(tab);
     }
 
     // ═══════════════ CHECKBOX TOGGLE ═══════════════

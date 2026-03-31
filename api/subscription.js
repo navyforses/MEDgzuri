@@ -1,12 +1,14 @@
 /**
  * MedGzuri Subscription API
  *
- * Endpoints (via action field or HTTP method):
- *   GET  /api/subscription           — get current subscription + tier info
- *   POST /api/subscription (upgrade) — initiate subscription upgrade (STUB)
- *   POST /api/subscription (usage)   — get usage stats
+ * Endpoints:
+ *   GET  /api/subscription           — get current tier + usage info
+ *   POST /api/subscription (upgrade) — return Gumroad checkout URL
+ *   POST /api/subscription (usage)   — get daily search usage
+ *   POST /api/subscription (downgrade) — downgrade to free
  *
- * Payment integration is STUB — ready for Stripe or Bank of Georgia (BOG).
+ * Tiers: free ($0, 3 searches/day) | pro ($9/month, unlimited)
+ * Payment via Gumroad (webhook at /api/gumroad-webhook)
  */
 
 const { getServiceClient } = require('../lib/supabase');
@@ -16,34 +18,24 @@ const {
 
 // ═══════════════ CONFIG ═══════════════
 
-const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL;
-
-// ═══════════════ TIER DEFINITIONS ═══════════════
+const GUMROAD_URL = process.env.GUMROAD_URL || 'https://grantkit.gumroad.com/l/grantkit';
 
 const TIERS = {
     free: {
         name: 'უფასო',
         name_en: 'Free',
-        price_gel: 0,
-        daily_search_limit: 5,
+        price_usd: 0,
+        daily_search_limit: 3,
         features: ['basic_search'],
     },
     pro: {
         name: 'პრო',
         name_en: 'Pro',
-        price_gel: 15,
-        daily_search_limit: -1,
-        features: ['basic_search', 'evidence_grading', 'price_comparison', 'alerts', 'search_history', 'bookmarks'],
-    },
-    doctor: {
-        name: 'ექიმი',
-        name_en: 'Doctor',
-        price_gel: 30,
+        price_usd: 9,
         daily_search_limit: -1,
         features: [
-            'basic_search', 'evidence_grading', 'price_comparison', 'alerts',
-            'search_history', 'bookmarks', 'api_access', 'patient_management',
-            'referrals', 'report_generation',
+            'basic_search', 'evidence_grading', 'price_comparison',
+            'alerts', 'search_history', 'bookmarks', 'grants_access', 'pdf_reports',
         ],
     },
 };
@@ -59,12 +51,10 @@ module.exports = async function handler(req, res) {
         return res.status(429).json({ error: 'ძალიან ბევრი მოთხოვნა. გთხოვთ მოიცადოთ ერთი წუთი.' });
     }
 
-    // GET — return subscription info
     if (req.method === 'GET') {
         return handleGetSubscription(req, res);
     }
 
-    // POST — upgrade or usage
     if (req.method === 'POST') {
         const { action } = req.body || {};
         if (action === 'usage') return handleUsageStats(req, res);
@@ -82,29 +72,48 @@ module.exports = async function handler(req, res) {
 async function handleGetSubscription(req, res) {
     const userId = await getUserId(req);
 
-    // Try Railway backend first
-    if (RAILWAY_BACKEND_URL && userId) {
-        try {
-            const resp = await fetch(`${RAILWAY_BACKEND_URL}/api/subscription`, {
-                headers: { 'Authorization': req.headers.authorization || '' },
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                return res.status(200).json(data);
-            }
-        } catch (e) {
-            // Fallback to local tier info
-        }
+    if (!userId) {
+        return res.status(200).json({
+            tier: 'free',
+            searches_today: 0,
+            daily_limit: 3,
+            searches_remaining: 3,
+            tiers: TIERS,
+            gumroad_url: GUMROAD_URL,
+        });
     }
 
-    // Fallback: return tier definitions + free status
+    const supabase = getServiceClient();
+    if (!supabase) {
+        return res.status(200).json({ tier: 'free', tiers: TIERS, gumroad_url: GUMROAD_URL });
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier, subscription_expires, daily_search_count, last_search_date')
+        .eq('id', userId)
+        .single();
+
+    const tier = profile?.subscription_tier || 'free';
+    const isExpired = tier === 'pro' && profile?.subscription_expires &&
+        new Date(profile.subscription_expires) < new Date();
+    const effectiveTier = isExpired ? 'free' : tier;
+
+    const today = new Date().toISOString().split('T')[0];
+    const searchesToday = (profile?.last_search_date === today)
+        ? (profile.daily_search_count || 0) : 0;
+    const dailyLimit = effectiveTier === 'free' ? 3 : -1;
+
     return res.status(200).json({
-        tier: 'free',
-        tier_name: 'უფასო',
-        price_gel: 0,
-        features: TIERS.free.features,
-        is_active: true,
+        tier: effectiveTier,
+        tier_name: TIERS[effectiveTier].name,
+        searches_today: searchesToday,
+        daily_limit: dailyLimit,
+        searches_remaining: effectiveTier === 'free' ? Math.max(0, 3 - searchesToday) : -1,
+        features: TIERS[effectiveTier].features,
+        subscription_expires: profile?.subscription_expires || null,
         tiers: TIERS,
+        gumroad_url: GUMROAD_URL,
     });
 }
 
@@ -117,40 +126,10 @@ async function handleUpgrade(req, res) {
         return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია.' });
     }
 
-    const { tier, payment_ref } = req.body || {};
-    if (!tier || !['pro', 'doctor'].includes(tier)) {
-        return res.status(400).json({ error: "არასწორი პაკეტი. აირჩიეთ 'pro' ან 'doctor'." });
-    }
-
-    // Try Railway backend
-    if (RAILWAY_BACKEND_URL) {
-        try {
-            const resp = await fetch(`${RAILWAY_BACKEND_URL}/api/subscription/upgrade`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': req.headers.authorization || '',
-                },
-                body: JSON.stringify({ tier, payment_ref: payment_ref || '' }),
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                return res.status(200).json(data);
-            }
-        } catch (e) {
-            // Fallback
-        }
-    }
-
-    // STUB response — payment not yet integrated
-    const tierDef = TIERS[tier];
     return res.status(200).json({
-        status: 'stub',
-        tier,
-        tier_name: tierDef.name,
-        price_gel: tierDef.price_gel,
-        message: `პაკეტი "${tierDef.name}" (₾${tierDef.price_gel}/თვე) — გადახდის სისტემა მალე დაემატება.`,
-        payment_note: 'გადახდის ინტეგრაცია მზადდება (Stripe / Bank of Georgia).',
+        status: 'redirect',
+        gumroad_url: GUMROAD_URL,
+        message: 'გადადით Gumroad-ზე გამოწერის გასაფორმებლად ($9/თვე).',
     });
 }
 
@@ -163,24 +142,16 @@ async function handleDowngrade(req, res) {
         return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია.' });
     }
 
-    if (RAILWAY_BACKEND_URL) {
-        try {
-            const resp = await fetch(`${RAILWAY_BACKEND_URL}/api/subscription/downgrade`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': req.headers.authorization || '',
-                },
-            });
-            if (resp.ok) {
-                return res.status(200).json(await resp.json());
-            }
-        } catch (e) {
-            // Fallback
-        }
+    const supabase = getServiceClient();
+    if (supabase) {
+        await supabase.from('profiles').update({
+            subscription_tier: 'free',
+            subscription_expires: null,
+            gumroad_license_key: null,
+        }).eq('id', userId);
     }
 
-    return res.status(200).json({ status: 'დაქვეითდა', tier: 'free' });
+    return res.status(200).json({ status: 'ok', tier: 'free', message: 'გამოწერა გაუქმდა.' });
 }
 
 
@@ -192,26 +163,28 @@ async function handleUsageStats(req, res) {
         return res.status(401).json({ error: 'ავტორიზაცია აუცილებელია.' });
     }
 
-    if (RAILWAY_BACKEND_URL) {
-        try {
-            const resp = await fetch(`${RAILWAY_BACKEND_URL}/api/subscription/usage`, {
-                headers: { 'Authorization': req.headers.authorization || '' },
-            });
-            if (resp.ok) {
-                return res.status(200).json(await resp.json());
-            }
-        } catch (e) {
-            // Fallback
-        }
+    const supabase = getServiceClient();
+    if (!supabase) {
+        return res.status(200).json({ searches_today: 0, tier: 'free', daily_limit: 3 });
     }
 
-    // Fallback: no data
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier, daily_search_count, last_search_date')
+        .eq('id', userId)
+        .single();
+
+    const tier = profile?.subscription_tier || 'free';
+    const today = new Date().toISOString().split('T')[0];
+    const searchesToday = (profile?.last_search_date === today)
+        ? (profile.daily_search_count || 0) : 0;
+
     return res.status(200).json({
-        searches_today: 0,
-        searches_month: 0,
-        tier: 'free',
-        features: TIERS.free.features,
-        daily_limit: 5,
+        searches_today: searchesToday,
+        tier,
+        features: TIERS[tier]?.features || TIERS.free.features,
+        daily_limit: tier === 'free' ? 3 : -1,
+        searches_remaining: tier === 'free' ? Math.max(0, 3 - searchesToday) : -1,
     });
 }
 

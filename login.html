@@ -346,7 +346,7 @@
             // Check if already logged in
             const session = getSession();
             if (session) {
-                window.location.href = 'admin.html';
+                var _r = new URLSearchParams(window.location.search).get('redirect') || '/product'; window.location.href = _r;
                 return;
             }
 
@@ -453,7 +453,7 @@
                             user: result.user
                         });
                         showMessage('loginMessage', 'წარმატებული ავტორიზაცია!', 'success');
-                        setTimeout(() => { window.location.href = 'admin.html'; }, 500);
+                        setTimeout(() => { var _r = new URLSearchParams(window.location.search).get('redirect') || '/product'; window.location.href = _r; }, 500);
                         return;
                     }
 
@@ -484,7 +484,7 @@
                         local: true
                     });
                     showMessage('loginMessage', 'წარმატებული ავტორიზაცია!', 'success');
-                    setTimeout(() => { window.location.href = 'admin.html'; }, 500);
+                    setTimeout(() => { var _r = new URLSearchParams(window.location.search).get('redirect') || '/product'; window.location.href = _r; }, 500);
                 } else {
                     showMessage('loginMessage', 'არასწორი ელ-ფოსტა ან პაროლი.', 'error');
                 }
