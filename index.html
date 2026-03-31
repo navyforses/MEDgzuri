@@ -1895,6 +1895,7 @@
                 <a class="nav-link" data-i18n-nav="services" onclick="goToSection(1)">სერვისები</a>
                 <a class="nav-link" data-i18n-nav="contact" onclick="goToSection(3)">კონტაქტი</a>
                 <a class="nav-link" href="/grantkit" style="color: #22c55e; font-weight: 600;">Grants 🌍</a>
+                <a class="nav-link" id="authNavBtn" href="/login" style="font-weight: 600; color: var(--color-primary);">შესვლა</a>
                 <div class="lang-switcher" id="langSwitcher">
                     <button class="lang-btn active" data-lang-btn="ka">ქარ</button>
                     <button class="lang-btn" data-lang-btn="en">EN</button>
@@ -1913,6 +1914,7 @@
                 <a class="mobile-nav-link" data-i18n-nav="process" onclick="goToSection(2);closeMobileMenu()">პროცესი</a>
                 <a class="mobile-nav-link" data-i18n-nav="contact" onclick="goToSection(3);closeMobileMenu()">კონტაქტი</a>
                 <a class="mobile-nav-link" href="/grantkit" style="color: #22c55e; font-weight: 600;">Grants 🌍</a>
+                <a class="mobile-nav-link" id="authMobileBtn" href="/login" style="font-weight: 600; color: var(--color-primary);">შესვლა</a>
                 <div class="mobile-lang-switcher">
                     <button class="lang-btn active" data-lang-btn="ka" onclick="closeMobileMenu()">ქარ</button>
                     <button class="lang-btn" data-lang-btn="en" onclick="closeMobileMenu()">EN</button>
@@ -2649,5 +2651,22 @@
         });
     </script>
     <script src="chatbot.js"></script>
+    <script>
+    // Conditional auth button: Login vs Dashboard
+    (function() {
+        var raw = sessionStorage.getItem('medGzuriSession');
+        if (raw) {
+            try {
+                var session = JSON.parse(raw);
+                if (!session.expires_at || Date.now() / 1000 < session.expires_at) {
+                    var btn = document.getElementById('authNavBtn');
+                    var mbtn = document.getElementById('authMobileBtn');
+                    if (btn) { btn.href = '/product'; btn.textContent = 'Dashboard'; }
+                    if (mbtn) { mbtn.href = '/product'; mbtn.textContent = 'Dashboard'; }
+                }
+            } catch(e) {}
+        }
+    })();
+    </script>
 </body>
 </html>
